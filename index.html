@@ -41,6 +41,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Noto S
 .tab.active{color:var(--text);}
 .tab.active::after{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:38px;height:3px;border-radius:3px 3px 0 0;background:var(--blue2);}
 
+/* 자동 감지 경보띠: 60분 내 강한 비 감지 시 탭바 아래 표시 */
 .wx-strip{display:none;background:linear-gradient(135deg,#3b0d0d,#4a1010);border-bottom:1px solid #6b1d1d;color:#ffb4b4;font-size:12.5px;font-weight:800;padding:10px 14px;cursor:pointer;flex-shrink:0;text-align:center;}
 .wx-strip.show{display:block;animation:stripPulse 2s ease-in-out infinite;}
 @keyframes stripPulse{50%{opacity:0.72;}}
@@ -55,6 +56,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Noto S
 .dow-btn.sun{color:#f08a8a;}
 .dow-btn.sat{color:#7ab0f0;}
 .dow-btn.active.sun,.dow-btn.active.sat{color:#fff;}
+/* 새벽반 탭에서는 활성 요일을 앰버 톤으로 구분 */
 .dawn-theme .dow-btn.active{background:var(--amber);border-color:var(--amber);}
 
 .tpl-banner{display:flex;align-items:center;gap:9px;background:linear-gradient(135deg,#10243f,#13294a);border:1.5px solid #1d3a66;border-radius:12px;padding:11px 14px;margin-bottom:13px;}
@@ -116,7 +118,7 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
 .preview-label{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--sub);font-weight:700;margin-bottom:8px;letter-spacing:0.3px;}
 .preview-label::before{content:'';width:18px;height:18px;border-radius:5px;background:var(--kakao);display:inline-block;}
 
-/* 카카오톡 버블 스타일을 띤 편집 가능한 텍스트 상자 */
+/* 카카오톡 버블 스타일을 띤 직접 수정 가능한 텍스트 상자 (전체 글이 항상 스크롤 없이 노출) */
 .kakao-bubble{
   background:#fff;
   color:#191919;
@@ -129,10 +131,11 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
   font-weight:500;
   box-shadow:0 2px 12px rgba(0,0,0,0.3);
   width:100%;
-  min-height:160px;
+  min-height:100px;
   border:1.5px solid transparent;
   outline:none;
-  resize:vertical;
+  resize:none; /* 사용자가 수동으로 늘릴 필요 없이 자동으로 맞춤 */
+  overflow-y:hidden; /* 내부 스크롤바 원천 제거 */
   font-family:inherit;
   display:block;
   transition:border 0.15s, background-color 0.15s;
@@ -180,7 +183,7 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
 .spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(96,165,250,0.3);border-top-color:var(--blue3);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:-1px;margin-right:5px;}
 @keyframes spin{to{transform:rotate(360deg);}}
 
-/* ── 실시간 기상 감시 및 테이블 이모지 비율 크기 수정 ── */
+/* ── 실시간 기상 감시 및 상세 테이블 디자인 ── */
 .wx-meta{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:11px;}
 .wx-meta-txt{font-size:11.5px;color:var(--sub);font-weight:600;line-height:1.5;min-width:0;}
 .wx-refresh{flex-shrink:0;padding:9px 13px;border:1.5px solid var(--border2);border-radius:9px;background:var(--card2);color:var(--sub);font-size:12px;font-weight:800;font-family:inherit;cursor:pointer;}
@@ -372,6 +375,7 @@ function deepZones(zs){return zs.map(z=>({emoji:z.emoji||'📍',name:z.name,peop
 
 function load(k,def){try{const v=JSON.parse(localStorage.getItem(k));return (v===null||v===undefined)?def:v;}catch(e){return def;}}
 
+/* rosters.main = 주간 출근명단, rosters.dawn = 새벽반 */
 const rosters={
   main:{lsKey:'disp-roster-tpl',defTitle:'LK 출근 명단',emoji:'🚚',label:'출근명단',theme:''},
   dawn:{lsKey:'disp-dawn-tpl',defTitle:'새벽반 출근 명단',emoji:'🌅',label:'새벽반',theme:'dawn-theme'}
@@ -443,15 +447,22 @@ let volStore=load('disp-volume',{
 Object.defineProperty(window,'volume',{get:()=>volStore[volStore.set],configurable:true});
 
 function switchVolSet(s){
-  customVolumeText = null; // 물량 세트 변동 시 편집 버퍼 리셋
+  customVolumeText = null;
   volStore.set=s;
   saveVolume();
   render();
 }
 function saveVolume(){localStorage.setItem('disp-volume',JSON.stringify(volStore));}
 
+/* 카톡 미리보기 높이를 텍스트 길이에 맞춰 실시간으로 늘려 스크롤을 완전히 없애는 기능 */
+function autoResizePreviews() {
+  document.querySelectorAll('.kakao-bubble').forEach(el => {
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  });
+}
+
 function switchTab(t){
-  // 탭 변동 시 모든 직접 편집한 버퍼 텍스트 리셋
   customRosterText = null;
   customWeatherText = null;
   customVolumeText = null;
@@ -460,17 +471,21 @@ function switchTab(t){
   document.getElementById('hTitle').textContent=TAB_TITLES[t];
   render();
 }
+
 function render(){
   document.getElementById('hDate').textContent=new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
   const c=document.getElementById('content');
   if(tab==='roster'||tab==='dawn')c.innerHTML=renderRoster();
   else if(tab==='volume')c.innerHTML=renderVolume();
   else c.innerHTML=renderWeather();
+  
+  // 렌더링 완료 직후 뷰의 높이를 자동 연동해 한 번에 표시
+  setTimeout(autoResizePreviews, 10);
 }
 
 function selectDow(d){
   const R=cur();
-  customRosterText = null; // 요일 선택이 새로 되면 편집 버퍼 리셋
+  customRosterText = null;
   R.workDow=d;
   R.work.title=R.tpl[d].title;
   R.work.zones=deepZones(R.tpl[d].zones);
@@ -514,7 +529,6 @@ function renderRoster(){
       </div>
     </div>`).join('');
 
-  // 편집된 버퍼가 존재하면 이를 보여주고, 빈 상태이면 자동 생성된 포맷 적용
   const previewText = customRosterText !== null ? customRosterText : rosterText();
 
   return `<div class="${R.theme}">
@@ -530,10 +544,10 @@ function renderRoster(){
     ${zonesHtml}
     <button class="btn-add-zone" onclick="addZone()">＋ 구역 추가</button>
     
-    <!-- 카톡 미리보기: 편집 가능한 버블로 개선 -->
+    <!-- 카톡 미리보기: 직접 문구 편집 시 스크롤 없이 전체 노출 -->
     <div class="preview-wrap">
       <div class="preview-label">카톡 미리보기 (직접 편집 가능)</div>
-      <textarea class="kakao-bubble${previewText?'':' empty'}" oninput="customRosterText=this.value" placeholder="구역과 이름을 입력하면 여기에 미리보기가 나옵니다. 직접 문구를 자유롭게 고치셔도 공유/복사됩니다.">${esc(previewText)}</textarea>
+      <textarea class="kakao-bubble${previewText?'':' empty'}" oninput="customRosterText=this.value; autoResizePreviews();" placeholder="구역과 이름을 입력하면 여기에 미리보기가 나옵니다. 직접 문구를 자유롭게 고치셔도 공유/복사됩니다.">${esc(previewText)}</textarea>
       <div class="actions">
         <button class="btn btn-share" onclick="shareText(customRosterText !== null ? customRosterText : rosterText())">💬 공유하기</button>
         <button class="btn btn-copy" onclick="copyText(customRosterText !== null ? customRosterText : rosterText())">📋 복사</button>
@@ -609,8 +623,8 @@ function requestGeo(){
   navigator.geolocation.getCurrentPosition(
     p=>{
       wx.lat=p.coords.latitude;wx.lon=p.coords.longitude;wx.located=true;
-      customWeatherText = null; // 위치 정보가 갱신되면 버퍼 리셋
-      if(tab==='weather') render(); // 탭이 열려있다면 새로 렌더링하여 마커를 가진 새 지도 주입
+      customWeatherText = null;
+      if(tab==='weather') render();
       fetchWeather();
       showToast('📍 현재 위치 기준으로 설정했어요');
     },
@@ -653,7 +667,7 @@ async function fetchWeather(){
     return;
   }
 
-  try {
+  try{
     const g=(o,k,i,def)=>o&&o[k]&&o[k][i]!=null?o[k][i]:def;
     let tl=[];
     
@@ -672,7 +686,7 @@ async function fetchWeather(){
     tl=tl.slice(0,12); // 향후 12시간 표시
     if(!tl.length)throw 0;
     wx.timeline=tl;wx.updated=new Date();wx.err=null;wx.model='best_match';
-  } catch(e) {
+  }catch(e){
     wx.err='예보 해석 실패';
   }
   wx.loading=false;
@@ -782,14 +796,14 @@ function updateWeatherDom(){
   if(meta)meta.innerHTML=wxMetaHtml();
   const bub=document.getElementById('wx-bubble');
   if(bub){
-    const s=customWeatherText !== null ? customWeatherText : wxShareText();
+    const s = customWeatherText !== null ? customWeatherText : wxShareText();
     bub.className='kakao-bubble'+(s?'':' empty');
-    bub.value=s||'예보가 로드되면 공유 문구가 자동으로 만들어집니다';
+    bub.value = s || '예보가 로드되면 공유 문구가 자동으로 만들어집니다';
+    autoResizePreviews();
   }
 }
 
 function renderWeather(){
-  /* [수정] &marker=true를 지도 URL 끝에 결합하여 현재 수신한 기사님의 마커(핀)가 지도에 정상 출력되도록 조치 */
   const windySrc=`https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&zoom=9&overlay=radar&product=radar&level=surface&lat=${wx.lat.toFixed(4)}&lon=${wx.lon.toFixed(4)}&marker=true`;
   const shareTxt = customWeatherText !== null ? customWeatherText : wxShareText();
   const step=wx.timeline&&wx.timeline[0]?wx.timeline[0].step:60;
@@ -808,10 +822,10 @@ function renderWeather(){
     <div class="wx-table-wrap" id="wx-table-wrap">${wxTableHtml()}</div>
     <div class="wx-note">위 레이더는 Windy 실시간 비구름 화면이고, 타임라인은 기상청(KMA) 등 수치예보 모델 데이터로 계산됩니다. 앱이 켜져 있는 동안 10분마다 자동으로 재감지하며, 60분 내 강한 비가 감지되면 상단에 경보띠가 뜹니다.</div>
     
-    <!-- 카톡 미리보기: 편집 가능한 버블로 개선 -->
+    <!-- 카톡 미리보기: 실제 예보 데이터 연동 및 자동 크기 확대 -->
     <div class="preview-wrap">
       <div class="preview-label">카톡 미리보기 — 실제 예보로 자동 작성 (직접 편집 가능)</div>
-      <textarea class="kakao-bubble${shareTxt?'':' empty'}" id="wx-bubble" oninput="customWeatherText=this.value" placeholder="예보가 로드되면 공유 문구가 자동으로 만들어집니다. 직접 내용을 고치고 공유하셔도 적용됩니다.">${esc(shareTxt)}</textarea>
+      <textarea class="kakao-bubble${shareTxt?'':' empty'}" id="wx-bubble" oninput="customWeatherText=this.value; autoResizePreviews();" placeholder="예보가 로드되면 공유 문구가 자동으로 만들어집니다. 직접 내용을 고치고 공유하셔도 적용됩니다.">${esc(shareTxt)}</textarea>
       <div class="actions">
         <button class="btn btn-share" onclick="shareText(customWeatherText !== null ? customWeatherText : wxShareText())">💬 단톡방 공유</button>
         <button class="btn btn-copy" onclick="copyText(customWeatherText !== null ? customWeatherText : wxShareText())">📋 복사</button>
@@ -828,7 +842,6 @@ function wxShareText(){
   const head=(icon,title)=>`${icon} [${title}]\n⏱️ ${fmtHM(now)} 기준 · ${where} 실시간 예보\n━━━━━━━━━\n`;
   const mmTxt=L=>L.perH<10?L.perH.toFixed(1):String(Math.round(L.perH));
 
-  // 분 단위를 시간과 분으로 포맷팅하는 헬퍼 함수 (예: 210분 -> 3시간30분, 60분 -> 1시간)
   const formatDur = m => {
     const h = Math.floor(m / 60);
     const r = m % 60;
@@ -955,10 +968,10 @@ function renderVolume(){
       <span class="qty-total-val" id="volTotal">${total.toLocaleString()}<small>건</small></span>
     </div>
     
-    <!-- 카톡 미리보기: 편집 가능한 버블로 개선 -->
+    <!-- 카톡 미리보기: 높이 자동 리사이징 및 자유 편집 연동 -->
     <div class="preview-wrap">
       <div class="preview-label">카톡 미리보기 (직접 편집 가능)</div>
-      <textarea class="kakao-bubble${previewText?'':' empty'}" oninput="customVolumeText=this.value" placeholder="동과 건수를 입력하면 여기에 미리보기가 나옵니다. 직접 템플릿 문구를 수정할 수 있습니다.">${esc(previewText)}</textarea>
+      <textarea class="kakao-bubble${previewText?'':' empty'}" oninput="customVolumeText=this.value; autoResizePreviews();" placeholder="동과 건수를 입력하면 여기에 미리보기가 나옵니다. 직접 템플릿 문구를 수정할 수 있습니다.">${esc(previewText)}</textarea>
       <div class="actions">
         <button class="btn btn-share" onclick="shareText(customVolumeText !== null ? customVolumeText : volumeText())">💬 공유하기</button>
         <button class="btn btn-copy" onclick="copyText(customVolumeText !== null ? customVolumeText : volumeText())">📋 복사</button>
