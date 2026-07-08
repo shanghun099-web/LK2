@@ -115,7 +115,6 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
 .preview-label{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--sub);font-weight:700;margin-bottom:8px;letter-spacing:0.3px;}
 .preview-label::before{content:'';width:18px;height:18px;border-radius:5px;background:var(--kakao);display:inline-block;}
 
-/* 카카오톡 버블 스타일을 띤 직접 수정 가능한 텍스트 상자 (전체 글이 항상 스크롤 없이 노출) */
 .kakao-bubble{
   background:#fff;
   color:#191919;
@@ -131,8 +130,8 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
   min-height:100px;
   border:1.5px solid transparent;
   outline:none;
-  resize:none; /* 사용자가 수동으로 늘릴 필요 없이 자동으로 맞춤 */
-  overflow-y:hidden; /* 내부 스크롤바 원천 제거 */
+  resize:none;
+  overflow-y:hidden;
   font-family:inherit;
   display:block;
   transition:border 0.15s, background-color 0.15s;
@@ -180,7 +179,6 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
 .spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(96,165,250,0.3);border-top-color:var(--blue3);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:-1px;margin-right:5px;}
 @keyframes spin{to{transform:rotate(360deg);}}
 
-/* ── 실시간 기상 감시 및 상세 테이블 디자인 ── */
 .wx-meta{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:11px;}
 .wx-meta-txt{font-size:11.5px;color:var(--sub);font-weight:600;line-height:1.5;min-width:0;}
 .wx-refresh{flex-shrink:0;padding:9px 13px;border:1.5px solid var(--border2);border-radius:9px;background:var(--card2);color:var(--sub);font-size:12px;font-weight:800;font-family:inherit;cursor:pointer;}
@@ -196,7 +194,6 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
 .wx-time{font-weight:800;color:var(--sub);font-size:11.5px;}
 .wx-time small{display:block;font-weight:600;color:var(--dim);font-size:10px;margin-top:1px;}
 
-/* 기상 이모지 아이콘 비율 최적화 및 큼직하게 확대 */
 .wx-ico{
   font-size:28px;
   padding:3px 4px;
@@ -593,26 +590,15 @@ function reloadTpl(){
 }
 
 /* ═══════════ 실시간 기상 감시 및 정밀 GPS 하이브리드 탑재 ═══════════
-   기상청(KMA) 수치모델을 CORS 허용으로 중계하는 Open-Meteo API 사용.
-   KMA 모델 요청이 실패하면 국제 최적 모델(best_match)로 자동 전환.
-   시간값은 unixtime으로 받아 기기 시간대와 무관하게 정확히 계산.
-   앱이 켜져 있는 동안 10분마다 자동 재감지 → 60분 내 강한 비 감지 시 상단 경보띠. */
+   기상청(KMA) 및 글로벌 통합 최적 예측모델(best_match)을 연동.
+   강남구 도곡/대치동 배송구역 좌표를 디폴트 값으로 고정하여 GPS 미허용 상태에서도 에러 없이 즉시 출력.
+   자동 위치 조회를 제거하여 기사님이 원할 때만 수동으로 "내 위치"를 검색하도록 변경. */
 let wx={lat:37.4882,lon:127.0518,located:false,timeline:null,updated:null,err:null,model:'',alerted:0,loading:false};
 
 function initWeather(){
-  fetchWeather(); // 우선 기본 좌표(강남구 도곡/대치 중심)로 즉시 예보를 표시
-  if(navigator.geolocation){
-    navigator.geolocation.getCurrentPosition(
-      p=>{
-        wx.lat=p.coords.latitude;wx.lon=p.coords.longitude;wx.located=true;
-        if(tab==='weather')render(); // 레이더 지도를 현재 위치로 갱신
-        fetchWeather(); // 조회 중이면 대기열로 들어가 끝난 뒤 자동 재조회
-      },
-      ()=>{},
-      {timeout:8000,maximumAge:600000,enableHighAccuracy:true}
-    );
-  }
-  setInterval(fetchWeather,10*60*1000); // 10분 단위 자동 감지
+  fetchWeather(); // 기본 강남구 도곡/대치 좌표로 즉각 예보 로드
+  /* 최초 로드 시 GPS 강제 조회를 생략하여 강남구 위주 날씨 고정 */
+  setInterval(fetchWeather,10*60*1000); // 10분 단위 자동 기상 갱신
 }
 
 function requestGeo(){
@@ -623,7 +609,7 @@ function requestGeo(){
       wx.lat=p.coords.latitude;wx.lon=p.coords.longitude;wx.located=true;
       if(tab==='weather')render();
       fetchWeather();
-      showToast('📍 현재 위치 기준으로 설정했어요');
+      showToast('📍 현재 위치 기준으로 설정했어요 (지도 마커 제외)');
     },
     err=>{
       if(err&&err.code===1)showToast('위치 권한이 꺼져 있어요 — 브라우저 설정에서 허용해주세요','err');
@@ -638,7 +624,7 @@ async function fetchWeather(){
   wx.loading=true;
   const la=Number(wx.lat).toFixed(4), lo=Number(wx.lon).toFixed(4);
   
-  // 한국 날씨에 가장 고도화되어 호환되는 best_match 글로벌 기상 예측 API 사용 (안정성 보장)
+  // 글로벌 수치 통합 예측 best_match 모델을 호출
   const url=`https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&hourly=precipitation_probability,precipitation,temperature_2m,weather_code,is_day&forecast_days=2&timeformat=unixtime&timezone=Asia%2FSeoul`;
   
   let d=null, lastErr='';
@@ -723,7 +709,7 @@ function checkWxAlert(){
 
 function wxMetaHtml(){
   if(wx.updated){
-    const loc=wx.located?'📍 현재 위치 기준':'⚠️ 위치 미확인(강남구 기준) — 야외에서 내 위치 버튼을 눌러주세요';
+    const loc=wx.located?'📍 현재 위치 기준':'📍 강남구 기준 (자동 고정)';
     return `⏱️ ${fmtHM(wx.updated)} 갱신 · 기상청 및 글로벌 통합 예보<br>${loc} · 10분마다 자동 감지`;
   }
   if(wx.err)return `❌ 예보 로드 실패: ${esc(wx.err)}<br>새로고침을 눌러 다시 시도해주세요`;
@@ -802,7 +788,8 @@ function updateWeatherDom(){
 }
 
 function renderWeather(){
-  const windySrc=`https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&zoom=9&overlay=radar&product=radar&level=surface&lat=${wx.lat.toFixed(4)}&lon=${wx.lon.toFixed(4)}&marker=true`;
+  // [수정사항 반영] Windy iframe 주소에서 &marker=true 속성을 지워 강제 표시되던 푸른색 원형 핀 마커(내 위치 핀)를 완벽히 제거
+  const windySrc=`https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&zoom=9&overlay=radar&product=radar&level=surface&lat=${wx.lat.toFixed(4)}&lon=${wx.lon.toFixed(4)}`;
   const shareTxt = customWeatherText !== null ? customWeatherText : wxShareText();
   const step=wx.timeline&&wx.timeline[0]?wx.timeline[0].step:60;
   const stepLbl='1시간';
@@ -832,7 +819,6 @@ function renderWeather(){
     <div style="height:20px"></div>`;
 }
 
-/* 공유 문구 생성 — 실제 타임라인에서 시각·강도·확률·지속시간을 계산해 자동 작성 */
 function wxShareText(){
   if(!wx.timeline)return '';
   const now=new Date();
