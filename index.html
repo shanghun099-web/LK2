@@ -548,36 +548,78 @@ function reloadTpl(){
 let wx={lat:37.5665,lon:126.9780,located:false,timeline:null,updated:null,err:null,model:'',alerted:0,loading:false};
 
 function initWeather(){
+  fetchWeather(); // 우선 기본 좌표로라도 즉시 예보를 표시
   if(navigator.geolocation){
     navigator.geolocation.getCurrentPosition(
       p=>{
         wx.lat=p.coords.latitude;wx.lon=p.coords.longitude;wx.located=true;
         if(tab==='weather')render(); // 레이더 지도를 현재 위치로 갱신
-        fetchWeather();
+        fetchWeather(); // 조회 중이면 대기열로 들어가 끝난 뒤 자동 재조회
       },
-      ()=>fetchWeather(),
-      {timeout:6000,maximumAge:600000}
+      ()=>{},
+      {timeout:8000,maximumAge:600000,enableHighAccuracy:true}
     );
-  }else fetchWeather();
+  }
   setInterval(fetchWeather,10*60*1000); // 10분 단위 자동 감지
 }
 
+/* 📍 내 위치 버튼: iOS·카톡 브라우저는 버튼 탭(사용자 제스처)이 있어야 권한 창이 뜨는 경우가 많음 */
+function requestGeo(){
+  if(!navigator.geolocation){showToast('이 기기는 위치를 지원하지 않아요','err');return;}
+  showToast('📍 위치 확인 중…');
+  navigator.geolocation.getCurrentPosition(
+    p=>{
+      wx.lat=p.coords.latitude;wx.lon=p.coords.longitude;wx.located=true;
+      if(tab==='weather')render();
+      fetchWeather();
+      showToast('📍 현재 위치 기준으로 설정했어요');
+    },
+    err=>{
+      if(err&&err.code===1)showToast('위치 권한이 꺼져 있어요 — 브라우저 설정에서 허용해주세요','err');
+      else showToast('위치를 가져오지 못했어요 — 잠시 후 다시 시도','err');
+    },
+    {timeout:10000,maximumAge:0,enableHighAccuracy:true}
+  );
+}
+
 async function fetchWeather(){
-  if(wx.loading)return;
+  if(wx.loading){wx.queue=true;return;} // 조회 중 재요청은 대기열에 → 끝나면 자동 재조회
   wx.loading=true;
-  /* timeformat=unixtime: 시간을 epoch(초)로 받아 기기 시간대 오차 제거
-     15분 간격 상세 변수 + 강수확률(시간 단위만 제공)을 함께 요청 */
-  const MV='temperature_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,wind_direction_10m,relative_humidity_2m,is_day';
-  const base=`https://api.open-meteo.com/v1/forecast?latitude=${wx.lat}&longitude=${wx.lon}&minutely_15=${MV}&forecast_minutely_15=28&hourly=precipitation_probability,precipitation,${MV}&forecast_hours=8&wind_speed_unit=ms&timeformat=unixtime&timezone=Asia%2FSeoul`;
+  const la=Number(wx.lat).toFixed(4), lo=Number(wx.lon).toFixed(4);
+  /* 필요한 변수만 최소 요청(호환성↑): 기온·강수·날씨코드·주야 + 확률(시간 단위) */
+  const MV='temperature_2m,precipitation,weather_code,is_day';
+  const qs15=`latitude=${la}&longitude=${lo}&minutely_15=${MV}&forecast_minutely_15=28&hourly=precipitation_probability&forecast_hours=8&timeformat=unixtime&timezone=Asia%2FSeoul`;
+  const qsH=`latitude=${la}&longitude=${lo}&hourly=precipitation_probability,precipitation,temperature_2m,weather_code,is_day&forecast_hours=8&timeformat=unixtime&timezone=Asia%2FSeoul`;
+  /* 3단계 폴백: 기상청(KMA) 15분 → 일반 15분 → 시간 단위 */
+  const tries=[
+    {url:'https://api.open-meteo.com/v1/forecast?'+qs15+'&models=kma_seamless',model:'kma_seamless'},
+    {url:'https://api.open-meteo.com/v1/forecast?'+qs15,model:'best_match'},
+    {url:'https://api.open-meteo.com/v1/forecast?'+qsH,model:'best_match'}
+  ];
+  let d=null,model='',lastErr='';
+  for(const t of tries){
+    try{
+      const ctrl=('AbortController' in window)?new AbortController():null;
+      const tm=ctrl?setTimeout(()=>ctrl.abort(),8000):null;
+      const res=await fetch(t.url,ctrl?{signal:ctrl.signal}:undefined);
+      if(tm)clearTimeout(tm);
+      const j=await res.json().catch(()=>null);
+      if(!res.ok||!j||j.error){lastErr=(j&&j.reason)?String(j.reason).slice(0,60):('HTTP '+res.status);continue;}
+      d=j;model=t.model;break;
+    }catch(e){
+      lastErr=(e&&e.name==='AbortError')?'응답 시간 초과':'네트워크 오류';
+    }
+  }
+  if(!d){
+    wx.err=lastErr||'알 수 없는 오류';
+    wx.loading=false;
+    updateWeatherDom();
+    if(wx.queue){wx.queue=false;fetchWeather();}
+    return;
+  }
   try{
-    // 1차: 기상청(KMA) 모델 → 실패 시 2차: 최적 모델
-    let res=await fetch(base+'&models=kma_seamless');
-    let model='kma_seamless';
-    if(!res.ok){res=await fetch(base);model='best_match';}
-    if(!res.ok)throw 0;
-    const d=await res.json();
     const g=(o,k,i,def)=>o&&o[k]&&o[k][i]!=null?o[k][i]:def;
-    /* 강수확률은 시간 단위로만 제공 → 각 15분 칸에 해당 시각의 시간 확률을 매핑 */
+    /* 강수확률은 시간 단위로만 제공 → 각 칸에 해당 시각의 시간 확률을 매핑 */
     const probAt=t=>{
       if(!d.hourly||!d.hourly.time||!d.hourly.precipitation_probability)return null;
       for(let i=d.hourly.time.length-1;i>=0;i--){
@@ -591,11 +633,7 @@ async function fetchWeather(){
         time:t*1000,step:15,
         mm:g(d.minutely_15,'precipitation',i,0),
         temp:g(d.minutely_15,'temperature_2m',i,null),
-        feel:g(d.minutely_15,'apparent_temperature',i,null),
         code:g(d.minutely_15,'weather_code',i,null),
-        wspd:g(d.minutely_15,'wind_speed_10m',i,null),
-        wdir:g(d.minutely_15,'wind_direction_10m',i,null),
-        rh:g(d.minutely_15,'relative_humidity_2m',i,null),
         isDay:g(d.minutely_15,'is_day',i,1),
         prob:probAt(t*1000)
       }));
@@ -604,27 +642,24 @@ async function fetchWeather(){
         time:t*1000,step:60,
         mm:g(d.hourly,'precipitation',i,0),
         temp:g(d.hourly,'temperature_2m',i,null),
-        feel:g(d.hourly,'apparent_temperature',i,null),
         code:g(d.hourly,'weather_code',i,null),
-        wspd:g(d.hourly,'wind_speed_10m',i,null),
-        wdir:g(d.hourly,'wind_direction_10m',i,null),
-        rh:g(d.hourly,'relative_humidity_2m',i,null),
         isDay:g(d.hourly,'is_day',i,1),
         prob:g(d.hourly,'precipitation_probability',i,null)
       }));
     }
     const now=Date.now();
     tl=tl.filter(e=>e.time+e.step*60000>now);
-    /* 15분 데이터 2칸 → 30분 블록으로 합산 (강수량 합, 기온·습도·바람 평균, 확률 최대) */
+    /* 15분 데이터 2칸 → 30분 블록으로 합산 (강수량 합, 기온 평균, 확률 최대) */
     if(tl.length&&tl[0].step===15)tl=aggregate30(tl);
     tl=tl.slice(0,12);
     if(!tl.length)throw 0;
     wx.timeline=tl;wx.updated=new Date();wx.err=null;wx.model=model;
   }catch(e){
-    wx.err='load';
+    wx.err='예보 해석 실패';
   }
   wx.loading=false;
   updateWeatherDom(); // 전체 render 대신 부분 갱신 → 레이더 iframe이 리로드되지 않음
+  if(wx.queue){wx.queue=false;fetchWeather();}
 }
 
 /* 15분 항목 2개 → 30분 블록 하나로 합산 */
@@ -633,18 +668,14 @@ function aggregate30(tl15){
   const out=[];
   for(let i=0;i+1<tl15.length;i+=2){
     const a=tl15[i],b=tl15[i+1];
-    const pick=(b.mm||0)>(a.mm||0)?b:a; // 날씨코드·풍향은 비가 더 많은 쪽 기준
+    const pick=(b.mm||0)>(a.mm||0)?b:a; // 날씨코드는 비가 더 많은 쪽 기준
     const probs=[a.prob,b.prob].filter(p=>p!=null);
     out.push({
       time:a.time,step:30,
       mm:(a.mm||0)+(b.mm||0),
       temp:avg(a.temp,b.temp),
-      feel:avg(a.feel,b.feel),
       code:pick.code!=null?pick.code:a.code,
       isDay:a.isDay,
-      wspd:avg(a.wspd,b.wspd),
-      wdir:pick.wdir!=null?pick.wdir:a.wdir,
-      rh:avg(a.rh,b.rh),
       prob:probs.length?Math.max.apply(null,probs):null
     });
   }
@@ -683,9 +714,12 @@ function checkWxAlert(){
 }
 
 function wxMetaHtml(){
-  return wx.updated
-    ?`⏱️ ${fmtHM(wx.updated)} 갱신 · ${wx.located?'현재 위치':'서울(위치 권한 없음)'} 기준<br>${wx.model==='kma_seamless'?'기상청(KMA) 모델':'국제 수치모델'} · 10분마다 자동 감지`
-    :(wx.err?'예보 로드 실패 — 새로고침을 눌러주세요':'예보를 불러오는 중…');
+  if(wx.updated){
+    const loc=wx.located?'📍 현재 위치 기준':'⚠️ 위치 미확인(서울 기준) — 내 위치 버튼을 눌러주세요';
+    return `⏱️ ${fmtHM(wx.updated)} 갱신 · ${wx.model==='kma_seamless'?'기상청(KMA) 모델':'국제 수치모델'}<br>${loc} · 10분마다 자동 감지`;
+  }
+  if(wx.err)return `❌ 예보 로드 실패: ${esc(wx.err)}<br>새로고침을 눌러 다시 시도해주세요`;
+  return '예보를 불러오는 중…';
 }
 /* WMO 날씨코드 → 아이콘 */
 function wxIcon(code,isDay,mm){
@@ -703,25 +737,28 @@ function wxIcon(code,isDay,mm){
   return '☁️';
 }
 
-/* 기상청 시간별 예보 스타일 상세표: 시각·날씨·기온곡선·체감·강수량·강수강도·강수확률·바람·습도 */
+/* 기상청 시간별 예보 스타일 상세표: 시각·날씨·기온곡선·강수량·강수강도·강수확률 */
 function wxTableHtml(){
   if(wx.err&&!wx.timeline)
-    return `<div style="padding:20px;text-align:center;color:#f0a0a0;font-size:13px;">예보 로드 실패 — 새로고침을 눌러주세요</div>`;
+    return `<div style="padding:20px;text-align:center;color:#f0a0a0;font-size:13px;">예보 로드 실패 — 새로고침을 눌러주세요<br><span style="font-size:11px;color:var(--dim)">(${esc(wx.err)})</span></div>`;
   if(!wx.timeline)
     return `<div style="padding:20px;text-align:center;color:var(--sub);font-size:13px;"><span class="spinner"></span>예보를 불러오는 중…</div>`;
-  const now=Date.now(), tl=wx.timeline, N=tl.length, CW=60, half=CW/2;
+  const now=Date.now(), tl=wx.timeline, N=tl.length, CW=60, half=CW/2, step=tl[0].step;
   const cells=fn=>tl.map((e,i)=>fn(e,i)).join('');
   const lvOf=e=>wxLevel(e.mm,e.step);
   const dcls=e=>lvOf(e).lv>=2?' wx-cell-danger':'';
 
-  const rowTime=`<tr><th class="lbl">시각</th>${cells((e,i)=>{
-    const mins=Math.round((e.time-now)/60000);
-    return `<th class="${i===0?'now':''}"><div class="wx-time">${mins<=0?'지금':'+'+mins+'분'}<small>${fmtHM(new Date(e.time))}</small></div></th>`;
-  })}</tr>`;
+  /* 시각 라벨: 지금 / 30분 / 1시간 / 1시간30분 … + 실제 시각 */
+  const lblOf=i=>{
+    if(i===0)return '지금';
+    const mins=i*step, h=Math.floor(mins/60), r=mins%60;
+    return (h?h+'시간':'')+(r?r+'분':'');
+  };
+  const rowTime=`<tr><th class="lbl">시각</th>${cells((e,i)=>`<th class="${i===0?'now':''}"><div class="wx-time">${lblOf(i)}<small>${fmtHM(new Date(e.time))}</small></div></th>`)}</tr>`;
 
   const rowIco=`<tr><th class="lbl">날씨</th>${cells((e,i)=>`<td class="wx-ico${i===0?' now':''}${dcls(e)}">${wxIcon(e.code,e.isDay,e.mm)}</td>`)}</tr>`;
 
-  /* 기온 곡선: 스크린샷처럼 꺾은선 + 점 + 온도 라벨 (SVG) */
+  /* 기온 곡선: 꺾은선 + 점 + 온도 라벨 (SVG) */
   let rowTemp;
   const temps=tl.map(e=>e.temp);
   if(temps.every(t=>t!=null)){
@@ -735,14 +772,11 @@ function wxTableHtml(){
     rowTemp=`<tr><th class="lbl">기온</th>${cells(e=>`<td>${e.temp!=null?Math.round(e.temp)+'°':'-'}</td>`)}</tr>`;
   }
 
-  const rowFeel=`<tr><th class="lbl">체감</th>${cells(e=>`<td style="color:var(--sub)">${e.feel!=null?Math.round(e.feel)+'°':'-'}</td>`)}</tr>`;
   const rowMm=`<tr><th class="lbl">강수량<br>(mm)</th>${cells(e=>`<td class="wx-mm${dcls(e)}">${e.mm>=0.05?(e.mm<10?e.mm.toFixed(1):Math.round(e.mm)):'-'}</td>`)}</tr>`;
   const rowInt=`<tr><th class="lbl">강수강도</th>${cells(e=>{const L=lvOf(e);return `<td class="wx-int${L.lv}${dcls(e)}">${L.lv?L.label:'-'}</td>`;})}</tr>`;
   const rowProb=`<tr><th class="lbl">강수확률</th>${cells(e=>`<td class="wx-prob">${e.prob!=null?Math.round(e.prob)+'%':'-'}</td>`)}</tr>`;
-  const rowWind=`<tr><th class="lbl">바람<br>(m/s)</th>${cells(e=>`<td class="wx-wind">${e.wdir!=null?`<span class="arr" style="transform:rotate(${Math.round(e.wdir)+180}deg)">↑</span><br>`:''}${e.wspd!=null?Math.round(e.wspd):'-'}</td>`)}</tr>`;
-  const rowHum=`<tr><th class="lbl">습도</th>${cells(e=>`<td class="wx-hum">${e.rh!=null?Math.round(e.rh)+'%':'-'}</td>`)}</tr>`;
 
-  return `<table class="wx-table">${rowTime}${rowIco}${rowTemp}${rowFeel}${rowMm}${rowInt}${rowProb}${rowWind}${rowHum}</table>`;
+  return `<table class="wx-table">${rowTime}${rowIco}${rowTemp}${rowMm}${rowInt}${rowProb}</table>`;
 }
 
 /* 날씨 탭이 열려 있을 때 iframe은 그대로 두고 상세표·메타·미리보기만 교체 */
@@ -771,7 +805,10 @@ function renderWeather(){
   return `
     <div class="wx-meta">
       <div class="wx-meta-txt" id="wx-meta-txt">${wxMetaHtml()}</div>
-      <button class="wx-refresh" onclick="showToast('예보 갱신 중…');fetchWeather()">🔄 새로고침</button>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="wx-refresh" onclick="requestGeo()">📍 내 위치</button>
+        <button class="wx-refresh" onclick="showToast('예보 갱신 중…');fetchWeather()">🔄</button>
+      </div>
     </div>
     <div class="wx-frame-wrap"><iframe src="${windySrc}" allowfullscreen loading="lazy"></iframe></div>
     <div class="section-head"><div class="section-title">⏱ ${stepLbl} 단위 상세 예보 (약 ${spanH}시간)</div></div>
@@ -788,46 +825,59 @@ function renderWeather(){
     <div style="height:20px"></div>`;
 }
 
-/* 공유 문구 생성 — 하드코딩 없이 실제 타임라인에서 시각·강도·지속시간을 계산 */
+/* 공유 문구 생성 — 실제 타임라인에서 시각·강도·확률·지속시간을 계산해 자동 작성 */
 function wxShareText(){
   if(!wx.timeline)return '';
   const now=new Date();
-  const where=wx.located?'현재 위치':'서울';
-  let t=`📢 [단톡방 기상 알림]\n⏱️ ${fmtHM(now)} 발신 · ${where} 기준 자동 감지\n━━━━━━━━━\n`;
+  const where=wx.located?'현장(현재 위치)':'서울 기준';
+  const spanH=Math.round(wx.timeline.reduce((s,e)=>s+e.step,0)/60);
+  const head=(icon,title)=>`${icon} [${title}]\n⏱️ ${fmtHM(now)} 기준 · ${where} 실시간 예보\n━━━━━━━━━\n`;
+  const mmTxt=L=>L.perH<10?L.perH.toFixed(1):String(Math.round(L.perH));
 
   const idx=wx.timeline.findIndex(e=>wxLevel(e.mm,e.step).lv>=2);
   if(idx>=0){
-    const strong=wx.timeline[idx];
-    const st=new Date(strong.time);
+    const strong=wx.timeline[idx], st=new Date(strong.time);
     const mins=Math.max(0,Math.round((strong.time-now.getTime())/60000));
     const L=wxLevel(strong.mm,strong.step);
-    // 강한 비 시작점부터 비가 이어지는 구간의 길이 추정
     let dur=0;
     for(let i=idx;i<wx.timeline.length;i++){
       if(wxLevel(wx.timeline[i].mm,wx.timeline[i].step).lv>=1)dur+=wx.timeline[i].step;else break;
     }
+    let t=head('🌧️','기상 상황 전파');
     t+=mins<=5
-      ?`🚨 지금 현장 일대에 ${L.label==='폭우'?'폭우':'강한 비'}가 지나가는 중입니다!\n`
-      :`🚨 약 ${mins}분 뒤(${fmtHM(st)}경) 현장 일대에 강한 비구름이 진입합니다!\n`;
-    t+=`📈 예상 강도: 시간당 약 ${L.perH<10?L.perH.toFixed(1):Math.round(L.perH)}mm (${L.label})${strong.prob!=null?` · 강수확률 ${Math.round(strong.prob)}%`:''}\n`;
-    t+=`⏳ 예상 지속: 약 ${dur}분 이상\n━━━━━━━━━\n`;
-    t+=`🚚 탑차 적재함 문 단속하시고, 빗길 안전거리 2배 확보하세요!`;
-  }else{
-    const rainIdx=wx.timeline.findIndex(e=>wxLevel(e.mm,e.step).lv>=1);
-    if(rainIdx>=0){
-      const r=wx.timeline[rainIdx];
-      const st=new Date(r.time);
-      const mins=Math.max(0,Math.round((r.time-now.getTime())/60000));
-      const L=wxLevel(r.mm,r.step);
-      t+=mins<=5
-        ?`🌧️ 현재 약한~보통 비가 내리고 있습니다. (시간당 약 ${L.perH.toFixed(1)}mm)\n`
-        :`🌧️ 약 ${mins}분 뒤(${fmtHM(st)}경)부터 비가 예상됩니다. (시간당 약 ${L.perH.toFixed(1)}mm)\n`;
-      t+=`━━━━━━━━━\n🚚 우비·방수포 미리 챙기시고 안전운행하세요!`;
-    }else{
-      const span=wx.timeline.reduce((s,e)=>s+e.step,0);
-      t+=`☀️ 향후 약 ${Math.round(span/60)}시간 내 강수 예보 없음\n━━━━━━━━━\n🚚 오늘도 안전운행하세요!`;
-    }
+      ?`기사님들, 현재 배송 구역에 ${L.label}가 지나가고 있습니다.\n`
+      :`기사님들, 약 ${mins}분 뒤(${fmtHM(st)}경)부터 배송 구역에 ${L.label} 소식이 있습니다.\n`;
+    t+=`· 예상 강도: 시간당 약 ${mmTxt(L)}mm\n`;
+    if(strong.prob!=null)t+=`· 강수확률: ${Math.round(strong.prob)}%\n`;
+    t+=`· 예상 지속: 약 ${dur}분\n`;
+    t+=`━━━━━━━━━\n`;
+    t+=`비 들어오기 전에 적재함 문단속 한 번씩 부탁드립니다.\n`;
+    t+=`빗길에서는 안전거리 평소의 2배로 넉넉히 잡아주시고,\n`;
+    t+=`시야 안 좋은 골목에서는 속도 충분히 줄여주세요.\n`;
+    t+=`오늘도 안전운행이 최우선입니다 🙏`;
+    return t;
   }
+
+  const rainIdx=wx.timeline.findIndex(e=>wxLevel(e.mm,e.step).lv>=1);
+  if(rainIdx>=0){
+    const r=wx.timeline[rainIdx], st=new Date(r.time);
+    const mins=Math.max(0,Math.round((r.time-now.getTime())/60000));
+    const L=wxLevel(r.mm,r.step);
+    const detail=`시간당 약 ${L.perH.toFixed(1)}mm${r.prob!=null?` · 확률 ${Math.round(r.prob)}%`:''}`;
+    let t=head('🌦️','기상 안내');
+    t+=mins<=5
+      ?`기사님들, 현재 배송 구역에 비가 내리고 있습니다. (${detail})\n`
+      :`기사님들, 약 ${mins}분 뒤(${fmtHM(st)}경)부터 비가 시작될 것으로 보입니다. (${detail})\n`;
+    t+=`━━━━━━━━━\n`;
+    t+=`우비·방수포 미리 챙겨두시면 든든하겠습니다.\n`;
+    t+=`젖은 노면 미끄럼 주의하시고, 안전운행하세요!`;
+    return t;
+  }
+
+  let t=head('☀️','기상 안내');
+  t+=`앞으로 약 ${spanH}시간 동안 배송 구역에 비 소식은 없습니다.\n`;
+  t+=`━━━━━━━━━\n`;
+  t+=`오늘도 수고 많으십니다. 안전운행하세요!`;
   return t;
 }
 
