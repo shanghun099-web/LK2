@@ -226,6 +226,11 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
 .set-tab{flex:1;padding:11px 0;border:1.5px solid var(--border);border-radius:11px;background:var(--card);color:var(--sub);font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;transition:all 0.15s;}
 .set-tab.active{background:var(--teal);border-color:var(--teal);color:#04211c;}
 
+/* 설정 내 서브탭 전용 */
+.sheet-tabs{display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:10px;}
+.sheet-tab{flex:1;padding:10px 0;border:none;background:var(--card2);color:var(--sub);font-size:12.5px;font-weight:700;border-radius:8px;cursor:pointer;font-family:inherit;transition:all 0.15s;}
+.sheet-tab.active{background:var(--blue);color:#fff;}
+
 .paste-box{background:var(--card);border:1.5px solid var(--border);border-radius:13px;margin-bottom:13px;overflow:hidden;}
 .paste-box summary{padding:13px 14px;font-size:13px;font-weight:700;color:var(--blue3);cursor:pointer;list-style:none;}
 .paste-box summary::-webkit-details-marker{display:none;}
@@ -281,22 +286,50 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
   <div class="content" id="content"></div>
 </div>
 
+<!-- 설정 모달 시트 (상세 영구 템플릿 저장 기능 추가) -->
 <div class="sheet-overlay" id="settings-sheet" onclick="if(event.target===this)closeSettings()">
-  <div class="sheet">
-    <div class="sheet-title">⚙️ 설정</div>
-    <div class="sheet-sub">이미지 인식을 쓰려면 Gemini API 키가 필요해요.</div>
-    <label class="field-label">Gemini API 키</label>
-    <input class="inp" id="set-apikey" type="password" placeholder="AIza..." autocomplete="off">
-    <div class="sheet-hint">키는 이 기기에만 저장되고 서버로 전송되지 않습니다. <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--blue3)">발급받기 →</a></div>
-    <div style="height:14px"></div>
-    <label class="field-label">인식 모델</label>
-    <select class="inp" id="set-model">
-      <option value="gemini-3.5-flash">Gemini 3.5 Flash (권장 · 무료 티어)</option>
-      <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite (가볍고 빠름)</option>
-      <option value="gemini-2.5-flash">Gemini 2.5 Flash (2026-10-16 종료 예정)</option>
-    </select>
-    <div class="sheet-hint">Gemini 2.0 Flash는 2026-06-01 서비스 종료되어 더 이상 쓸 수 없습니다. 인식 오류(404)가 나면 여기서 모델을 바꿔보세요.</div>
-    <div class="sheet-btns">
+  <div class="sheet" style="max-height: 85vh; overflow-y: auto;">
+    <div class="sheet-title">⚙️ 설정 및 문구 양식</div>
+    <div class="sheet-sub">API 설정 및 카톡 공유 기본 문구를 기호에 맞춰 영구 저장해 두세요.</div>
+    
+    <div class="sheet-tabs">
+      <button class="sheet-tab active" id="sheet-tab-gen" onclick="switchSettingsTab('gen')">⚙️ 일반 설정</button>
+      <button class="sheet-tab" id="sheet-tab-tpl" onclick="switchSettingsTab('tpl')">📝 기본 문구 편집</button>
+    </div>
+
+    <!-- 일반 설정 패널 -->
+    <div id="set-panel-gen">
+      <label class="field-label">Gemini API 키</label>
+      <input class="inp" id="set-apikey" type="password" placeholder="AIza..." autocomplete="off">
+      <div class="sheet-hint">키는 이 기기에만 저장되고 외부로 전송되지 않습니다. <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--blue3)">발급받기 →</a></div>
+      <div style="height:14px"></div>
+      <label class="field-label">인식 모델</label>
+      <select class="inp" id="set-model">
+        <option value="gemini-3.5-flash">Gemini 3.5 Flash (권장 · 무료 티어)</option>
+        <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite (가볍고 빠름)</option>
+        <option value="gemini-2.5-flash">Gemini 2.5 Flash (2026-10-16 종료 예정)</option>
+      </select>
+      <div class="sheet-hint">인식 오류가 발생하면 모델을 변경해보세요.</div>
+    </div>
+
+    <!-- 기본 공유 문구 양식 관리 패널 -->
+    <div id="set-panel-tpl" style="display:none;">
+      <label class="field-label">수정할 카톡 양식 선택</label>
+      <select class="inp" id="set-tpl-selector" onchange="onTemplateSelectorChange()">
+        <option value="roster">👥 출근명단 양식</option>
+        <option value="dawn">🌅 새벽반 양식</option>
+        <option value="wx_heavy">🚨 기상 전파 (강한 비)</option>
+        <option value="wx_rain">🌦️ 기상 안내 (일반 비)</option>
+        <option value="wx_clear">☀️ 기상 안내 (비 없음)</option>
+        <option value="volume">📦 물량 양식</option>
+      </select>
+      <div style="height:10px"></div>
+      <label class="field-label">양식 문구 내용</label>
+      <textarea class="paste-ta" id="set-tpl-ta" style="height:150px; font-family:'IBM Plex Mono', monospace; font-size:12.5px; line-height:1.5;" placeholder="양식을 입력해 주세요"></textarea>
+      <div class="sheet-hint" id="set-tpl-hint" style="margin-top:6px; background:var(--card2); padding:8px 10px; border-radius:6px; line-height:1.4;"></div>
+    </div>
+
+    <div class="sheet-btns" style="margin-top:20px;">
       <button class="mini-btn" onclick="closeSettings()">닫기</button>
       <button class="mini-btn" style="border-color:#155244;color:var(--teal3)" onclick="saveSettings()">저장</button>
     </div>
@@ -347,6 +380,31 @@ const TAB_TITLES={roster:'출근명단 정리',dawn:'새벽반 명단',weather:'
 let customRosterText = null;
 let customWeatherText = null;
 let customVolumeText = null;
+
+// 공유 기본 문구 템플릿 정의 및 기사님 요청사항 반영 (우비·방수포 챙겨 문구 삭제 완료)
+const DEFAULT_TEMPLATES = {
+  roster: `{emoji} {date} {title}\n━━━━━━━━━\n{zones}\n━━━━━━━━━\n👥 총 {total}명`,
+  dawn: `{emoji} {date} {title}\n━━━━━━━━━\n{zones}\n━━━━━━━━━\n👥 총 {total}명`,
+  wx_heavy: `🚨 [기상 상황 전파]\n⏱️ {time} 기준 · 강남구 기준 실시간 예보\n━━━━━━━━━\n{status_msg}\n(시간당 약 {rain_mm}mm{prob})\n· 예상 지속 시간: 약 {duration}\n━━━━━━━━━\n⚠️ 비 들어오기 전에 적재함 문단속 한 번씩 부탁드립니다.\n⚠️ 빗길에서는 안전거리를 평소의 2배로 넉넉히 확보해주세요.\n⚠️ 시야 안 좋은 골목에서는 충분히 감속 운행 바랍니다.\n오늘도 안전운행이 최우선입니다 🙏`,
+  wx_rain: `🌦️ [기상 안내]\n⏱️ {time} 기준 · 강남구 기준 실시간 예보\n━━━━━━━━━\n{status_msg}\n(시간당 약 {rain_mm}mm{prob})\n━━━━━━━━━\n젖은 노면 미끄럼에 주의하시고, 안전운전하세요! 🚗`,
+  wx_clear: `☀️ [기상 안내]\n⏱️ {time} 기준 · 강남구 기준 실시간 예보\n━━━━━━━━━\n앞으로 약 {span_hours}시간 동안 배송 구역에 비 소식은 없습니다.\n━━━━━━━━━\n오늘도 기상 상황이 양호합니다.\n수고 많으십니다, 기분 좋은 하루 보내시고 안전운행하세요! 👍`,
+  volume: `📦 {date} {title}\n━━━━━━━━━\n{rows}━━━━━━━━━\n📊 합계 {total}건`
+};
+
+let editingTemplates = {};
+let currentTemplateKey = 'roster';
+
+function getTemplate(key) {
+  return localStorage.getItem('disp-tpl-' + key) || DEFAULT_TEMPLATES[key];
+}
+
+function formatTemplate(tpl, dict) {
+  let s = tpl;
+  for (const k in dict) {
+    s = s.replace(new RegExp('{' + k + '}', 'g'), dict[k]);
+  }
+  return s;
+}
 
 function toLocalISO(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function todayISO(){return toLocalISO(new Date());}
@@ -561,12 +619,19 @@ function rosterText(){
   const R=cur();
   const active=R.work.zones.filter(z=>z.name.trim()&&z.people.length);
   if(!active.length) return '';
-  let t=`${R.emoji} ${fmtKDate(R.work.date)} ${R.work.title||R.defTitle}\n`;
-  t+=`━━━━━━━━━\n`;
-  t+=active.map(z=>`${z.emoji||'📍'} ${z.name} · ${z.people.join(', ')}`).join('\n');
-  t+=`\n━━━━━━━━━\n`;
-  t+=`👥 총 ${active.reduce((s,z)=>s+z.people.length,0)}명`;
-  return t;
+  const zonesStr = active.map(z=>`${z.emoji||'📍'} ${z.name} · ${z.people.join(', ')}`).join('\n');
+  const total = active.reduce((s,z)=>s+z.people.length,0);
+  
+  const tplKey = tab==='dawn'?'dawn':'roster';
+  const tpl = getTemplate(tplKey);
+  
+  return formatTemplate(tpl, {
+    emoji: R.emoji,
+    date: fmtKDate(R.work.date),
+    title: R.work.title || R.defTitle,
+    zones: zonesStr,
+    total: total
+  });
 }
 
 function setZone(zi,key,v){customRosterText=null;cur().work.zones[zi][key]=key==='name'?v.trim():v;render();}
@@ -801,12 +866,10 @@ function renderWeather(){
 function wxShareText(){
   if(!wx.timeline)return '';
   const now=new Date();
-  const where='강남구 기준';
   const spanH=Math.round(wx.timeline.reduce((s,e)=>s+e.step,0)/60);
-  const head=(icon,title)=>`${icon} [${title}]\n⏱️ ${fmtHM(now)} 기준 · ${where} 실시간 예보\n━━━━━━━━━\n`;
   const mmTxt=L=>L.perH<10?L.perH.toFixed(1):String(Math.round(L.perH));
 
-  const formatDur = m => {
+  const formatTimeDiff = m => {
     const h = Math.floor(m / 60);
     const r = m % 60;
     if (h > 0) {
@@ -815,6 +878,7 @@ function wxShareText(){
     return `${r}분`;
   };
 
+  // 1. 강한 비 (lv >= 2) 감지 시 기상 전파 템플릿
   const idx=wx.timeline.findIndex(e=>wxLevel(e.mm,e.step).lv>=2);
   if(idx>=0){
     const strong=wx.timeline[idx], st=new Date(strong.time);
@@ -824,42 +888,47 @@ function wxShareText(){
     for(let i=idx;i<wx.timeline.length;i++){
       if(wxLevel(wx.timeline[i].mm,wx.timeline[i].step).lv>=1)dur+=wx.timeline[i].step;else break;
     }
-    let t=head('🌧️','기상 상황 전파');
-    t+=mins<=5
-      ?`현재 배송 구역에 ${L.label}가 지나가고 있습니다.\n`
-      :`약 ${mins}분 뒤(${fmtHM(st)}경)부터 배송 구역에 ${L.label} 소식이 있습니다.\n`;
-    t+=`· 예상 강도: 시간당 약 ${mmTxt(L)}mm\n`;
-    if(strong.prob!=null)t+=`· 강수확률: ${Math.round(strong.prob)}%\n`;
-    t+=`· 예상 지속: 약 ${formatDur(dur)}\n`;
-    t+=`━━━━━━━━━\n`;
-    t+=`비 들어오기 전에 적재함 문단속 한 번씩 부탁드립니다.\n`;
-    t+=`빗길에서는 안전거리 평소의 2배로 넉넉히 잡아주시고,\n`;
-    t+=`시야 안 좋은 골목에서는 속도 충분히 줄여주세요.\n`;
-    t+=`오늘도 안전운행이 최우선입니다 🙏`;
-    return t;
+    
+    const statusMsg = mins<=5
+      ? `현재 배송 구역에 ${L.label}가 지나가고 있습니다.`
+      : `약 ${formatTimeDiff(mins)} 뒤(${fmtHM(st)}경)부터 배송 구역에 ${L.label} 소식이 있습니다.`;
+    
+    const tpl = getTemplate('wx_heavy');
+    return formatTemplate(tpl, {
+      time: fmtHM(now),
+      status_msg: statusMsg,
+      rain_mm: mmTxt(L),
+      prob: strong.prob!=null?` · 강수확률 ${Math.round(strong.prob)}%`:'',
+      duration: formatTimeDiff(dur)
+    });
   }
 
+  // 2. 일반 비 / 약한 비 (lv >= 1) 감지 시 기상 안내 템플릿 (우비·방수포 챙겨 문구 삭제 및 컴팩트 포맷 반영)
   const rainIdx=wx.timeline.findIndex(e=>wxLevel(e.mm,e.step).lv>=1);
   if(rainIdx>=0){
     const r=wx.timeline[rainIdx], st=new Date(r.time);
     const mins=Math.max(0,Math.round((r.time-now.getTime())/60000));
     const L=wxLevel(r.mm,r.step);
-    const detail=`시간당 약 ${L.perH.toFixed(1)}mm${r.prob!=null?` · 확률 ${Math.round(r.prob)}%`:''}`;
-    let t=head('🌦️','기상 안내');
-    t+=mins<=5
-      ?`현재 배송 구역에 비가 내리고 있습니다. (${detail})\n`
-      :`약 ${mins}분 뒤(${fmtHM(st)}경)부터 비가 시작될 것으로 보입니다. (${detail})\n`;
-    t+=`━━━━━━━━━\n`;
-    t+=`우비·방수포 미리 챙겨두시면 든든하겠습니다.\n`;
-    t+=`젖은 노면 미끄럼 주의하시고, 안전운행하세요!`;
-    return t;
+    
+    const statusMsg = mins<=5
+      ? `현재 배송 구역에 비가 내리고 있습니다.`
+      : `약 ${formatTimeDiff(mins)} 뒤(${fmtHM(st)}경)부터 비가 시작될 것으로 예상됩니다.`;
+      
+    const tpl = getTemplate('wx_rain');
+    return formatTemplate(tpl, {
+      time: fmtHM(now),
+      status_msg: statusMsg,
+      rain_mm: L.perH.toFixed(1),
+      prob: r.prob!=null?` · 확률 ${Math.round(r.prob)}%`:''
+    });
   }
 
-  let t=head('☀️','기상 안내');
-  t+=`앞으로 약 ${spanH}시간 동안 배송 구역에 비 소식은 없습니다.\n`;
-  t+=`━━━━━━━━━\n`;
-  t+=`오늘도 수고 많으십니다. 안전운행하세요!`;
-  return t;
+  // 3. 비 소식 없음 템플릿
+  const tpl = getTemplate('wx_clear');
+  return formatTemplate(tpl, {
+    time: fmtHM(now),
+    span_hours: spanH
+  });
 }
 
 function renderVolume(){
@@ -953,15 +1022,19 @@ function volumeText(){
   const active=volume.rows.filter(r=>r.dong.trim()&&(Number(r.qty)||0)>0);
   if(!active.length) return '';
   const total=active.reduce((s,r)=>s+(Number(r.qty)||0),0);
-  let t=`📦 ${fmtKDate(volume.date)} ${volume.title||'물량'}\n`;
-  t+=`━━━━━━━━━\n`;
+  let rowsStr = '';
   active.forEach(r=>{
     const codePart=volume.showCode&&r.code.trim()?`[${r.code.trim()}] `:'';
-    t+=`${codePart}${r.dong} ${Number(r.qty).toLocaleString()}건\n`;
+    rowsStr += `${codePart}${r.dong} ${Number(r.qty).toLocaleString()}건\n`;
   });
-  t+=`━━━━━━━━━\n`;
-  t+=`📊 합계 ${total.toLocaleString()}건`;
-  return t;
+  
+  const tpl = getTemplate('volume');
+  return formatTemplate(tpl, {
+    date: fmtKDate(volume.date),
+    title: volume.title || '물량',
+    rows: rowsStr,
+    total: total.toLocaleString()
+  });
 }
 
 function setVol(i,key,v){customVolumeText=null;volume.rows[i][key]=key==='qty'?v.replace(/[^0-9]/g,''):v.trim();saveVolume();render();}
@@ -1009,17 +1082,78 @@ function getModel(){
   const m=localStorage.getItem('gemini-model');
   return VALID_MODELS.includes(m)?m:DEFAULT_MODEL;
 }
+
+/* 설정 팝업 제어 및 공유 문구 템플릿 연동 */
 function openSettings(){
   document.getElementById('set-apikey').value=getApiKey();
   document.getElementById('set-model').value=getModel();
+  
+  // 기기 내 저장된 템플릿 로드
+  const keys = ['roster', 'dawn', 'wx_heavy', 'wx_rain', 'wx_clear', 'volume'];
+  keys.forEach(k => {
+    editingTemplates[k] = getTemplate(k);
+  });
+  
+  switchSettingsTab('gen');
   document.getElementById('settings-sheet').classList.add('show');
 }
 function closeSettings(){document.getElementById('settings-sheet').classList.remove('show');}
+
+function switchSettingsTab(sub){
+  const isGen = sub === 'gen';
+  document.getElementById('sheet-tab-gen').classList.toggle('active', isGen);
+  document.getElementById('sheet-tab-tpl').classList.toggle('active', !isGen);
+  document.getElementById('set-panel-gen').style.display = isGen ? 'block' : 'none';
+  document.getElementById('set-panel-tpl').style.display = isGen ? 'none' : 'block';
+  
+  if(!isGen) {
+    onTemplateSelectorChange();
+  }
+}
+
+function onTemplateSelectorChange() {
+  // 변경 전 수정 중이던 값을 캐시에 대피
+  const ta = document.getElementById('set-tpl-ta');
+  if (ta && currentTemplateKey) {
+    editingTemplates[currentTemplateKey] = ta.value;
+  }
+  
+  const newKey = document.getElementById('set-tpl-selector').value;
+  currentTemplateKey = newKey;
+  
+  const newTa = document.getElementById('set-tpl-ta');
+  newTa.value = editingTemplates[newKey];
+  
+  // 하단 사용 가능 치환 변수 안내 패치
+  const hints = {
+    roster: `<b>💡 치환 변수 목록:</b><br><code>{emoji}</code> 이모지, <code>{date}</code> 날짜, <code>{title}</code> 제목, <code>{zones}</code> 구역 명단 리스트, <code>{total}</code> 총 인원수`,
+    dawn: `<b>💡 치환 변수 목록:</b><br><code>{emoji}</code> 이모지, <code>{date}</code> 날짜, <code>{title}</code> 제목, <code>{zones}</code> 구역 명단 리스트, <code>{total}</code> 총 인원수`,
+    wx_heavy: `<b>💡 치환 변수 목록:</b><br><code>{time}</code> 갱신 시각, <code>{status_msg}</code> 비구름 진입 상황 안내문, <code>{rain_mm}</code> 강수량, <code>{prob}</code> 확률, <code>{duration}</code> 지속시간`,
+    wx_rain: `<b>💡 치환 변수 목록:</b><br><code>{time}</code> 갱신 시각, <code>{status_msg}</code> 비 시작 상황 안내문, <code>{rain_mm}</code> 강수량, <code>{prob}</code> 확률`,
+    wx_clear: `<b>💡 치환 변수 목록:</b><br><code>{time}</code> 갱신 시각, <code>{span_hours}</code> 예보 유지 범위 시간`,
+    volume: `<b>💡 치환 변수 목록:</b><br><code>{date}</code> 날짜, <code>{title}</code> 제목, <code>{rows}</code> 각 동별 물량 리스트, <code>{total}</code> 합계 수량`
+  };
+  document.getElementById('set-tpl-hint').innerHTML = hints[newKey] || '';
+}
+
 function saveSettings(){
   const k=document.getElementById('set-apikey').value.trim();
   if(k) localStorage.setItem('gemini-key',k); else localStorage.removeItem('gemini-key');
   localStorage.setItem('gemini-model',document.getElementById('set-model').value);
-  closeSettings();showToast(k?'⚙️ 설정을 저장했어요':'API 키를 비웠어요');
+  
+  // 현재 작성 중이던 템플릿 캐시에 임시 이식 후 일괄 반영
+  const ta = document.getElementById('set-tpl-ta');
+  if (ta) {
+    editingTemplates[currentTemplateKey] = ta.value;
+  }
+  
+  for (const key in editingTemplates) {
+    localStorage.setItem('disp-tpl-' + key, editingTemplates[key]);
+  }
+  
+  closeSettings();
+  render();
+  showToast('⚙️ 설정 및 공유 양식이 기기에 안전하게 저장되었습니다.');
 }
 
 const BK_KEYS=['disp-roster-tpl','disp-dawn-tpl'];
@@ -1144,7 +1278,7 @@ async function runImageOCR(mode){
   setStatus('이미지를 읽는 중…','busy');
   customVolumeText = null;
 
-  const prompt=`이 이미지는 배송 물량표입니다. 표에서 각 행의 "동 이름", "식별 코드"(있으면), "건수(숫자)"를 추출하세요.
+  const prompt=`이 이미지는 배송 물량표입니다. 표에서 각 행 of "동 이름", "식별 코드"(있으면), "건수(숫자)"를 추출하세요.
 - 시군구/법정동/소계/합계/전체 합계/TOTAL/헤더 줄은 제외합니다.
 - 식별 코드는 '강남가101' 같은 형식이며 없으면 빈 문자열로 둡니다.
 - 건수는 숫자만(콤마 제거).
