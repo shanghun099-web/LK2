@@ -589,34 +589,15 @@ function reloadTpl(){
   render();showToast('기본 명단으로 되돌렸어요');
 }
 
-/* ═══════════ 실시간 기상 감시 및 정밀 GPS 하이브리드 탑재 ═══════════
+/* ═══════════ 실시간 기상 감시 (강남구 고정) ═══════════
    기상청(KMA) 및 글로벌 통합 최적 예측모델(best_match)을 연동.
-   강남구 도곡/대치동 배송구역 좌표를 디폴트 값으로 고정하여 GPS 미허용 상태에서도 에러 없이 즉시 출력.
-   자동 위치 조회를 제거하여 기사님이 원할 때만 수동으로 "내 위치"를 검색하도록 변경. */
-let wx={lat:37.4882,lon:127.0518,located:false,timeline:null,updated:null,err:null,model:'',alerted:0,loading:false};
+   강남구 도곡/대치동 배송구역 좌표로 고정하여 위치 권한 없이 항상 즉시 출력.
+   GPS·내 위치 기능은 v9에서 제거됨. */
+let wx={lat:37.4882,lon:127.0518,timeline:null,updated:null,err:null,model:'',alerted:0,loading:false};
 
 function initWeather(){
-  fetchWeather(); // 기본 강남구 도곡/대치 좌표로 즉각 예보 로드
-  /* 최초 로드 시 GPS 강제 조회를 생략하여 강남구 위주 날씨 고정 */
+  fetchWeather(); // 강남구 도곡/대치 좌표로 즉각 예보 로드
   setInterval(fetchWeather,10*60*1000); // 10분 단위 자동 기상 갱신
-}
-
-function requestGeo(){
-  if(!navigator.geolocation){showToast('이 기기는 위치를 지원하지 않아요','err');return;}
-  showToast('📍 위치 확인 중…');
-  navigator.geolocation.getCurrentPosition(
-    p=>{
-      wx.lat=p.coords.latitude;wx.lon=p.coords.longitude;wx.located=true;
-      if(tab==='weather')render();
-      fetchWeather();
-      showToast('📍 현재 위치 기준으로 설정했어요 (지도 마커 제외)');
-    },
-    err=>{
-      if(err&&err.code===1)showToast('위치 권한이 꺼져 있어요 — 브라우저 설정에서 허용해주세요','err');
-      else showToast('위치를 가져오지 못했어요 — 야외로 가거나 브라우저 주소를 확인해보세요','err');
-    },
-    {timeout:10000,maximumAge:0,enableHighAccuracy:true}
-  );
 }
 
 async function fetchWeather(){
@@ -709,8 +690,7 @@ function checkWxAlert(){
 
 function wxMetaHtml(){
   if(wx.updated){
-    const loc=wx.located?'📍 현재 위치 기준':'📍 강남구 기준 (자동 고정)';
-    return `⏱️ ${fmtHM(wx.updated)} 갱신 · 기상청 및 글로벌 통합 예보<br>${loc} · 10분마다 자동 감지`;
+    return `⏱️ ${fmtHM(wx.updated)} 갱신 · 기상청 및 글로벌 통합 예보<br>📍 강남구 기준 (도곡·대치 고정) · 10분마다 자동 감지`;
   }
   if(wx.err)return `❌ 예보 로드 실패: ${esc(wx.err)}<br>새로고침을 눌러 다시 시도해주세요`;
   return '예보를 불러오는 중…';
@@ -788,7 +768,7 @@ function updateWeatherDom(){
 }
 
 function renderWeather(){
-  // [수정사항 반영] Windy iframe 주소에서 &marker=true 속성을 지워 강제 표시되던 푸른색 원형 핀 마커(내 위치 핀)를 완벽히 제거
+  // Windy iframe: 마커 없이 강남구 좌표 중심의 레이더 화면만 표시
   const windySrc=`https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&zoom=9&overlay=radar&product=radar&level=surface&lat=${wx.lat.toFixed(4)}&lon=${wx.lon.toFixed(4)}`;
   const shareTxt = customWeatherText !== null ? customWeatherText : wxShareText();
   const step=wx.timeline&&wx.timeline[0]?wx.timeline[0].step:60;
@@ -798,8 +778,7 @@ function renderWeather(){
     <div class="wx-meta">
       <div class="wx-meta-txt" id="wx-meta-txt">${wxMetaHtml()}</div>
       <div style="display:flex;gap:6px;flex-shrink:0">
-        <button class="wx-refresh" onclick="requestGeo()">📍 내 위치</button>
-        <button class="wx-refresh" onclick="showToast('예보 갱신 중…');fetchWeather()">🔄</button>
+        <button class="wx-refresh" onclick="showToast('예보 갱신 중…');fetchWeather()">🔄 새로고침</button>
       </div>
     </div>
     <div class="wx-frame-wrap"><iframe src="${windySrc}" allowfullscreen loading="lazy"></iframe></div>
@@ -822,7 +801,7 @@ function renderWeather(){
 function wxShareText(){
   if(!wx.timeline)return '';
   const now=new Date();
-  const where=wx.located?'현장(현재 위치)':'강남구 기준';
+  const where='강남구 기준';
   const spanH=Math.round(wx.timeline.reduce((s,e)=>s+e.step,0)/60);
   const head=(icon,title)=>`${icon} [${title}]\n⏱️ ${fmtHM(now)} 기준 · ${where} 실시간 예보\n━━━━━━━━━\n`;
   const mmTxt=L=>L.perH<10?L.perH.toFixed(1):String(Math.round(L.perH));
