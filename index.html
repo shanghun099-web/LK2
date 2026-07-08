@@ -41,7 +41,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Noto S
 .tab.active{color:var(--text);}
 .tab.active::after{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:38px;height:3px;border-radius:3px 3px 0 0;background:var(--blue2);}
 
-/* 자동 감지 경보띠: 60분 내 강한 비 감지 시 탭바 아래 표시 */
 .wx-strip{display:none;background:linear-gradient(135deg,#3b0d0d,#4a1010);border-bottom:1px solid #6b1d1d;color:#ffb4b4;font-size:12.5px;font-weight:800;padding:10px 14px;cursor:pointer;flex-shrink:0;text-align:center;}
 .wx-strip.show{display:block;animation:stripPulse 2s ease-in-out infinite;}
 @keyframes stripPulse{50%{opacity:0.72;}}
@@ -56,7 +55,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Noto S
 .dow-btn.sun{color:#f08a8a;}
 .dow-btn.sat{color:#7ab0f0;}
 .dow-btn.active.sun,.dow-btn.active.sat{color:#fff;}
-/* 새벽반 탭에서는 활성 요일을 앰버 톤으로 구분 */
 .dawn-theme .dow-btn.active{background:var(--amber);border-color:var(--amber);}
 
 .tpl-banner{display:flex;align-items:center;gap:9px;background:linear-gradient(135deg,#10243f,#13294a);border:1.5px solid #1d3a66;border-radius:12px;padding:11px 14px;margin-bottom:13px;}
@@ -117,7 +115,32 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
 .preview-wrap{margin-top:6px;}
 .preview-label{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--sub);font-weight:700;margin-bottom:8px;letter-spacing:0.3px;}
 .preview-label::before{content:'';width:18px;height:18px;border-radius:5px;background:var(--kakao);display:inline-block;}
-.kakao-bubble{background:#fff;color:#191919;border-radius:4px 16px 16px 16px;padding:15px 16px;font-size:14px;line-height:1.66;white-space:pre-wrap;word-break:break-word;font-weight:500;box-shadow:0 2px 12px rgba(0,0,0,0.3);}
+
+/* 카카오톡 버블 스타일을 띤 편집 가능한 텍스트 상자 */
+.kakao-bubble{
+  background:#fff;
+  color:#191919;
+  border-radius:4px 16px 16px 16px;
+  padding:15px 16px;
+  font-size:14px;
+  line-height:1.66;
+  white-space:pre-wrap;
+  word-break:break-word;
+  font-weight:500;
+  box-shadow:0 2px 12px rgba(0,0,0,0.3);
+  width:100%;
+  min-height:160px;
+  border:1.5px solid transparent;
+  outline:none;
+  resize:vertical;
+  font-family:inherit;
+  display:block;
+  transition:border 0.15s, background-color 0.15s;
+}
+.kakao-bubble:focus{
+  border-color:var(--blue2);
+  background-color:#fcfcfc;
+}
 .kakao-bubble.empty{color:#999;font-weight:400;background:#f0f0f0;}
 
 .actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px;}
@@ -157,7 +180,7 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
 .spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(96,165,250,0.3);border-top-color:var(--blue3);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:-1px;margin-right:5px;}
 @keyframes spin{to{transform:rotate(360deg);}}
 
-/* ── 실시간 기상 감시 ── */
+/* ── 실시간 기상 감시 및 테이블 이모지 비율 크기 수정 ── */
 .wx-meta{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:11px;}
 .wx-meta-txt{font-size:11.5px;color:var(--sub);font-weight:600;line-height:1.5;min-width:0;}
 .wx-refresh{flex-shrink:0;padding:9px 13px;border:1.5px solid var(--border2);border-radius:9px;background:var(--card2);color:var(--sub);font-size:12px;font-weight:800;font-family:inherit;cursor:pointer;}
@@ -172,7 +195,15 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
 .wx-table .now{background:rgba(37,99,235,0.12);}
 .wx-time{font-weight:800;color:var(--sub);font-size:11.5px;}
 .wx-time small{display:block;font-weight:600;color:var(--dim);font-size:10px;margin-top:1px;}
-.wx-ico{font-size:19px;padding:5px 4px;}
+
+/* 기상 이모지 아이콘 비율 최적화 및 큼직하게 확대 */
+.wx-ico{
+  font-size:28px;
+  padding:3px 4px;
+  vertical-align:middle;
+  line-height:1;
+}
+
 .wx-mm{font-weight:800;color:var(--teal3);}
 .wx-int0{color:var(--dim);font-weight:600;}
 .wx-int1{color:var(--blue3);font-weight:700;}
@@ -282,7 +313,6 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
     <label class="field-label">내보내기</label>
     <div class="sheet-btns" style="margin-top:0">
       <button class="mini-btn" style="border-color:#155244;color:var(--teal3)" onclick="exportBackupFile()">📤 파일로 저장</button>
-      <button class="mini-btn" onclick="exportBackupCopy()">📋 텍스트로 복사</button>
     </div>
     <div style="height:18px"></div>
     <label class="field-label">불러오기</label>
@@ -290,11 +320,7 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
       <button class="mini-btn" style="border-color:#1d3a66;color:var(--blue3)" onclick="document.getElementById('bk-file').click()">📥 백업 파일 선택</button>
       <input type="file" id="bk-file" accept=".json,application/json,text/plain" style="display:none" onchange="onBackupPick(event)">
     </div>
-    <textarea class="paste-ta" id="bk-ta" style="margin-top:9px;height:76px" placeholder="또는 복사해 둔 백업 텍스트를 여기에 붙여넣고 아래 버튼을 누르세요"></textarea>
-    <div class="sheet-btns" style="margin-top:9px">
-      <button class="mini-btn" onclick="importBackupText()">붙여넣은 텍스트로 복원</button>
-    </div>
-    <div class="sheet-hint">복원하면 현재 데이터가 백업 내용으로 교체됩니다. 카톡 인앱 브라우저에서 파일 저장이 안 되면 '텍스트로 복사'를 사용하세요.</div>
+    <div class="sheet-hint">복원하면 현재 데이터가 백업 내용으로 교체됩니다. 백업용 파일을 안전한 드라이브에 보관해 두세요.</div>
     <div class="sheet-btns">
       <button class="mini-btn" onclick="closeBackup()">닫기</button>
     </div>
@@ -320,6 +346,11 @@ const DOW_FULL=['일요일','월요일','화요일','수요일','목요일','금
 let tab='roster';
 const TAB_TITLES={roster:'출근명단 정리',dawn:'새벽반 명단',weather:'실시간 기상 감시',volume:'물량 정리'};
 
+/* 기사님이 직접 수정한 카톡 미리보기 임시 보존용 버퍼 변수 */
+let customRosterText = null;
+let customWeatherText = null;
+let customVolumeText = null;
+
 function toLocalISO(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function todayISO(){return toLocalISO(new Date());}
 function dowOf(iso){return new Date(iso+'T00:00:00').getDay();}
@@ -341,7 +372,6 @@ function deepZones(zs){return zs.map(z=>({emoji:z.emoji||'📍',name:z.name,peop
 
 function load(k,def){try{const v=JSON.parse(localStorage.getItem(k));return (v===null||v===undefined)?def:v;}catch(e){return def;}}
 
-/* rosters.main = 주간 출근명단, rosters.dawn = 새벽반 */
 const rosters={
   main:{lsKey:'disp-roster-tpl',defTitle:'LK 출근 명단',emoji:'🚚',label:'출근명단',theme:''},
   dawn:{lsKey:'disp-dawn-tpl',defTitle:'새벽반 출근 명단',emoji:'🌅',label:'새벽반',theme:'dawn-theme'}
@@ -411,10 +441,20 @@ let volStore=load('disp-volume',{
 });
 
 Object.defineProperty(window,'volume',{get:()=>volStore[volStore.set],configurable:true});
-function switchVolSet(s){volStore.set=s;saveVolume();render();}
+
+function switchVolSet(s){
+  customVolumeText = null; // 물량 세트 변동 시 편집 버퍼 리셋
+  volStore.set=s;
+  saveVolume();
+  render();
+}
 function saveVolume(){localStorage.setItem('disp-volume',JSON.stringify(volStore));}
 
 function switchTab(t){
+  // 탭 변동 시 모든 직접 편집한 버퍼 텍스트 리셋
+  customRosterText = null;
+  customWeatherText = null;
+  customVolumeText = null;
   tab=t;
   ['roster','dawn','weather','volume'].forEach(x=>document.getElementById('tab-'+x).classList.toggle('active',x===t));
   document.getElementById('hTitle').textContent=TAB_TITLES[t];
@@ -430,6 +470,7 @@ function render(){
 
 function selectDow(d){
   const R=cur();
+  customRosterText = null; // 요일 선택이 새로 되면 편집 버퍼 리셋
   R.workDow=d;
   R.work.title=R.tpl[d].title;
   R.work.zones=deepZones(R.tpl[d].zones);
@@ -473,24 +514,29 @@ function renderRoster(){
       </div>
     </div>`).join('');
 
+  // 편집된 버퍼가 존재하면 이를 보여주고, 빈 상태이면 자동 생성된 포맷 적용
+  const previewText = customRosterText !== null ? customRosterText : rosterText();
+
   return `<div class="${R.theme}">
     <div class="dow-bar">${dowBtns}</div>
     ${banner}
     <div class="row2" style="margin-bottom:13px">
-      <div class="field" style="margin:0"><label class="field-label">📅 날짜</label><input type="date" class="inp" value="${R.work.date}" onchange="cur().work.date=this.value;render()"></div>
-      <div class="field" style="margin:0"><label class="field-label">📋 제목</label><input class="inp" value="${esc(R.work.title)}" placeholder="${esc(R.defTitle)}" onchange="cur().work.title=this.value"></div>
+      <div class="field" style="margin:0"><label class="field-label">📅 날짜</label><input type="date" class="inp" value="${R.work.date}" onchange="cur().work.date=this.value;customRosterText=null;render()"></div>
+      <div class="field" style="margin:0"><label class="field-label">📋 제목</label><input class="inp" value="${esc(R.work.title)}" placeholder="${esc(R.defTitle)}" onchange="cur().work.title=this.value;customRosterText=null;render()"></div>
     </div>
     <div class="section-head">
       <div class="section-title">구역 <b>${R.work.zones.length}</b>개 · 인원 <b>${R.work.zones.reduce((s,z)=>s+z.people.length,0)}</b>명</div>
     </div>
     ${zonesHtml}
     <button class="btn-add-zone" onclick="addZone()">＋ 구역 추가</button>
+    
+    <!-- 카톡 미리보기: 편집 가능한 버블로 개선 -->
     <div class="preview-wrap">
-      <div class="preview-label">카톡 미리보기</div>
-      <div class="kakao-bubble${rosterText()?'':' empty'}">${esc(rosterText()||'구역과 이름을 입력하면 여기에 미리보기가 나옵니다')}</div>
+      <div class="preview-label">카톡 미리보기 (직접 편집 가능)</div>
+      <textarea class="kakao-bubble${previewText?'':' empty'}" oninput="customRosterText=this.value" placeholder="구역과 이름을 입력하면 여기에 미리보기가 나옵니다. 직접 문구를 자유롭게 고치셔도 공유/복사됩니다.">${esc(previewText)}</textarea>
       <div class="actions">
-        <button class="btn btn-share" onclick="shareText(rosterText())">💬 공유하기</button>
-        <button class="btn btn-copy" onclick="copyText(rosterText())">📋 복사</button>
+        <button class="btn btn-share" onclick="shareText(customRosterText !== null ? customRosterText : rosterText())">💬 공유하기</button>
+        <button class="btn btn-copy" onclick="copyText(customRosterText !== null ? customRosterText : rosterText())">📋 복사</button>
       </div>
       <button class="btn-save-tpl" onclick="saveAsTpl()">📌 이 명단을 ${DOW_FULL[R.workDow]} ${R.label} 기본으로 저장</button>
     </div>
@@ -515,19 +561,21 @@ function rosterText(){
   return t;
 }
 
-function setZone(zi,key,v){cur().work.zones[zi][key]=key==='name'?v.trim():v;render();}
-function delZone(zi){cur().work.zones.splice(zi,1);render();}
-function addZone(){cur().work.zones.push({emoji:'📍',name:'',people:[]});render();}
-function addPerson(zi,v){const n=v.trim();if(!n)return;cur().work.zones[zi].people.push(n);render();}
-function delPerson(zi,pi){cur().work.zones[zi].people.splice(pi,1);render();}
+function setZone(zi,key,v){customRosterText=null;cur().work.zones[zi][key]=key==='name'?v.trim():v;render();}
+function delZone(zi){customRosterText=null;cur().work.zones.splice(zi,1);render();}
+function addZone(){customRosterText=null;cur().work.zones.push({emoji:'📍',name:'',people:[]});render();}
+function addPerson(zi,v){const n=v.trim();if(!n)return;customRosterText=null;cur().work.zones[zi].people.push(n);render();}
+function delPerson(zi,pi){customRosterText=null;cur().work.zones[zi].people.splice(pi,1);render();}
 
 function saveAsTpl(){
   const R=cur();
+  customRosterText=null;
   R.tpl[R.workDow]={title:R.work.title,zones:deepZones(R.work.zones),saved:true};
   saveTplFor(R);render();showToast(`📌 ${DOW_FULL[R.workDow]} ${R.label} 기본으로 저장했어요`);
 }
 function reloadTpl(){
   const R=cur();
+  customRosterText=null;
   R.work.title=R.tpl[R.workDow].title;
   R.work.zones=deepZones(R.tpl[R.workDow].zones);
   render();showToast('기본 명단으로 되돌렸어요');
@@ -542,7 +590,10 @@ function initWeather(){
     navigator.geolocation.getCurrentPosition(
       p=>{
         wx.lat=p.coords.latitude;wx.lon=p.coords.longitude;wx.located=true;
-        if(tab==='weather')render();
+        if(tab==='weather') {
+          customWeatherText = null;
+          render();
+        }
         fetchWeather();
       },
       ()=>{},
@@ -558,7 +609,8 @@ function requestGeo(){
   navigator.geolocation.getCurrentPosition(
     p=>{
       wx.lat=p.coords.latitude;wx.lon=p.coords.longitude;wx.located=true;
-      if(tab==='weather')render();
+      customWeatherText = null; // 위치 정보가 갱신되면 버퍼 리셋
+      if(tab==='weather') render(); // 탭이 열려있다면 새로 렌더링하여 마커를 가진 새 지도 주입
       fetchWeather();
       showToast('📍 현재 위치 기준으로 설정했어요');
     },
@@ -575,10 +627,6 @@ async function fetchWeather(){
   wx.loading=true;
   const la=Number(wx.lat).toFixed(4), lo=Number(wx.lon).toFixed(4);
   
-  /* [안정성 대폭 개편] 
-    특정 단일 모델(kma_seamless 등)의 일시적인 갱신 지연으로 인한 null 값 반환 문제를 해결하기 위해,
-    실시간 최신 데이터가 무조건 보장되는 Open-Meteo의 최적 모델(best_match) 통합 단일 API를 다이렉트로 호출합니다.
-  */
   const url=`https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&hourly=precipitation_probability,precipitation,temperature_2m,weather_code,is_day&forecast_days=2&timeformat=unixtime&timezone=Asia%2FSeoul`;
   
   let d=null, lastErr='';
@@ -605,7 +653,7 @@ async function fetchWeather(){
     return;
   }
 
-  try{
+  try {
     const g=(o,k,i,def)=>o&&o[k]&&o[k][i]!=null?o[k][i]:def;
     let tl=[];
     
@@ -624,7 +672,7 @@ async function fetchWeather(){
     tl=tl.slice(0,12); // 향후 12시간 표시
     if(!tl.length)throw 0;
     wx.timeline=tl;wx.updated=new Date();wx.err=null;wx.model='best_match';
-  }catch(e){
+  } catch(e) {
     wx.err='예보 해석 실패';
   }
   wx.loading=false;
@@ -734,15 +782,16 @@ function updateWeatherDom(){
   if(meta)meta.innerHTML=wxMetaHtml();
   const bub=document.getElementById('wx-bubble');
   if(bub){
-    const s=wxShareText();
+    const s=customWeatherText !== null ? customWeatherText : wxShareText();
     bub.className='kakao-bubble'+(s?'':' empty');
-    bub.textContent=s||'예보가 로드되면 공유 문구가 자동으로 만들어집니다';
+    bub.value=s||'예보가 로드되면 공유 문구가 자동으로 만들어집니다';
   }
 }
 
 function renderWeather(){
-  const windySrc=`https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&zoom=9&overlay=radar&product=radar&level=surface&lat=${wx.lat.toFixed(4)}&lon=${wx.lon.toFixed(4)}`;
-  const shareTxt=wxShareText();
+  /* [수정] &marker=true를 지도 URL 끝에 결합하여 현재 수신한 기사님의 마커(핀)가 지도에 정상 출력되도록 조치 */
+  const windySrc=`https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&zoom=9&overlay=radar&product=radar&level=surface&lat=${wx.lat.toFixed(4)}&lon=${wx.lon.toFixed(4)}&marker=true`;
+  const shareTxt = customWeatherText !== null ? customWeatherText : wxShareText();
   const step=wx.timeline&&wx.timeline[0]?wx.timeline[0].step:60;
   const stepLbl='1시간';
   const spanH=wx.timeline?Math.round(wx.timeline.reduce((s,e)=>s+e.step,0)/60):6;
@@ -758,12 +807,14 @@ function renderWeather(){
     <div class="section-head"><div class="section-title">⏱ ${stepLbl} 단위 상세 예보 (약 ${spanH}시간)</div></div>
     <div class="wx-table-wrap" id="wx-table-wrap">${wxTableHtml()}</div>
     <div class="wx-note">위 레이더는 Windy 실시간 비구름 화면이고, 타임라인은 기상청(KMA) 등 수치예보 모델 데이터로 계산됩니다. 앱이 켜져 있는 동안 10분마다 자동으로 재감지하며, 60분 내 강한 비가 감지되면 상단에 경보띠가 뜹니다.</div>
+    
+    <!-- 카톡 미리보기: 편집 가능한 버블로 개선 -->
     <div class="preview-wrap">
-      <div class="preview-label">카톡 미리보기 — 실제 예보로 자동 작성</div>
-      <div class="kakao-bubble${shareTxt?'':' empty'}" id="wx-bubble">${esc(shareTxt||'예보가 로드되면 공유 문구가 자동으로 만들어집니다')}</div>
+      <div class="preview-label">카톡 미리보기 — 실제 예보로 자동 작성 (직접 편집 가능)</div>
+      <textarea class="kakao-bubble${shareTxt?'':' empty'}" id="wx-bubble" oninput="customWeatherText=this.value" placeholder="예보가 로드되면 공유 문구가 자동으로 만들어집니다. 직접 내용을 고치고 공유하셔도 적용됩니다.">${esc(shareTxt)}</textarea>
       <div class="actions">
-        <button class="btn btn-share" onclick="shareText(wxShareText())">💬 단톡방 공유</button>
-        <button class="btn btn-copy" onclick="copyText(wxShareText())">📋 복사</button>
+        <button class="btn btn-share" onclick="shareText(customWeatherText !== null ? customWeatherText : wxShareText())">💬 단톡방 공유</button>
+        <button class="btn btn-copy" onclick="copyText(customWeatherText !== null ? customWeatherText : wxShareText())">📋 복사</button>
       </div>
     </div>
     <div style="height:20px"></div>`;
@@ -777,6 +828,16 @@ function wxShareText(){
   const head=(icon,title)=>`${icon} [${title}]\n⏱️ ${fmtHM(now)} 기준 · ${where} 실시간 예보\n━━━━━━━━━\n`;
   const mmTxt=L=>L.perH<10?L.perH.toFixed(1):String(Math.round(L.perH));
 
+  // 분 단위를 시간과 분으로 포맷팅하는 헬퍼 함수 (예: 210분 -> 3시간30분, 60분 -> 1시간)
+  const formatDur = m => {
+    const h = Math.floor(m / 60);
+    const r = m % 60;
+    if (h > 0) {
+      return r > 0 ? `${h}시간${r}분` : `${h}시간`;
+    }
+    return `${r}분`;
+  };
+
   const idx=wx.timeline.findIndex(e=>wxLevel(e.mm,e.step).lv>=2);
   if(idx>=0){
     const strong=wx.timeline[idx], st=new Date(strong.time);
@@ -788,11 +849,11 @@ function wxShareText(){
     }
     let t=head('🌧️','기상 상황 전파');
     t+=mins<=5
-      ?`기사님들, 현재 배송 구역에 ${L.label}가 지나가고 있습니다.\n`
-      :`기사님들, 약 ${mins}분 뒤(${fmtHM(st)}경)부터 배송 구역에 ${L.label} 소식이 있습니다.\n`;
+      ?`현재 배송 구역에 ${L.label}가 지나가고 있습니다.\n`
+      :`약 ${mins}분 뒤(${fmtHM(st)}경)부터 배송 구역에 ${L.label} 소식이 있습니다.\n`;
     t+=`· 예상 강도: 시간당 약 ${mmTxt(L)}mm\n`;
     if(strong.prob!=null)t+=`· 강수확률: ${Math.round(strong.prob)}%\n`;
-    t+=`· 예상 지속: 약 ${dur}분\n`;
+    t+=`· 예상 지속: 약 ${formatDur(dur)}\n`;
     t+=`━━━━━━━━━\n`;
     t+=`비 들어오기 전에 적재함 문단속 한 번씩 부탁드립니다.\n`;
     t+=`빗길에서는 안전거리 평소의 2배로 넉넉히 잡아주시고,\n`;
@@ -809,8 +870,8 @@ function wxShareText(){
     const detail=`시간당 약 ${L.perH.toFixed(1)}mm${r.prob!=null?` · 확률 ${Math.round(r.prob)}%`:''}`;
     let t=head('🌦️','기상 안내');
     t+=mins<=5
-      ?`기사님들, 현재 배송 구역에 비가 내리고 있습니다. (${detail})\n`
-      :`기사님들, 약 ${mins}분 뒤(${fmtHM(st)}경)부터 비가 시작될 것으로 보입니다. (${detail})\n`;
+      ?`현재 배송 구역에 비가 내리고 있습니다. (${detail})\n`
+      :`약 ${mins}분 뒤(${fmtHM(st)}경)부터 비가 시작될 것으로 보입니다. (${detail})\n`;
     t+=`━━━━━━━━━\n`;
     t+=`우비·방수포 미리 챙겨두시면 든든하겠습니다.\n`;
     t+=`젖은 노면 미끄럼 주의하시고, 안전운행하세요!`;
@@ -833,6 +894,8 @@ function renderVolume(){
       <input class="inp qty-num" value="${esc(r.qty)}" placeholder="0" inputmode="numeric" onchange="setVol(${i},'qty',this.value)" oninput="liveTotal()">
       <button class="qty-del" onclick="delRow(${i})">🗑</button>
     </div>`).join('');
+
+  const previewText = customVolumeText !== null ? customVolumeText : volumeText();
 
   return `
     <div class="set-tabs">
@@ -876,12 +939,12 @@ function renderVolume(){
     </details>
 
     <div class="row2" style="margin-bottom:13px">
-      <div class="field" style="margin:0"><label class="field-label">📅 날짜</label><input type="date" class="inp" value="${volume.date}" onchange="volume.date=this.value;saveVolume();render()"></div>
-      <div class="field" style="margin:0"><label class="field-label">📋 제목</label><input class="inp" value="${esc(volume.title)}" placeholder="당일배송 물량" onchange="volume.title=this.value;saveVolume()"></div>
+      <div class="field" style="margin:0"><label class="field-label">📅 날짜</label><input type="date" class="inp" value="${volume.date}" onchange="volume.date=this.value;customVolumeText=null;saveVolume();render()"></div>
+      <div class="field" style="margin:0"><label class="field-label">📋 제목</label><input class="inp" value="${esc(volume.title)}" placeholder="당일배송 물량" onchange="volume.title=this.value;customVolumeText=null;saveVolume()"></div>
     </div>
     <div class="opt-row">
       <div><div class="opt-text">식별 코드 표시</div><div class="opt-sub">강남가101 같은 코드 칸을 켜고 끕니다</div></div>
-      <label class="switch"><input type="checkbox" ${volume.showCode?'checked':''} onchange="volume.showCode=this.checked;saveVolume();render()"><span class="slider"></span></label>
+      <label class="switch"><input type="checkbox" ${volume.showCode?'checked':''} onchange="volume.showCode=this.checked;customVolumeText=null;saveVolume();render()"><span class="slider"></span></label>
     </div>
     <div class="section-head"><div class="section-title">동 <b>${volume.rows.length}</b>개</div></div>
     <div class="qty-head"><span>동 이름</span>${volume.showCode?'<span>식별코드</span>':'<span></span>'}<span>건수</span><span></span></div>
@@ -891,12 +954,14 @@ function renderVolume(){
       <span class="qty-total-lbl">📦 합계</span>
       <span class="qty-total-val" id="volTotal">${total.toLocaleString()}<small>건</small></span>
     </div>
+    
+    <!-- 카톡 미리보기: 편집 가능한 버블로 개선 -->
     <div class="preview-wrap">
-      <div class="preview-label">카톡 미리보기</div>
-      <div class="kakao-bubble${volumeText()?'':' empty'}">${esc(volumeText()||'동과 건수를 입력하면 여기에 미리보기가 나옵니다')}</div>
+      <div class="preview-label">카톡 미리보기 (직접 편집 가능)</div>
+      <textarea class="kakao-bubble${previewText?'':' empty'}" oninput="customVolumeText=this.value" placeholder="동과 건수를 입력하면 여기에 미리보기가 나옵니다. 직접 템플릿 문구를 수정할 수 있습니다.">${esc(previewText)}</textarea>
       <div class="actions">
-        <button class="btn btn-share" onclick="shareText(volumeText())">💬 공유하기</button>
-        <button class="btn btn-copy" onclick="copyText(volumeText())">📋 복사</button>
+        <button class="btn btn-share" onclick="shareText(customVolumeText !== null ? customVolumeText : volumeText())">💬 공유하기</button>
+        <button class="btn btn-copy" onclick="copyText(customVolumeText !== null ? customVolumeText : volumeText())">📋 복사</button>
       </div>
     </div>
     <div style="height:10px"></div>
@@ -922,14 +987,15 @@ function volumeText(){
   return t;
 }
 
-function setVol(i,key,v){volume.rows[i][key]=key==='qty'?v.replace(/[^0-9]/g,''):v.trim();saveVolume();render();}
-function delRow(i){volume.rows.splice(i,1);saveVolume();render();}
-function addRow(){volume.rows.push({dong:'',code:'',qty:''});saveVolume();render();}
-function resetVolNums(){volume.rows.forEach(r=>r.qty='');saveVolume();render();showToast('건수를 비웠어요');}
+function setVol(i,key,v){customVolumeText=null;volume.rows[i][key]=key==='qty'?v.replace(/[^0-9]/g,''):v.trim();saveVolume();render();}
+function delRow(i){customVolumeText=null;volume.rows.splice(i,1);saveVolume();render();}
+function addRow(){customVolumeText=null;volume.rows.push({dong:'',code:'',qty:''});saveVolume();render();}
+function resetVolNums(){customVolumeText=null;volume.rows.forEach(r=>r.qty='');saveVolume();render();showToast('건수를 비웠어요');}
 
 function parsePaste(replace){
   const raw=document.getElementById('paste-ta')?.value||'';
   if(!raw.trim()){showToast('붙여넣은 내용이 없어요','err');return;}
+  customVolumeText=null;
   const skip=/시군구|법정동|상세\s*동|식별\s*코드|소계|합계|total|건수|기준/i;
   const parsed=[];
   raw.split(/\r?\n/).forEach(line=>{
@@ -1007,12 +1073,10 @@ function exportBackupFile(){
     setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},600);
     showToast(`📤 ${backupSummary(obj.data)} 백업을 저장했어요`);
   }catch(e){
-    showToast('파일 저장이 막혔어요 — 텍스트로 복사를 이용하세요','err');
+    showToast('백업 파일 내보내기를 실패했습니다. 브라우저 설정을 확인해주세요.','err');
   }
 }
-function exportBackupCopy(){
-  copyText(JSON.stringify(collectBackupData()));
-}
+
 function onBackupPick(e){
   const file=e.target.files&&e.target.files[0];
   if(!file)return;
@@ -1022,18 +1086,14 @@ function onBackupPick(e){
   reader.readAsText(file);
   e.target.value='';
 }
-function importBackupText(){
-  const raw=(document.getElementById('bk-ta').value||'').trim();
-  if(!raw){showToast('붙여넣은 내용이 없어요','err');return;}
-  tryImport(raw);
-}
+
 function tryImport(text){
   let obj;
-  try{obj=JSON.parse(text);}catch(e){showToast('백업 형식이 아니에요 (JSON 오류)','err');return;}
+  try{obj=JSON.parse(text);}catch(e){showToast('백업 파일 형식이 아닙니다.','err');return;}
   const data=(obj&&obj.data&&typeof obj.data==='object')?obj.data:obj;
-  if(!data||typeof data!=='object'){showToast('백업 형식이 아니에요','err');return;}
+  if(!data||typeof data!=='object'){showToast('올바른 백업 구조가 아닙니다.','err');return;}
   const keys=Object.keys(data).filter(k=>BK_KEYS.indexOf(k)>=0);
-  if(!keys.length){showToast('이 파일에는 명단 데이터가 없어요','err');return;}
+  if(!keys.length){showToast('가져올 유효한 명단 데이터가 없습니다.','err');return;}
   pendingImport={};
   keys.forEach(k=>{pendingImport[k]=typeof data[k]==='string'?data[k]:JSON.stringify(data[k]);});
   dlgAction='doImport';
@@ -1043,6 +1103,9 @@ function tryImport(text){
   document.getElementById('overlay').classList.add('show');
 }
 function applyImport(){
+  customRosterText = null;
+  customWeatherText = null;
+  customVolumeText = null;
   Object.keys(pendingImport).forEach(k=>localStorage.setItem(k,pendingImport[k]));
   const summary=backupSummary(pendingImport);
   pendingImport=null;
@@ -1102,6 +1165,7 @@ async function runImageOCR(mode){
   if(!key){showToast('먼저 ⚙️ 설정에서 API 키를 넣어주세요','err');openSettings();return;}
   if(!pickedImage){showToast('이미지를 먼저 선택하세요','err');return;}
   setStatus('이미지를 읽는 중…','busy');
+  customVolumeText = null;
 
   const prompt=`이 이미지는 배송 물량표입니다. 표에서 각 행의 "동 이름", "식별 코드"(있으면), "건수(숫자)"를 추출하세요.
 - 시군구/법정동/소계/합계/전체 합계/TOTAL/헤더 줄은 제외합니다.
@@ -1219,10 +1283,12 @@ function closeDialog(){dlgAction=null;dlgRosterKey=null;document.getElementById(
 document.getElementById('dlg-ok').onclick=function(){
   if(dlgAction==='clearDow'){
     const R=rosters[dlgRosterKey||'main'];
+    customRosterText = null;
     R.tpl[R.workDow]=blankTpl(R.defTitle);saveTplFor(R);
     R.work.title=R.defTitle;R.work.zones=[];
     showToast('🗑 이 요일 기본을 비웠어요');
   }else if(dlgAction==='resetVol'){
+    customVolumeText = null;
     volume.rows=[{dong:'',code:'',qty:''}];saveVolume();
     showToast('🗑 초기화했어요');
   }else if(dlgAction==='doImport'&&pendingImport){
