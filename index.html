@@ -115,7 +115,7 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
 
 .dispatch-row{display:grid;grid-template-columns:110px 1fr 38px;gap:8px;margin-bottom:8px;align-items:center;}
 input[type="time"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.8) sepia(1) saturate(5) hue-rotate(190deg); /* Make native picker icon matching dark theme */
+  filter: invert(0.8) sepia(1) saturate(5) hue-rotate(190deg);
   cursor: pointer;
 }
 
@@ -239,7 +239,6 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .set-tab{flex:1;padding:11px 0;border:1.5px solid var(--border);border-radius:11px;background:var(--card);color:var(--sub);font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;transition:all 0.15s;}
 .set-tab.active{background:var(--teal);border-color:var(--teal);color:#04211c;}
 
-/* 설정 내 서브탭 전용 */
 .sheet-tabs{display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:10px;}
 .sheet-tab{flex:1;padding:10px 0;border:none;background:var(--card2);color:var(--sub);font-size:12.5px;font-weight:700;border-radius:8px;cursor:pointer;font-family:inherit;transition:all 0.15s;}
 .sheet-tab.active{background:var(--blue);color:#fff;}
@@ -300,7 +299,6 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   <div class="content" id="content"></div>
 </div>
 
-<!-- 설정 모달 시트 (상세 영구 템플릿 저장 기능 추가) -->
 <div class="sheet-overlay" id="settings-sheet" onclick="if(event.target===this)closeSettings()">
   <div class="sheet" style="max-height: 85vh; overflow-y: auto;">
     <div class="sheet-title">⚙️ 설정 및 문구 양식</div>
@@ -311,7 +309,6 @@ input[type="time"]::-webkit-calendar-picker-indicator {
       <button class="sheet-tab" id="sheet-tab-tpl" onclick="switchSettingsTab('tpl')">📝 기본 문구 편집</button>
     </div>
 
-    <!-- 일반 설정 패널 -->
     <div id="set-panel-gen">
       <label class="field-label">Gemini API 키</label>
       <input class="inp" id="set-apikey" type="password" placeholder="AIza..." autocomplete="off">
@@ -326,7 +323,6 @@ input[type="time"]::-webkit-calendar-picker-indicator {
       <div class="sheet-hint">인식 오류가 발생하면 모델을 변경해보세요.</div>
     </div>
 
-    <!-- 기본 공유 문구 양식 관리 패널 -->
     <div id="set-panel-tpl" style="display:none;">
       <label class="field-label">수정할 카톡 양식 선택</label>
       <select class="inp" id="set-tpl-selector" onchange="onTemplateSelectorChange()">
@@ -354,7 +350,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 <div class="sheet-overlay" id="backup-sheet" onclick="if(event.target===this)closeBackup()">
   <div class="sheet">
     <div class="sheet-title">💾 명단 백업 · 복원</div>
-    <div class="sheet-sub">출근명단과 새벽반의 요일별 기본 명단을 파일 하나로 저장하고, 새 기기에서 불러올 수 있어요. (물량·API 키는 포함되지 않습니다)</div>
+    <div class="sheet-sub">출근명단, 새벽반, 출차관리의 요일별 기본 명단을 파일 하나로 저장하고, 새 기기에서 불러올 수 있어요. (물량·API 키는 포함되지 않습니다)</div>
     <label class="field-label">내보내기</label>
     <div class="sheet-btns" style="margin-top:0">
       <button class="mini-btn" style="border-color:#155244;color:var(--teal3)" onclick="exportBackupFile()">📤 파일로 저장</button>
@@ -391,13 +387,11 @@ const DOW_FULL=['일요일','월요일','화요일','수요일','목요일','금
 let tab='roster';
 const TAB_TITLES={roster:'출근명단 정리',dawn:'새벽반 명단',weather:'실시간 기상 감시',volume:'물량 정리',dispatch:'출차 및 입차 관리'};
 
-/* 기사님이 직접 수정한 카톡 미리보기 임시 보존용 버퍼 변수 */
 let customRosterText = null;
 let customWeatherText = null;
 let customVolumeText = null;
 let customDispatchText = null;
 
-// 공유 기본 문구 템플릿 정의 및 기사님 요청사항 반영 (우비·방수포 챙겨 문구 삭제 완료)
 const DEFAULT_TEMPLATES = {
   roster: `{emoji} {date} {title}\n━━━━━━━━━\n{zones}\n━━━━━━━━━\n👥 총 {total}명`,
   dawn: `{emoji} {date} {title}\n━━━━━━━━━\n{zones}\n━━━━━━━━━\n👥 총 {total}명`,
@@ -414,7 +408,6 @@ let currentTemplateKey = 'roster';
 function getTemplate(key) {
   let tpl = localStorage.getItem('disp-tpl-' + key);
   if (!tpl) return DEFAULT_TEMPLATES[key];
-  // 신규 수동 템플릿 강제 마이그레이션 지원
   if (key === 'dispatch' && tpl.includes('[공지] 오늘')) {
     return DEFAULT_TEMPLATES.dispatch;
   }
@@ -450,7 +443,6 @@ function deepZones(zs){return zs.map(z=>({emoji:z.emoji||'📍',name:z.name,peop
 
 function load(k,def){try{const v=JSON.parse(localStorage.getItem(k));return (v===null||v===undefined)?def:v;}catch(e){return def;}}
 
-/* rosters.main = 주간 출근명단, rosters.dawn = 새벽반 */
 const rosters={
   main:{lsKey:'disp-roster-tpl',defTitle:'LK 출근 명단',emoji:'🚚',label:'출근명단',theme:''},
   dawn:{lsKey:'disp-dawn-tpl',defTitle:'새벽반 출근 명단',emoji:'🌅',label:'새벽반',theme:'dawn-theme'}
@@ -472,7 +464,6 @@ function initRoster(key){
 initRoster('main');
 initRoster('dawn');
 
-/* 구버전 데이터 마이그레이션 */
 (function migrateDawn(){
   const legacy=load('disp-dawn',null);
   if(Array.isArray(legacy)&&legacy.length&&!rosters.dawn.work.zones.length){
@@ -529,43 +520,59 @@ function switchVolSet(s){
 }
 function saveVolume(){localStorage.setItem('disp-volume',JSON.stringify(volStore));}
 
-/* 출차/입차 기획 관리 데이터 저장소 */
-let dispatchStore = load('disp-dispatch', {
-  date: todayISO(),
-  groups: [
-    { people: ['전진환', '권현정'] },
-    { people: ['이성학', '이승민'] },
-    { people: ['박서준', '김진호'] },
-    { people: ['이영진'] },
-    { people: ['이선하', '박은아'] }
-  ],
-  inbounds: [
-    { time: '04:30', people: '이승민' },
-    { time: '05:00', people: '박서준, 김진호' },
-    { time: '05:15', people: '이영진' },
-    { time: '05:30', people: '이선하, 박은아' }
-  ]
-});
-
-function saveDispatch() {
-  localStorage.setItem('disp-dispatch', JSON.stringify(dispatchStore));
+/* ═══════════ 출차 및 입차 관리 데이터 요일 저장소 ═══════════ */
+function blankDispatchTpl() {
+  return { groups: [], inbounds: [], saved: false };
+}
+function deepDispatchData(src) {
+  return {
+    groups: (src.groups || []).map(g => ({ people: [...g.people] })),
+    inbounds: (src.inbounds || []).map(ib => ({ time: ib.time, people: ib.people }))
+  };
 }
 
-// 명단 기반 칩 조회를 위해 오늘 활성화된 전체 기사 목록 추출 ( Roster + Dawn 합산 )
+let dispatchTplStore = load('disp-dispatch-tpl', null);
+if (!dispatchTplStore) {
+  dispatchTplStore = [0,1,2,3,4,5,6].map(() => blankDispatchTpl());
+  localStorage.setItem('disp-dispatch-tpl', JSON.stringify(dispatchTplStore));
+}
+
+let dispatchWorkDow = dowOf(todayISO());
+let dispatchStore = {
+  date: todayISO(),
+  groups: deepDispatchData(dispatchTplStore[dispatchWorkDow]).groups,
+  inbounds: deepDispatchData(dispatchTplStore[dispatchWorkDow]).inbounds
+};
+
+function saveDispatch() {
+  // 현재 가동 데이터 임시 휘발성 임시 보관용 처리 연동 (백업 연동 목적 호환성 유지)
+  localStorage.setItem('disp-dispatch', JSON.stringify(dispatchStore));
+}
+function saveDispatchTpl() {
+  localStorage.setItem('disp-dispatch-tpl', JSON.stringify(dispatchTplStore));
+}
+
+function selectDispatchDow(d) {
+  customDispatchText = null;
+  dispatchWorkDow = d;
+  const targetTpl = dispatchTplStore[d];
+  dispatchStore.groups = deepDispatchData(targetTpl).groups;
+  dispatchStore.inbounds = deepDispatchData(targetTpl).inbounds;
+  dispatchStore.date = nearestDateForDow(d);
+  render();
+}
+
 function getTodayActiveDrivers() {
   const drivers = new Set();
-  // 주간 출근명단
   rosters.main.work.zones.forEach(z => {
     if(z.people) z.people.forEach(p => drivers.add(p));
   });
-  // 새벽반 명단
   rosters.dawn.work.zones.forEach(z => {
     if(z.people) z.people.forEach(p => drivers.add(p));
   });
   return Array.from(drivers);
 }
 
-// 칩 입력창 자동 완성을 유도하는 현재 포커스 포인터 트래커
 let activeChipInputRef = null;
 
 function autoResizePreviews() {
@@ -715,7 +722,7 @@ function reloadTpl(){
   render();showToast('기본 명단으로 되돌렸어요');
 }
 
-/* ═══════════ 실시간 기상 감시 (강남구 고정) ═══════════ */
+/* ═══════════ 실시간 기상 감시 ═══════════ */
 let wx={lat:37.4882,lon:127.0518,timeline:null,updated:null,err:null,model:'',alerted:0,loading:false};
 
 function initWeather(){
@@ -791,6 +798,7 @@ function wxLevel(mm,step){
 
 function checkWxAlert(){
   const strip=document.getElementById('wx-strip');
+  if(!strip) return;
   if(!wx.timeline){strip.classList.remove('show');return;}
   const now=Date.now();
   const strong=wx.timeline.find(e=>wxLevel(e.mm,e.step).lv>=2&&(e.time-now)<60*60000);
@@ -891,8 +899,6 @@ function updateWeatherDom(){
 function renderWeather(){
   const windySrc=`https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&zoom=9&overlay=radar&product=radar&level=surface&lat=${wx.lat.toFixed(4)}&lon=${wx.lon.toFixed(4)}`;
   const shareTxt = customWeatherText !== null ? customWeatherText : wxShareText();
-  const step=wx.timeline&&wx.timeline[0]?wx.timeline[0].step:60;
-  const stepLbl='1시간';
   const spanH=wx.timeline?Math.round(wx.timeline.reduce((s,e)=>s+e.step,0)/60):6;
   return `
     <div class="wx-meta">
@@ -902,11 +908,10 @@ function renderWeather(){
       </div>
     </div>
     <div class="wx-frame-wrap"><iframe src="${windySrc}" allowfullscreen loading="lazy"></iframe></div>
-    <div class="section-head"><div class="section-title">⏱ ${stepLbl} 단위 상세 예보 (약 ${spanH}시간)</div></div>
+    <div class="section-head"><div class="section-title">⏱ 1시간 단위 상세 예보 (약 ${spanH}시간)</div></div>
     <div class="wx-table-wrap" id="wx-table-wrap">${wxTableHtml()}</div>
     <div class="wx-note">위 레이더는 Windy 실시간 비구름 화면이고, 타임라인은 기상청(KMA) 등 수치예보 모델 데이터로 계산됩니다. 앱이 켜져 있는 동안 10분마다 자동으로 재감지하며, 60분 내 강한 비가 감지되면 상단에 경보띠가 뜹니다.</div>
     
-    <!-- 카톡 미리보기 -->
     <div class="preview-wrap">
       <div class="preview-label">카톡 미리보기 — 실제 예보로 자동 작성 (직접 편집 가능)</div>
       <textarea class="kakao-bubble${shareTxt?'':' empty'}" id="wx-bubble" oninput="customWeatherText=this.value; autoResizePreviews();" placeholder="예보가 로드되면 공유 문구가 자동으로 만들어집니다. 직접 내용을 고치고 공유하셔도 적용됩니다.">${esc(shareTxt)}</textarea>
@@ -1053,7 +1058,6 @@ function renderVolume(){
       <span class="qty-total-val" id="volTotal">${total.toLocaleString()}<small>건</small></span>
     </div>
     
-    <!-- 카톡 미리보기 -->
     <div class="preview-wrap">
       <div class="preview-label">카톡 미리보기 (직접 편집 가능)</div>
       <textarea class="kakao-bubble${previewText?'':' empty'}" oninput="customVolumeText=this.value; autoResizePreviews();" placeholder="동과 건수를 입력하면 여기에 미리보기가 나옵니다. 직접 템플릿 문구를 수정할 수 있습니다.">${esc(previewText)}</textarea>
@@ -1127,7 +1131,7 @@ function liveTotal(){
   if(el) el.innerHTML=`${t.toLocaleString()}<small>건</small>`;
 }
 
-/* 출차 및 입차 관리 탭 렌더러 */
+/* ═══════════ 출차 및 입차 관리 (개편 완료) ═══════════ */
 const DISPATCH_RANK_EMOJIS = ['🥇', '🥈', '🥉', '🚚', '🚛', '📦', '📍'];
 
 function formatTimeForInput(t) {
@@ -1149,10 +1153,25 @@ function formatTimeForPreview(t) {
 }
 
 function renderDispatch(){
+  const dowBtns=DAYS.map((d,i)=>{
+    const cls=['dow-btn'];
+    if(i===dispatchWorkDow)cls.push('active');
+    if(i===0)cls.push('sun');if(i===6)cls.push('sat');
+    if(dispatchTplStore[i].saved && (dispatchTplStore[i].groups.length || dispatchTplStore[i].inbounds.length))cls.push('has-data');
+    return `<button class="${cls.join(' ')}" onclick="selectDispatchDow(${i})">${d}<span class="dow-dot"></span></button>`;
+  }).join('');
+
+  const tplSaved = dispatchTplStore[dispatchWorkDow].saved;
+  const banner=`<div class="tpl-banner">
+    <span class="tpl-banner-icon">${tplSaved?'📌':'🚛'}</span>
+    <span class="tpl-banner-txt">${tplSaved
+      ? `<b>${DOW_FULL[dispatchWorkDow]}</b> 출차 기본 정보를 불러왔어요.`
+      : `<b>${DOW_FULL[dispatchWorkDow]}</b> 출차 정보는 저장된 기본이 없어요. 작성 후 하단에 기본 저장하세요.`}</span>
+  </div>`;
+
   const activeDrivers = getTodayActiveDrivers();
   let driverHelperHtml = '';
   
-  // 기사명 원터치 도우미
   if(activeDrivers.length > 0) {
     driverHelperHtml = `
       <div class="helper-box">
@@ -1172,7 +1191,6 @@ function renderDispatch(){
     `;
   }
 
-  // 출차 그룹 목록 빌딩
   const groupsHtml = dispatchStore.groups.map((g, gi) => {
     const rankEmoji = DISPATCH_RANK_EMOJIS[gi] || '🚛';
     return `
@@ -1199,7 +1217,6 @@ function renderDispatch(){
     `;
   }).join('');
 
-  // 입차 일정 목록 빌딩 (시간 설정을 시스템 터치 휠형 인풋으로 완전 전환)
   const inboundsHtml = dispatchStore.inbounds.map((ib, ii) => `
     <div class="dispatch-row">
       <input type="time" class="inp" id="ib-time-${ii}" style="padding:10px; font-size:14.5px; text-align:center; font-weight:800; color:var(--teal3);" 
@@ -1216,6 +1233,8 @@ function renderDispatch(){
   const previewText = customDispatchText !== null ? customDispatchText : dispatchText();
 
   return `
+    <div class="dow-bar">${dowBtns}</div>
+    ${banner}
     ${driverHelperHtml}
     
     <div style="margin-bottom:13px">
@@ -1235,7 +1254,6 @@ function renderDispatch(){
     ${inboundsHtml}
     <button class="btn-add-row" style="padding:10px; border-color:var(--teal2); color:var(--teal3);" onclick="addInbound()">＋ 입차 시간 추가</button>
 
-    <!-- 카톡 미리보기 -->
     <div class="preview-wrap" style="margin-top:16px;">
       <div class="preview-label">카톡 미리보기 (직접 편집 가능)</div>
       <textarea class="kakao-bubble${previewText?'':' empty'}" oninput="customDispatchText=this.value; autoResizePreviews();" placeholder="출차 및 입차 데이터를 등록하면 이곳에 자동으로 텍스트 공지가 생성됩니다.">${esc(previewText)}</textarea>
@@ -1243,10 +1261,12 @@ function renderDispatch(){
         <button class="btn btn-share" onclick="shareText(customDispatchText !== null ? customDispatchText : dispatchText())">💬 공유하기</button>
         <button class="btn btn-copy" onclick="copyText(customDispatchText !== null ? customDispatchText : dispatchText())">📋 복사</button>
       </div>
+      <button class="btn-save-tpl" onclick="saveDispatchAsTpl()">📌 이 설정을 ${DOW_FULL[dispatchWorkDow]} 출차 기본으로 저장</button>
     </div>
     <div style="height:10px"></div>
     <div class="mini-btns">
-      <button class="mini-btn danger" onclick="askClearDispatch()">전체 초기화</button>
+      <button class="mini-btn" onclick="reloadDispatchTpl()">기본으로 되돌리기</button>
+      <button class="mini-btn danger" onclick="askClearDispatch()">이 요일 기본 삭제</button>
     </div>
     <div style="height:20px"></div>
   `;
@@ -1254,7 +1274,7 @@ function renderDispatch(){
 
 function handleHelperChipClick(name) {
   if(!activeChipInputRef) {
-    showToast('아래의 [+ 기사추가] 입력칸이나 [기사 이름] 칸을 먼저 마우스로 클릭하고 기사를 선택해보세요.');
+    showToast('아래의 [+ 기사추가] 입력칸이나 [기사 이름] 칸을 먼저 클릭하고 기사를 선택하세요.');
     return;
   }
   
@@ -1334,21 +1354,40 @@ function setInbound(ii, key, val) {
   render();
 }
 
+function saveDispatchAsTpl() {
+  customDispatchText = null;
+  dispatchTplStore[dispatchWorkDow] = {
+    groups: dispatchStore.groups.map(g => ({ people: [...g.people] })),
+    inbounds: dispatchStore.inbounds.map(ib => ({ time: ib.time, people: ib.people })),
+    saved: true
+  };
+  saveDispatchTpl();
+  render();
+  showToast(`📌 ${DOW_FULL[dispatchWorkDow]} 출차 기본 형식으로 저장 완료`);
+}
+
+function reloadDispatchTpl() {
+  customDispatchText = null;
+  const targetTpl = dispatchTplStore[dispatchWorkDow];
+  dispatchStore.groups = deepDispatchData(targetTpl).groups;
+  dispatchStore.inbounds = deepDispatchData(targetTpl).inbounds;
+  render();
+  showToast('기본 형식으로 되돌렸어요');
+}
+
 function askClearDispatch() {
   dlgAction = 'clearDispatch';
-  document.getElementById('dlg-title').textContent = '출차 데이터 초기화';
-  document.getElementById('dlg-msg').textContent = '작성 중이던 출차 그룹 순위와\n입차 정보 리스트가 모두 지워집니다.';
-  document.getElementById('dlg-ok').textContent = '초기화';
+  document.getElementById('dlg-title').textContent = '이 요일 기본 삭제';
+  document.getElementById('dlg-msg').textContent = `${DOW_FULL[dispatchWorkDow]} 출차/입차 기본 데이터를 비웁니다.\n다른 요일 포맷은 유지됩니다.`;
+  document.getElementById('dlg-ok').textContent = '삭제';
   document.getElementById('overlay').classList.add('show');
 }
 
 function dispatchText() {
   const dObj = new Date(dispatchStore.date + 'T00:00:00');
   const dateStr = `${dObj.getMonth() + 1}월 ${dObj.getDate()}일`;
-  const dayKr = DAYS[dObj.getDay()]; // '수'
-  const dayFull = DOW_FULL[dObj.getDay()]; // '수요일'
+  const dayFull = DOW_FULL[dObj.getDay()];
 
-  // 출차순서 포맷팅 (🥇 🥈 🥉 등급 이모지 내장화)
   const ordersStr = dispatchStore.groups
     .map((g, gi) => {
       if(g.people.length === 0) return '';
@@ -1358,7 +1397,6 @@ function dispatchText() {
     .filter(Boolean)
     .join('\n');
     
-  // 입차 스케줄 포맷팅 (🕒 시계와 🚚 트럭 이모지 자동 바인딩 및 기사님 호칭 완전 제외)
   const inboundsStr = dispatchStore.inbounds
     .map(ib => {
       const timeVal = formatTimeForPreview(ib.time.trim());
@@ -1380,6 +1418,7 @@ function dispatchText() {
   });
 }
 
+/* ═══════════ 설정 및 백업 관리 시스템 ═══════════ */
 function getApiKey(){return localStorage.getItem('gemini-key')||'';}
 const DEFAULT_MODEL='gemini-3.5-flash';
 const VALID_MODELS=['gemini-3.5-flash','gemini-3.1-flash-lite','gemini-2.5-flash'];
@@ -1392,7 +1431,6 @@ function openSettings(){
   document.getElementById('set-apikey').value=getApiKey();
   document.getElementById('set-model').value=getModel();
   
-  // 기기 내 저장된 템플릿 로드
   const keys = ['roster', 'dawn', 'wx_heavy', 'wx_rain', 'wx_clear', 'volume', 'dispatch'];
   keys.forEach(k => {
     editingTemplates[k] = getTemplate(k);
@@ -1427,7 +1465,6 @@ function onTemplateSelectorChange() {
   const newTa = document.getElementById('set-tpl-ta');
   newTa.value = editingTemplates[newKey];
   
-  // 하단 치환 변수 가이드 갱신
   const hints = {
     roster: `<b>💡 치환 변수 목록:</b><br><code>{emoji}</code> 이모지, <code>{date}</code> 날짜, <code>{title}</code> 제목, <code>{zones}</code> 구역 명단 리스트, <code>{total}</code> 총 인원수`,
     dawn: `<b>💡 치환 변수 목록:</b><br><code>{emoji}</code> 이모지, <code>{date}</code> 날짜, <code>{title}</code> 제목, <code>{zones}</code> 구역 명단 리스트, <code>{total}</code> 총 인원수`,
@@ -1459,7 +1496,7 @@ function saveSettings(){
   showToast('⚙️ 설정 및 공유 양식이 기기에 안전하게 저장되었습니다.');
 }
 
-const BK_KEYS=['disp-roster-tpl','disp-dawn-tpl','disp-dispatch'];
+const BK_KEYS=['disp-roster-tpl','disp-dawn-tpl','disp-dispatch-tpl'];
 let pendingImport=null;
 
 function openBackup(){document.getElementById('backup-sheet').classList.add('show');}
@@ -1468,13 +1505,13 @@ function closeBackup(){document.getElementById('backup-sheet').classList.remove(
 function collectBackupData(){
   const data={};
   BK_KEYS.forEach(k=>{const v=localStorage.getItem(k);if(v!==null)data[k]=v;});
-  return {app:'dispatch-organizer',kind:'roster-backup',version:5,exported:new Date().toISOString(),data};
+  return {app:'dispatch-organizer',kind:'roster-backup',version:6,exported:new Date().toISOString(),data};
 }
 function backupSummary(data){
   const parts=[];
   if(data['disp-roster-tpl'])parts.push('출근명단');
   if(data['disp-dawn-tpl'])parts.push('새벽반');
-  if(data['disp-dispatch'])parts.push('출차관리');
+  if(data['disp-dispatch-tpl'])parts.push('출차관리');
   return parts.join(' + ')||'명단';
 }
 function exportBackupFile(){
@@ -1488,7 +1525,7 @@ function exportBackupFile(){
     setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},600);
     showToast(`📤 ${backupSummary(obj.data)} 백업을 저장했어요`);
   }catch(e){
-    showToast('백업 파일 내보내기를 실패했습니다. 브라우저 설정을 확인해주세요.','err');
+    showToast('백업 파일 내보내기를 실패했습니다.','err');
   }
 }
 
@@ -1513,7 +1550,7 @@ function tryImport(text){
   keys.forEach(k=>{pendingImport[k]=typeof data[k]==='string'?data[k]:JSON.stringify(data[k]);});
   dlgAction='doImport';
   document.getElementById('dlg-title').textContent='명단 복원';
-  document.getElementById('dlg-msg').textContent=`${backupSummary(pendingImport)} 기본 명단을 불러옵니다.\n현재 명단은 백업 내용으로 교체돼요.`;
+  document.getElementById('dlg-msg').textContent=`${backupSummary(pendingImport)} 기본 데이터를 불러옵니다.\n현재 데이터들은 백업 내용으로 교체돼요.`;
   document.getElementById('dlg-ok').textContent='복원';
   document.getElementById('overlay').classList.add('show');
 }
@@ -1527,11 +1564,15 @@ function applyImport(){
   pendingImport=null;
   initRoster('main');initRoster('dawn');
   
-  const dStore = localStorage.getItem('disp-dispatch');
-  if(dStore) dispatchStore = JSON.parse(dStore);
+  const dStore = localStorage.getItem('disp-dispatch-tpl');
+  if(dStore) dispatchTplStore = JSON.parse(dStore);
   
+  // 가동 버퍼 동기화
+  dispatchStore.groups = deepDispatchData(dispatchTplStore[dispatchWorkDow]).groups;
+  dispatchStore.inbounds = deepDispatchData(dispatchTplStore[dispatchWorkDow]).inbounds;
+
   closeBackup();
-  showToast(`✅ ${summary} 명단을 복원했어요`);
+  showToast(`✅ ${summary} 데이터를 복원했어요`);
 }
 
 function setPasteMode(m){
@@ -1614,9 +1655,9 @@ async function runImageOCR(mode){
       const errTxt=await res.text();
       let msg='인식 실패';
       if(res.status===400&&/API_KEY|API key/i.test(errTxt)) msg='API 키가 올바르지 않아요';
-      else if(res.status===403) msg='API 키 권한 문제 — 키를 다시 발급해 보세요';
-      else if(res.status===404) msg=`모델(${model})을 찾을 수 없어요 — ⚙️ 설정에서 모델 변경`;
-      else if(res.status===429) msg='요청 한도 초과 — 잠시 후 다시';
+      else if(res.status===403) msg='API 키 권한 문제';
+      else if(res.status===404) msg=`모델을 찾을 수 없어요`;
+      else if(res.status===429) msg='요청 한도 초과';
       else msg=`오류 (${res.status})`;
       setStatus(msg,'err');return;
     }
@@ -1676,7 +1717,7 @@ function copyText(text){
   navigator.clipboard.writeText(text).then(()=>showToast('📋 복사 완료 — 단톡에 붙여넣기')).catch(()=>{
     const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
     document.body.appendChild(ta);ta.select();
-    try{document.execCommand('copy');showToast('📋 복사 완료 — 단톡에 붙여넣기');}catch(e){showToast('복사 실패 — 브라우저 제한','err');}
+    try{document.execCommand('copy');showToast('📋 복사 완료 — 단톡에 붙여넣기');}catch(e){showToast('복사 실패','err');}
     document.body.removeChild(ta);
   });
 }
@@ -1713,10 +1754,12 @@ document.getElementById('dlg-ok').onclick=function(){
     showToast('🗑 초기화했어요');
   }else if(dlgAction==='clearDispatch'){
     customDispatchText = null;
+    dispatchTplStore[dispatchWorkDow] = blankDispatchTpl();
+    saveDispatchTpl();
     dispatchStore.groups = [];
     dispatchStore.inbounds = [];
     saveDispatch();
-    showToast('🗑 출차 데이터를 전체 비웠어요');
+    showToast('🗑 이 요일의 출차 기본 설정을 비웠어요');
   }else if(dlgAction==='doImport'&&pendingImport){
     applyImport();
   }
@@ -1724,7 +1767,7 @@ document.getElementById('dlg-ok').onclick=function(){
 };
 
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function showToast(msg,type){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show'+(type==='err'?' err':'');setTimeout(()=>t.className='toast'+(type==='err'?' err':''),2400);}
+function showToast(msg,type){const t=document.getElementById('toast');if(!t)return;t.textContent=msg;t.className='toast show'+(type==='err'?' err':'');setTimeout(()=>t.className='toast'+(type==='err'?' err':''),2400);}
 
 render();
 initWeather();
