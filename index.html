@@ -93,7 +93,6 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
 .chip-add input{background:transparent;border:none;outline:none;color:var(--text);font-size:13.5px;font-family:inherit;padding:7px 10px;width:88px;}
 .chip-add input::placeholder{color:var(--dim);}
 
-/* 기사 매핑 도우미 스타일 */
 .helper-box{background:var(--card2);border:1.5px solid var(--border);border-radius:12px;padding:12px;margin-bottom:14px;}
 .helper-title{font-size:11px;color:var(--sub);font-weight:800;margin-bottom:8px;letter-spacing:0.5px;display:flex;justify-content:between;}
 .helper-chips{display:flex;flex-wrap:wrap;gap:6px;}
@@ -114,8 +113,11 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
 .btn-add-row{width:100%;padding:12px;border:1.5px dashed var(--border2);border-radius:13px;background:transparent;color:var(--sub);font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;margin:4px 0 14px;transition:all 0.15s;}
 .btn-add-row:active{background:var(--card);border-color:var(--teal2);color:var(--teal3);}
 
-/* 입출차 전용 스플릿 레이아웃 */
-.dispatch-row{display:grid;grid-template-columns:100px 1fr 38px;gap:8px;margin-bottom:8px;align-items:center;}
+.dispatch-row{display:grid;grid-template-columns:110px 1fr 38px;gap:8px;margin-bottom:8px;align-items:center;}
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8) sepia(1) saturate(5) hue-rotate(190deg); /* Make native picker icon matching dark theme */
+  cursor: pointer;
+}
 
 .qty-total-bar{background:linear-gradient(135deg,#0a2620,#0d2e26);border:1.5px solid #155244;border-radius:13px;padding:14px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;}
 .qty-total-lbl{font-size:13px;color:var(--teal3);font-weight:700;}
@@ -538,10 +540,10 @@ let dispatchStore = load('disp-dispatch', {
     { people: ['이선하', '박은아'] }
   ],
   inbounds: [
-    { time: '4:30', people: '이승민' },
-    { time: '5:00', people: '박서준, 김진호' },
-    { time: '5:15', people: '이영진' },
-    { time: '5:30', people: '이선하, 박은아' }
+    { time: '04:30', people: '이승민' },
+    { time: '05:00', people: '박서준, 김진호' },
+    { time: '05:15', people: '이영진' },
+    { time: '05:30', people: '이선하, 박은아' }
   ]
 });
 
@@ -1128,11 +1130,29 @@ function liveTotal(){
 /* 출차 및 입차 관리 탭 렌더러 */
 const DISPATCH_RANK_EMOJIS = ['🥇', '🥈', '🥉', '🚚', '🚛', '📦', '📍'];
 
+function formatTimeForInput(t) {
+  if (!t) return "";
+  if (t.includes(':')) {
+    let [h, m] = t.split(':');
+    return `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
+  }
+  return t;
+}
+
+function formatTimeForPreview(t) {
+  if (!t) return "";
+  if (t.includes(':')) {
+    let [h, m] = t.split(':');
+    return `${parseInt(h, 10)}:${m.padStart(2, '0')}`;
+  }
+  return t;
+}
+
 function renderDispatch(){
   const activeDrivers = getTodayActiveDrivers();
   let driverHelperHtml = '';
   
-  // 1. 기사명 원터치 도우미
+  // 기사명 원터치 도우미
   if(activeDrivers.length > 0) {
     driverHelperHtml = `
       <div class="helper-box">
@@ -1152,20 +1172,7 @@ function renderDispatch(){
     `;
   }
 
-  // 2. 입차 시각 원터치 터치 도우미
-  const timePresets = ['4:00', '4:15', '4:30', '4:45', '5:00', '5:15', '5:30', '5:45', '6:00'];
-  const timeHelperHtml = `
-    <div class="helper-box" style="border-color:var(--teal2); background:#10221d;">
-      <div class="helper-title" style="color:var(--teal3);">🕒 입차 시간 선택 도우미 (입차 시간 칸을 클릭하고 선택하세요)</div>
-      <div class="helper-chips">
-        ${timePresets.map(time => `
-          <span class="helper-chip" style="color:var(--teal3); border-color:#154a3e;" onclick="handleTimeHelperClick('${time}')">${time}</span>
-        `).join('')}
-      </div>
-    </div>
-  `;
-
-  // 3. 출차 그룹 목록 빌딩
+  // 출차 그룹 목록 빌딩
   const groupsHtml = dispatchStore.groups.map((g, gi) => {
     const rankEmoji = DISPATCH_RANK_EMOJIS[gi] || '🚛';
     return `
@@ -1192,12 +1199,11 @@ function renderDispatch(){
     `;
   }).join('');
 
-  // 4. 입차 일정 목록 빌딩
+  // 입차 일정 목록 빌딩 (시간 설정을 시스템 터치 휠형 인풋으로 완전 전환)
   const inboundsHtml = dispatchStore.inbounds.map((ib, ii) => `
     <div class="dispatch-row">
-      <input class="inp" id="ib-time-${ii}" style="padding:10px; font-size:14.5px; text-align:center; font-weight:800; color:var(--teal3);" 
-             value="${esc(ib.time)}" placeholder="시간" 
-             onfocus="activeChipInputRef={type:'inbound_time', ii:${ii}}"
+      <input type="time" class="inp" id="ib-time-${ii}" style="padding:10px; font-size:14.5px; text-align:center; font-weight:800; color:var(--teal3);" 
+             value="${formatTimeForInput(ib.time)}" 
              onchange="setInbound(${ii},'time',this.value)">
       <input class="inp" id="ib-people-${ii}" style="padding:10px; font-size:14.5px; font-weight:600;" 
              value="${esc(ib.people)}" placeholder="기사 이름" 
@@ -1211,7 +1217,6 @@ function renderDispatch(){
 
   return `
     ${driverHelperHtml}
-    ${timeHelperHtml}
     
     <div style="margin-bottom:13px">
       <label class="field-label">📅 배송 일자</label>
@@ -1225,7 +1230,7 @@ function renderDispatch(){
     <button class="btn-add-zone" style="padding:10px; border-color:var(--blue2); color:var(--blue3);" onclick="addDispatchGroup()">＋ 출차 순위 추가</button>
 
     <div class="section-head" style="margin-top:14px;">
-      <div class="section-title">⏳ 입차 스케줄 매핑</div>
+      <div class="section-title">⏳ 입차 스케줄 매핑 (클릭하여 시각 간편 설정)</div>
     </div>
     ${inboundsHtml}
     <button class="btn-add-row" style="padding:10px; border-color:var(--teal2); color:var(--teal3);" onclick="addInbound()">＋ 입차 시간 추가</button>
@@ -1272,18 +1277,6 @@ function handleHelperChipClick(name) {
       }
     }
   }
-  saveDispatch();
-  render();
-}
-
-function handleTimeHelperClick(time) {
-  if(!activeChipInputRef || activeChipInputRef.type !== 'inbound_time') {
-    showToast('아래 입차 목록에서 [시간] 칸을 먼저 클릭하고 터치 도우미 시간을 눌러주세요.');
-    return;
-  }
-  const ii = activeChipInputRef.ii;
-  dispatchStore.inbounds[ii].time = time;
-  customDispatchText = null;
   saveDispatch();
   render();
 }
@@ -1355,14 +1348,24 @@ function dispatchText() {
   const dayKr = DAYS[dObj.getDay()]; // '수'
   const dayFull = DOW_FULL[dObj.getDay()]; // '수요일'
 
+  // 출차순서 포맷팅 (🥇 🥈 🥉 등급 이모지 내장화)
   const ordersStr = dispatchStore.groups
-    .map(g => g.people.length > 0 ? `> ${g.people.join(', ')}` : '')
+    .map((g, gi) => {
+      if(g.people.length === 0) return '';
+      const rankEmoji = DISPATCH_RANK_EMOJIS[gi] || '🚛';
+      return `${rankEmoji} ${gi + 1}순위 > ${g.people.join(', ')}`;
+    })
     .filter(Boolean)
     .join('\n');
     
-  // 기사님 명칭 완전히 제외하고 가볍게 나열 
+  // 입차 스케줄 포맷팅 (🕒 시계와 🚚 트럭 이모지 자동 바인딩 및 기사님 호칭 완전 제외)
   const inboundsStr = dispatchStore.inbounds
-    .map(ib => (ib.time.trim() || ib.people.trim()) ? `${ib.people.trim() ? ib.people.trim() + ' ' : ''}${ib.time.trim()} 입차` : '')
+    .map(ib => {
+      const timeVal = formatTimeForPreview(ib.time.trim());
+      const peopleVal = ib.people.trim();
+      if(!timeVal && !peopleVal) return '';
+      return `🕒 ${timeVal} 입차 🚚 ${peopleVal}`;
+    })
     .filter(Boolean)
     .join('\n');
 
