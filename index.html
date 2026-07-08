@@ -403,14 +403,20 @@ const DEFAULT_TEMPLATES = {
   wx_rain: `🌦️ [기상 안내]\n⏱️ {time} 기준 · 강남구 기준 실시간 예보\n━━━━━━━━━\n{status_msg}\n(시간당 약 {rain_mm}mm{prob})\n━━━━━━━━━\n젖은 노면 미끄럼에 주의하시고, 안전운전하세요! 🚗`,
   wx_clear: `☀️ [기상 안내]\n⏱️ {time} 기준 · 강남구 기준 실시간 예보\n━━━━━━━━━\n앞으로 약 {span_hours}시간 동안 배송 구역에 비 소식은 없습니다.\n━━━━━━━━━\n오늘도 기상 상황이 양호합니다.\n수고 많으십니다, 기분 좋은 하루 보내시고 안전운행하세요! 👍`,
   volume: `📦 {date} {title}\n━━━━━━━━━\n{rows}━━━━━━━━━\n📊 합계 {total}건`,
-  dispatch: `[공지] 오늘({day}) 출차순서\n━━━━━━━━━\n{orders}\n━━━━━━━━━\n{inbounds}`
+  dispatch: `(공지) {date} ({day}) 출차순서\n━━━━━━━━━\n{orders}\n━━━━━━━━━\n{inbounds}`
 };
 
 let editingTemplates = {};
 let currentTemplateKey = 'roster';
 
 function getTemplate(key) {
-  return localStorage.getItem('disp-tpl-' + key) || DEFAULT_TEMPLATES[key];
+  let tpl = localStorage.getItem('disp-tpl-' + key);
+  if (!tpl) return DEFAULT_TEMPLATES[key];
+  // 신규 수동 템플릿 강제 마이그레이션 지원
+  if (key === 'dispatch' && tpl.includes('[공지] 오늘')) {
+    return DEFAULT_TEMPLATES.dispatch;
+  }
+  return tpl;
 }
 
 function formatTemplate(tpl, dict) {
@@ -1119,48 +1125,84 @@ function liveTotal(){
   if(el) el.innerHTML=`${t.toLocaleString()}<small>건</small>`;
 }
 
+/* 출차 및 입차 관리 탭 렌더러 */
+const DISPATCH_RANK_EMOJIS = ['🥇', '🥈', '🥉', '🚚', '🚛', '📦', '📍'];
+
 function renderDispatch(){
   const activeDrivers = getTodayActiveDrivers();
-  let helperHtml = '';
+  let driverHelperHtml = '';
   
+  // 1. 기사명 원터치 도우미
   if(activeDrivers.length > 0) {
-    helperHtml = `
+    driverHelperHtml = `
       <div class="helper-box">
-        <div class="helper-title">
-          <span>💡 오늘 출근한 기사님 (터치 시 입력칸에 자동 추가)</span>
-        </div>
+        <div class="helper-title">👥 오늘 출근 기사 (아래 입력칸을 누르고 기사를 터치하세요)</div>
         <div class="helper-chips">
-          ${activeDrivers.map(name => `<span class="helper-chip" onclick="handleHelperChipClick('${esc(name)}')">${esc(name)}</span>`).join('')}
+          ${activeDrivers.map(name => `
+            <span class="helper-chip" onclick="handleHelperChipClick('${esc(name)}')">${esc(name)}</span>
+          `).join('')}
         </div>
       </div>
     `;
   } else {
-    helperHtml = `
+    driverHelperHtml = `
       <div class="helper-box" style="border-style:dashed;">
-        <div class="helper-title" style="margin:0;">💡 출근명단 및 새벽반 탭에 명단을 먼저 입력해 두면 원터치 단축 패널이 활성화됩니다.</div>
+        <div class="helper-title" style="margin:0; text-align:center;">💡 출근명단 및 새벽반에 이름을 먼저 입력하면 원터치 기사 선택 패널이 켜집니다.</div>
       </div>
     `;
   }
 
-  // 1. 출차순서 그룹 빌드
-  const groupsHtml = dispatchStore.groups.map((g, gi) => `
-    <div class="zone" style="margin-bottom:8px; padding:10px 12px 8px;">
-      <div class="zone-top" style="margin-bottom:6px;">
-        <span style="font-weight:900; color:var(--blue3); font-size:14px; width:70px; display:inline-block;">${gi + 1}순위</span>
-        <button class="zone-del" style="height:32px; width:32px;" onclick="delDispatchGroup(${gi})">🗑</button>
-      </div>
-      <div class="chips">
-        ${g.people.map((p, pi) => `<span class="chip" style="font-size:12.5px; padding:4px 7px;">${esc(p)}<button class="chip-x" onclick="delDispatchPerson(${gi},${pi})">✕</button></span>`).join('')}
-        <span class="chip-add"><input placeholder="+ 기사추가" style="padding:4px 6px; font-size:12.5px;" onfocus="activeChipInputRef={type:'group', gi:${gi}}" onkeydown="if(event.key==='Enter'){addDispatchPerson(${gi},this.value);this.value='';}" onblur="if(this.value.trim()){addDispatchPerson(${gi},this.value);this.value='';}"></span>
+  // 2. 입차 시각 원터치 터치 도우미
+  const timePresets = ['4:00', '4:15', '4:30', '4:45', '5:00', '5:15', '5:30', '5:45', '6:00'];
+  const timeHelperHtml = `
+    <div class="helper-box" style="border-color:var(--teal2); background:#10221d;">
+      <div class="helper-title" style="color:var(--teal3);">🕒 입차 시간 선택 도우미 (입차 시간 칸을 클릭하고 선택하세요)</div>
+      <div class="helper-chips">
+        ${timePresets.map(time => `
+          <span class="helper-chip" style="color:var(--teal3); border-color:#154a3e;" onclick="handleTimeHelperClick('${time}')">${time}</span>
+        `).join('')}
       </div>
     </div>
-  `).join('');
+  `;
 
-  // 2. 입차시간 목록 빌드
+  // 3. 출차 그룹 목록 빌딩
+  const groupsHtml = dispatchStore.groups.map((g, gi) => {
+    const rankEmoji = DISPATCH_RANK_EMOJIS[gi] || '🚛';
+    return `
+      <div class="zone" style="margin-bottom:8px; padding:12px 14px 10px;">
+        <div class="zone-top" style="margin-bottom:8px;">
+          <span style="font-size:18px; margin-right:4px;">${rankEmoji}</span>
+          <span style="font-weight:900; color:var(--blue3); font-size:15px; flex:1;">${gi + 1}순위 출차</span>
+          <button class="zone-del" style="height:32px; width:32px;" onclick="delDispatchGroup(${gi})" title="순위 삭제">🗑</button>
+        </div>
+        <div class="chips">
+          ${g.people.map((p, pi) => `
+            <span class="chip" style="font-size:12.5px; padding:5px 8px; background:var(--card2); border-color:var(--border2);">${esc(p)}
+              <button class="chip-x" onclick="delDispatchPerson(${gi},${pi})">✕</button>
+            </span>
+          `).join('')}
+          <span class="chip-add">
+            <input placeholder="+ 기사추가" style="padding:4px 6px; font-size:12.5px; width:90px;" 
+                   onfocus="activeChipInputRef={type:'group', gi:${gi}}" 
+                   onkeydown="if(event.key==='Enter'){addDispatchPerson(${gi},this.value);this.value='';}" 
+                   onblur="if(this.value.trim()){addDispatchPerson(${gi},this.value);this.value='';}">
+          </span>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // 4. 입차 일정 목록 빌딩
   const inboundsHtml = dispatchStore.inbounds.map((ib, ii) => `
     <div class="dispatch-row">
-      <input class="inp" style="padding:10px; font-size:14.5px; text-align:center;" value="${esc(ib.time)}" placeholder="입차 시각" onchange="setInbound(${ii},'time',this.value)">
-      <input class="inp" id="ib-input-${ii}" style="padding:10px; font-size:14.5px;" value="${esc(ib.people)}" placeholder="기사명 입력" onfocus="activeChipInputRef={type:'inbound', ii:${ii}}" onchange="setInbound(${ii},'people',this.value)">
+      <input class="inp" id="ib-time-${ii}" style="padding:10px; font-size:14.5px; text-align:center; font-weight:800; color:var(--teal3);" 
+             value="${esc(ib.time)}" placeholder="시간" 
+             onfocus="activeChipInputRef={type:'inbound_time', ii:${ii}}"
+             onchange="setInbound(${ii},'time',this.value)">
+      <input class="inp" id="ib-people-${ii}" style="padding:10px; font-size:14.5px; font-weight:600;" 
+             value="${esc(ib.people)}" placeholder="기사 이름" 
+             onfocus="activeChipInputRef={type:'inbound', ii:${ii}}" 
+             onchange="setInbound(${ii},'people',this.value)">
       <button class="qty-del" style="height:42px; width:38px;" onclick="delInbound(${ii})">🗑</button>
     </div>
   `).join('');
@@ -1168,29 +1210,30 @@ function renderDispatch(){
   const previewText = customDispatchText !== null ? customDispatchText : dispatchText();
 
   return `
-    ${helperHtml}
+    ${driverHelperHtml}
+    ${timeHelperHtml}
     
     <div style="margin-bottom:13px">
-      <label class="field-label">📅 날짜</label>
+      <label class="field-label">📅 배송 일자</label>
       <input type="date" class="inp" value="${dispatchStore.date}" onchange="dispatchStore.date=this.value;customDispatchText=null;saveDispatch();render()">
     </div>
 
-    <div class="section-head" style="margin-top:10px;">
-      <div class="section-title">🚛 출차순서 그룹 설정</div>
+    <div class="section-head" style="margin-top:14px;">
+      <div class="section-title">🚛 출차순서 그룹 구성</div>
     </div>
     ${groupsHtml}
-    <button class="btn-add-zone" style="padding:10px;" onclick="addDispatchGroup()">＋ 출차 순서 추가</button>
+    <button class="btn-add-zone" style="padding:10px; border-color:var(--blue2); color:var(--blue3);" onclick="addDispatchGroup()">＋ 출차 순위 추가</button>
 
-    <div class="section-head" style="margin-top:10px;">
-      <div class="section-title">⏳ 입차 스케줄 설정 (시간 및 기사)</div>
+    <div class="section-head" style="margin-top:14px;">
+      <div class="section-title">⏳ 입차 스케줄 매핑</div>
     </div>
     ${inboundsHtml}
-    <button class="btn-add-row" style="padding:10px;" onclick="addInbound()">＋ 입차 시간 추가</button>
+    <button class="btn-add-row" style="padding:10px; border-color:var(--teal2); color:var(--teal3);" onclick="addInbound()">＋ 입차 시간 추가</button>
 
     <!-- 카톡 미리보기 -->
     <div class="preview-wrap" style="margin-top:16px;">
       <div class="preview-label">카톡 미리보기 (직접 편집 가능)</div>
-      <textarea class="kakao-bubble${previewText?'':' empty'}" oninput="customDispatchText=this.value; autoResizePreviews();" placeholder="출차 및 입차를 구성하면 여기에 미리보기가 생성됩니다.">${esc(previewText)}</textarea>
+      <textarea class="kakao-bubble${previewText?'':' empty'}" oninput="customDispatchText=this.value; autoResizePreviews();" placeholder="출차 및 입차 데이터를 등록하면 이곳에 자동으로 텍스트 공지가 생성됩니다.">${esc(previewText)}</textarea>
       <div class="actions">
         <button class="btn btn-share" onclick="shareText(customDispatchText !== null ? customDispatchText : dispatchText())">💬 공유하기</button>
         <button class="btn btn-copy" onclick="copyText(customDispatchText !== null ? customDispatchText : dispatchText())">📋 복사</button>
@@ -1206,7 +1249,7 @@ function renderDispatch(){
 
 function handleHelperChipClick(name) {
   if(!activeChipInputRef) {
-    showToast('아래의 [+ 기사추가] 칸이나 [입차기사 입력칸]을 먼저 터치한 뒤 기사 이름을 눌러보세요.');
+    showToast('아래의 [+ 기사추가] 입력칸이나 [기사 이름] 칸을 먼저 마우스로 클릭하고 기사를 선택해보세요.');
     return;
   }
   
@@ -1229,6 +1272,18 @@ function handleHelperChipClick(name) {
       }
     }
   }
+  saveDispatch();
+  render();
+}
+
+function handleTimeHelperClick(time) {
+  if(!activeChipInputRef || activeChipInputRef.type !== 'inbound_time') {
+    showToast('아래 입차 목록에서 [시간] 칸을 먼저 클릭하고 터치 도우미 시간을 눌러주세요.');
+    return;
+  }
+  const ii = activeChipInputRef.ii;
+  dispatchStore.inbounds[ii].time = time;
+  customDispatchText = null;
   saveDispatch();
   render();
 }
@@ -1289,20 +1344,25 @@ function setInbound(ii, key, val) {
 function askClearDispatch() {
   dlgAction = 'clearDispatch';
   document.getElementById('dlg-title').textContent = '출차 데이터 초기화';
-  document.getElementById('dlg-msg').textContent = '오늘 작성 중인 출차 순서 및\n입차 시간이 모두 초기화됩니다.';
+  document.getElementById('dlg-msg').textContent = '작성 중이던 출차 그룹 순위와\n입차 정보 리스트가 모두 지워집니다.';
   document.getElementById('dlg-ok').textContent = '초기화';
   document.getElementById('overlay').classList.add('show');
 }
 
 function dispatchText() {
-  const dayKr = DAYS[dowOf(dispatchStore.date)];
+  const dObj = new Date(dispatchStore.date + 'T00:00:00');
+  const dateStr = `${dObj.getMonth() + 1}월 ${dObj.getDate()}일`;
+  const dayKr = DAYS[dObj.getDay()]; // '수'
+  const dayFull = DOW_FULL[dObj.getDay()]; // '수요일'
+
   const ordersStr = dispatchStore.groups
     .map(g => g.people.length > 0 ? `> ${g.people.join(', ')}` : '')
     .filter(Boolean)
     .join('\n');
     
+  // 기사님 명칭 완전히 제외하고 가볍게 나열 
   const inboundsStr = dispatchStore.inbounds
-    .map(ib => (ib.time.trim() || ib.people.trim()) ? `${ib.people.trim() ? ib.people.trim() + ' 기사님 ' : ''}${ib.time.trim()} 입차` : '')
+    .map(ib => (ib.time.trim() || ib.people.trim()) ? `${ib.people.trim() ? ib.people.trim() + ' ' : ''}${ib.time.trim()} 입차` : '')
     .filter(Boolean)
     .join('\n');
 
@@ -1310,7 +1370,8 @@ function dispatchText() {
 
   const tpl = getTemplate('dispatch');
   return formatTemplate(tpl, {
-    day: dayKr,
+    date: dateStr,
+    day: dayFull,
     orders: ordersStr || '등록된 출차 그룹 없음',
     inbounds: inboundsStr || '등록된 입차 내역 없음'
   });
@@ -1371,7 +1432,7 @@ function onTemplateSelectorChange() {
     wx_rain: `<b>💡 치환 변수 목록:</b><br><code>{time}</code> 갱신 시각, <code>{status_msg}</code> 비 시작 상황 안내문, <code>{rain_mm}</code> 강수량, <code>{prob}</code> 확률`,
     wx_clear: `<b>💡 치환 변수 목록:</b><br><code>{time}</code> 갱신 시각, <code>{span_hours}</code> 예보 유지 범위 시간`,
     volume: `<b>💡 치환 변수 목록:</b><br><code>{date}</code> 날짜, <code>{title}</code> 제목, <code>{rows}</code> 각 동별 물량 리스트, <code>{total}</code> 합계 수량`,
-    dispatch: `<b>💡 치환 변수 목록:</b><br><code>{day}</code> 요일(예: 수요일), <code>{orders}</code> 출차 순서 목록, <code>{inbounds}</code> 입차 내역`
+    dispatch: `<b>💡 치환 변수 목록:</b><br><code>{date}</code> 날짜(예: 7월 8일), <code>{day}</code> 요일(예: 수요일), <code>{orders}</code> 출차 순서 목록, <code>{inbounds}</code> 입차 내역`
   };
   document.getElementById('set-tpl-hint').innerHTML = hints[newKey] || '';
 }
@@ -1523,7 +1584,7 @@ async function runImageOCR(mode){
   setStatus('이미지를 읽는 중…','busy');
   customVolumeText = null;
 
-  const prompt=`이 이미지는 배송 물량표입니다. 표에서 각 행 of "동 이름", "식별 코드"(있으면), "건수(숫자)"를 추출하세요.
+  const prompt=`이 이미지는 배송 물량표입니다. 표에서 각 행의 "동 이름", "식별 코드"(있으면), "건수(숫자)"를 추출하세요.
 - 시군구/법정동/소계/합계/전체 합계/TOTAL/헤더 줄은 제외합니다.
 - 식별 코드는 '강남가101' 같은 형식이며 없으면 빈 문자열로 둡니다.
 - 건수는 숫자만(콤마 제거).
@@ -1582,7 +1643,7 @@ async function runImageOCR(mode){
           matched++;
         }
       });
-      if(!matched){setStatus('표 of 동 이름과 일치하는 행이 없어요','err');return;}
+      if(!matched){setStatus('표의 동 이름과 일치하는 행이 없어요','err');return;}
       const skipped=clean.length-matched;
       saveVolume();
       setStatus(`✅ ${matched}개 동 건수 갱신${skipped?` · ${skipped}개는 표에 없어 건너뜀`:''}`,'ok');
