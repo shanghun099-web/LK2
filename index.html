@@ -36,8 +36,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Noto S
 .header-gear:active{background:rgba(255,255,255,0.28);}
 .header-backup{right:64px;}
 
-.tabs{display:flex;background:var(--card);flex-shrink:0;border-bottom:1px solid var(--border);}
-.tab{flex:1;padding:13px 0;border:none;background:transparent;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--dim);position:relative;transition:color 0.2s;white-space:nowrap;}
+.tabs{display:flex;background:var(--card);flex-shrink:0;border-bottom:1px solid var(--border);overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab{flex:1;min-width:76px;padding:13px 0;border:none;background:transparent;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--dim);position:relative;transition:color 0.2s;white-space:nowrap;}
 .tab.active{color:var(--text);}
 .tab.active::after{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:38px;height:3px;border-radius:3px 3px 0 0;background:var(--blue2);}
 
@@ -85,12 +86,19 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
 .zone-del{width:38px;height:42px;flex-shrink:0;border:none;border-radius:10px;background:var(--card2);color:var(--dim);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
 .zone-del:active{background:#3a1a1a;color:var(--red2);}
 .chips{display:flex;flex-wrap:wrap;gap:7px;}
-.chip{display:inline-flex;align-items:center;gap:6px;background:var(--card3);border:1px solid var(--border2);border-radius:9px;padding:7px 9px 7px 11px;font-size:13.5px;font-weight:600;color:var(--text);}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--card3);border:1px solid var(--border2);border-radius:9px;padding:7px 9px 7px 11px;font-size:13.5px;font-weight:600;color:var(--text);cursor:pointer;}
 .chip-x{width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,0.07);color:var(--sub);font-size:12px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;font-family:inherit;}
 .chip-x:active{background:var(--red);color:#fff;}
 .chip-add{display:inline-flex;align-items:center;background:transparent;border:1.5px dashed var(--border2);border-radius:9px;padding:0;}
 .chip-add input{background:transparent;border:none;outline:none;color:var(--text);font-size:13.5px;font-family:inherit;padding:7px 10px;width:88px;}
 .chip-add input::placeholder{color:var(--dim);}
+
+/* 기사 매핑 도우미 스타일 */
+.helper-box{background:var(--card2);border:1.5px solid var(--border);border-radius:12px;padding:12px;margin-bottom:14px;}
+.helper-title{font-size:11px;color:var(--sub);font-weight:800;margin-bottom:8px;letter-spacing:0.5px;display:flex;justify-content:between;}
+.helper-chips{display:flex;flex-wrap:wrap;gap:6px;}
+.helper-chip{background:var(--card3);border:1.5px solid var(--border2);border-radius:8px;padding:5px 9px;font-size:12px;font-weight:700;color:var(--blue3);cursor:pointer;transition:all 0.15s;}
+.helper-chip:active{background:var(--blue);color:#fff;}
 
 .btn-add-zone{width:100%;padding:13px;border:1.5px dashed var(--border2);border-radius:13px;background:transparent;color:var(--sub);font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:14px;transition:all 0.15s;}
 .btn-add-zone:active{background:var(--card);border-color:var(--blue2);color:var(--blue3);}
@@ -105,6 +113,9 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
 .qty-del:active{background:#3a1a1a;color:var(--red2);}
 .btn-add-row{width:100%;padding:12px;border:1.5px dashed var(--border2);border-radius:13px;background:transparent;color:var(--sub);font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;margin:4px 0 14px;transition:all 0.15s;}
 .btn-add-row:active{background:var(--card);border-color:var(--teal2);color:var(--teal3);}
+
+/* 입출차 전용 스플릿 레이아웃 */
+.dispatch-row{display:grid;grid-template-columns:100px 1fr 38px;gap:8px;margin-bottom:8px;align-items:center;}
 
 .qty-total-bar{background:linear-gradient(135deg,#0a2620,#0d2e26);border:1.5px solid #155244;border-radius:13px;padding:14px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;}
 .qty-total-lbl{font-size:13px;color:var(--teal3);font-weight:700;}
@@ -279,6 +290,7 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
     <button class="tab" id="tab-dawn" onclick="switchTab('dawn')">🌅 새벽반</button>
     <button class="tab" id="tab-weather" onclick="switchTab('weather')">⛈️ 날씨</button>
     <button class="tab" id="tab-volume" onclick="switchTab('volume')">📦 물량</button>
+    <button class="tab" id="tab-dispatch" onclick="switchTab('dispatch')">🚛 출차</button>
   </div>
 
   <div class="wx-strip" id="wx-strip" onclick="switchTab('weather')"></div>
@@ -322,6 +334,7 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
         <option value="wx_rain">🌦️ 기상 안내 (일반 비)</option>
         <option value="wx_clear">☀️ 기상 안내 (비 없음)</option>
         <option value="volume">📦 물량 양식</option>
+        <option value="dispatch">🚛 출차 순서 양식</option>
       </select>
       <div style="height:10px"></div>
       <label class="field-label">양식 문구 내용</label>
@@ -374,12 +387,13 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
 const DAYS=['일','월','화','수','목','금','토'];
 const DOW_FULL=['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
 let tab='roster';
-const TAB_TITLES={roster:'출근명단 정리',dawn:'새벽반 명단',weather:'실시간 기상 감시',volume:'물량 정리'};
+const TAB_TITLES={roster:'출근명단 정리',dawn:'새벽반 명단',weather:'실시간 기상 감시',volume:'물량 정리',dispatch:'출차 및 입차 관리'};
 
 /* 기사님이 직접 수정한 카톡 미리보기 임시 보존용 버퍼 변수 */
 let customRosterText = null;
 let customWeatherText = null;
 let customVolumeText = null;
+let customDispatchText = null;
 
 // 공유 기본 문구 템플릿 정의 및 기사님 요청사항 반영 (우비·방수포 챙겨 문구 삭제 완료)
 const DEFAULT_TEMPLATES = {
@@ -388,7 +402,8 @@ const DEFAULT_TEMPLATES = {
   wx_heavy: `🚨 [기상 상황 전파]\n⏱️ {time} 기준 · 강남구 기준 실시간 예보\n━━━━━━━━━\n{status_msg}\n(시간당 약 {rain_mm}mm{prob})\n· 예상 지속 시간: 약 {duration}\n━━━━━━━━━\n⚠️ 비 들어오기 전에 적재함 문단속 한 번씩 부탁드립니다.\n⚠️ 빗길에서는 안전거리를 평소의 2배로 넉넉히 확보해주세요.\n⚠️ 시야 안 좋은 골목에서는 충분히 감속 운행 바랍니다.\n오늘도 안전운행이 최우선입니다 🙏`,
   wx_rain: `🌦️ [기상 안내]\n⏱️ {time} 기준 · 강남구 기준 실시간 예보\n━━━━━━━━━\n{status_msg}\n(시간당 약 {rain_mm}mm{prob})\n━━━━━━━━━\n젖은 노면 미끄럼에 주의하시고, 안전운전하세요! 🚗`,
   wx_clear: `☀️ [기상 안내]\n⏱️ {time} 기준 · 강남구 기준 실시간 예보\n━━━━━━━━━\n앞으로 약 {span_hours}시간 동안 배송 구역에 비 소식은 없습니다.\n━━━━━━━━━\n오늘도 기상 상황이 양호합니다.\n수고 많으십니다, 기분 좋은 하루 보내시고 안전운행하세요! 👍`,
-  volume: `📦 {date} {title}\n━━━━━━━━━\n{rows}━━━━━━━━━\n📊 합계 {total}건`
+  volume: `📦 {date} {title}\n━━━━━━━━━\n{rows}━━━━━━━━━\n📊 합계 {total}건`,
+  dispatch: `[공지] 오늘({day}) 출차순서\n━━━━━━━━━\n{orders}\n━━━━━━━━━\n{inbounds}`
 };
 
 let editingTemplates = {};
@@ -506,7 +521,45 @@ function switchVolSet(s){
 }
 function saveVolume(){localStorage.setItem('disp-volume',JSON.stringify(volStore));}
 
-/* 카톡 미리보기 높이를 텍스트 길이에 맞춰 실시간으로 늘려 스크롤을 완전히 없애는 기능 */
+/* 출차/입차 기획 관리 데이터 저장소 */
+let dispatchStore = load('disp-dispatch', {
+  date: todayISO(),
+  groups: [
+    { people: ['전진환', '권현정'] },
+    { people: ['이성학', '이승민'] },
+    { people: ['박서준', '김진호'] },
+    { people: ['이영진'] },
+    { people: ['이선하', '박은아'] }
+  ],
+  inbounds: [
+    { time: '4:30', people: '이승민' },
+    { time: '5:00', people: '박서준, 김진호' },
+    { time: '5:15', people: '이영진' },
+    { time: '5:30', people: '이선하, 박은아' }
+  ]
+});
+
+function saveDispatch() {
+  localStorage.setItem('disp-dispatch', JSON.stringify(dispatchStore));
+}
+
+// 명단 기반 칩 조회를 위해 오늘 활성화된 전체 기사 목록 추출 ( Roster + Dawn 합산 )
+function getTodayActiveDrivers() {
+  const drivers = new Set();
+  // 주간 출근명단
+  rosters.main.work.zones.forEach(z => {
+    if(z.people) z.people.forEach(p => drivers.add(p));
+  });
+  // 새벽반 명단
+  rosters.dawn.work.zones.forEach(z => {
+    if(z.people) z.people.forEach(p => drivers.add(p));
+  });
+  return Array.from(drivers);
+}
+
+// 칩 입력창 자동 완성을 유도하는 현재 포커스 포인터 트래커
+let activeChipInputRef = null;
+
 function autoResizePreviews() {
   document.querySelectorAll('.kakao-bubble').forEach(el => {
     el.style.height = 'auto';
@@ -518,8 +571,9 @@ function switchTab(t){
   customRosterText = null;
   customWeatherText = null;
   customVolumeText = null;
+  customDispatchText = null;
   tab=t;
-  ['roster','dawn','weather','volume'].forEach(x=>document.getElementById('tab-'+x).classList.toggle('active',x===t));
+  ['roster','dawn','weather','volume','dispatch'].forEach(x=>document.getElementById('tab-'+x).classList.toggle('active',x===t));
   document.getElementById('hTitle').textContent=TAB_TITLES[t];
   render();
 }
@@ -527,11 +581,11 @@ function switchTab(t){
 function render(){
   document.getElementById('hDate').textContent=new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
   const c=document.getElementById('content');
-  if(tab==='roster'||tab==='dawn')c.innerHTML=renderRoster();
-  else if(tab==='volume')c.innerHTML=renderVolume();
-  else c.innerHTML=renderWeather();
+  if(tab==='roster'||tab==='dawn') c.innerHTML=renderRoster();
+  else if(tab==='volume') c.innerHTML=renderVolume();
+  else if(tab==='weather') c.innerHTML=renderWeather();
+  else c.innerHTML=renderDispatch();
   
-  // 렌더링 완료 직후 뷰의 높이를 자동 연동해 한 번에 표시
   setTimeout(autoResizePreviews, 10);
 }
 
@@ -596,10 +650,9 @@ function renderRoster(){
     ${zonesHtml}
     <button class="btn-add-zone" onclick="addZone()">＋ 구역 추가</button>
     
-    <!-- 카톡 미리보기: 직접 문구 편집 시 스크롤 없이 전체 노출 -->
     <div class="preview-wrap">
       <div class="preview-label">카톡 미리보기 (직접 편집 가능)</div>
-      <textarea class="kakao-bubble${previewText?'':' empty'}" oninput="customRosterText=this.value; autoResizePreviews();" placeholder="구역과 이름을 입력하면 여기에 미리보기가 나옵니다. 직접 문구를 자유롭게 고치셔도 공유/복사됩니다.">${esc(previewText)}</textarea>
+      <textarea class="kakao-bubble${previewText?'':' empty'}" oninput="customRosterText=this.value; autoResizePreviews();" placeholder="구역과 이름을 입력하면 여기에 미리보기가 나옵니다.">${esc(previewText)}</textarea>
       <div class="actions">
         <button class="btn btn-share" onclick="shareText(customRosterText !== null ? customRosterText : rosterText())">💬 공유하기</button>
         <button class="btn btn-copy" onclick="copyText(customRosterText !== null ? customRosterText : rosterText())">📋 복사</button>
@@ -654,23 +707,18 @@ function reloadTpl(){
   render();showToast('기본 명단으로 되돌렸어요');
 }
 
-/* ═══════════ 실시간 기상 감시 (강남구 고정) ═══════════
-   기상청(KMA) 및 글로벌 통합 최적 예측모델(best_match)을 연동.
-   강남구 도곡/대치동 배송구역 좌표로 고정하여 위치 권한 없이 항상 즉시 출력.
-   GPS·내 위치 기능은 v9에서 제거됨. */
+/* ═══════════ 실시간 기상 감시 (강남구 고정) ═══════════ */
 let wx={lat:37.4882,lon:127.0518,timeline:null,updated:null,err:null,model:'',alerted:0,loading:false};
 
 function initWeather(){
-  fetchWeather(); // 강남구 도곡/대치 좌표로 즉각 예보 로드
-  setInterval(fetchWeather,10*60*1000); // 10분 단위 자동 기상 갱신
+  fetchWeather(); 
+  setInterval(fetchWeather,10*60*1000); 
 }
 
 async function fetchWeather(){
   if(wx.loading){wx.queue=true;return;}
   wx.loading=true;
   const la=Number(wx.lat).toFixed(4), lo=Number(wx.lon).toFixed(4);
-  
-  // 글로벌 수치 통합 예측 best_match 모델을 호출
   const url=`https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&hourly=precipitation_probability,precipitation,temperature_2m,weather_code,is_day&forecast_days=2&timeformat=unixtime&timezone=Asia%2FSeoul`;
   
   let d=null, lastErr='';
@@ -713,7 +761,7 @@ async function fetchWeather(){
     }
     const now=Date.now();
     tl=tl.filter(e=>e.time+e.step*60000>now);
-    tl=tl.slice(0,12); // 향후 12시간 표시
+    tl=tl.slice(0,12); 
     if(!tl.length)throw 0;
     wx.timeline=tl;wx.updated=new Date();wx.err=null;wx.model='best_match';
   }catch(e){
@@ -833,7 +881,6 @@ function updateWeatherDom(){
 }
 
 function renderWeather(){
-  // Windy iframe: 마커 없이 강남구 좌표 중심의 레이더 화면만 표시
   const windySrc=`https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&zoom=9&overlay=radar&product=radar&level=surface&lat=${wx.lat.toFixed(4)}&lon=${wx.lon.toFixed(4)}`;
   const shareTxt = customWeatherText !== null ? customWeatherText : wxShareText();
   const step=wx.timeline&&wx.timeline[0]?wx.timeline[0].step:60;
@@ -878,7 +925,6 @@ function wxShareText(){
     return `${r}분`;
   };
 
-  // 1. 강한 비 (lv >= 2) 감지 시 기상 전파 템플릿
   const idx=wx.timeline.findIndex(e=>wxLevel(e.mm,e.step).lv>=2);
   if(idx>=0){
     const strong=wx.timeline[idx], st=new Date(strong.time);
@@ -903,7 +949,6 @@ function wxShareText(){
     });
   }
 
-  // 2. 일반 비 / 약한 비 (lv >= 1) 감지 시 기상 안내 템플릿 (우비·방수포 챙겨 문구 삭제 및 컴팩트 포맷 반영)
   const rainIdx=wx.timeline.findIndex(e=>wxLevel(e.mm,e.step).lv>=1);
   if(rainIdx>=0){
     const r=wx.timeline[rainIdx], st=new Date(r.time);
@@ -923,7 +968,6 @@ function wxShareText(){
     });
   }
 
-  // 3. 비 소식 없음 템플릿
   const tpl = getTemplate('wx_clear');
   return formatTemplate(tpl, {
     time: fmtHM(now),
@@ -1075,6 +1119,203 @@ function liveTotal(){
   if(el) el.innerHTML=`${t.toLocaleString()}<small>건</small>`;
 }
 
+function renderDispatch(){
+  const activeDrivers = getTodayActiveDrivers();
+  let helperHtml = '';
+  
+  if(activeDrivers.length > 0) {
+    helperHtml = `
+      <div class="helper-box">
+        <div class="helper-title">
+          <span>💡 오늘 출근한 기사님 (터치 시 입력칸에 자동 추가)</span>
+        </div>
+        <div class="helper-chips">
+          ${activeDrivers.map(name => `<span class="helper-chip" onclick="handleHelperChipClick('${esc(name)}')">${esc(name)}</span>`).join('')}
+        </div>
+      </div>
+    `;
+  } else {
+    helperHtml = `
+      <div class="helper-box" style="border-style:dashed;">
+        <div class="helper-title" style="margin:0;">💡 출근명단 및 새벽반 탭에 명단을 먼저 입력해 두면 원터치 단축 패널이 활성화됩니다.</div>
+      </div>
+    `;
+  }
+
+  // 1. 출차순서 그룹 빌드
+  const groupsHtml = dispatchStore.groups.map((g, gi) => `
+    <div class="zone" style="margin-bottom:8px; padding:10px 12px 8px;">
+      <div class="zone-top" style="margin-bottom:6px;">
+        <span style="font-weight:900; color:var(--blue3); font-size:14px; width:70px; display:inline-block;">${gi + 1}순위</span>
+        <button class="zone-del" style="height:32px; width:32px;" onclick="delDispatchGroup(${gi})">🗑</button>
+      </div>
+      <div class="chips">
+        ${g.people.map((p, pi) => `<span class="chip" style="font-size:12.5px; padding:4px 7px;">${esc(p)}<button class="chip-x" onclick="delDispatchPerson(${gi},${pi})">✕</button></span>`).join('')}
+        <span class="chip-add"><input placeholder="+ 기사추가" style="padding:4px 6px; font-size:12.5px;" onfocus="activeChipInputRef={type:'group', gi:${gi}}" onkeydown="if(event.key==='Enter'){addDispatchPerson(${gi},this.value);this.value='';}" onblur="if(this.value.trim()){addDispatchPerson(${gi},this.value);this.value='';}"></span>
+      </div>
+    </div>
+  `).join('');
+
+  // 2. 입차시간 목록 빌드
+  const inboundsHtml = dispatchStore.inbounds.map((ib, ii) => `
+    <div class="dispatch-row">
+      <input class="inp" style="padding:10px; font-size:14.5px; text-align:center;" value="${esc(ib.time)}" placeholder="입차 시각" onchange="setInbound(${ii},'time',this.value)">
+      <input class="inp" id="ib-input-${ii}" style="padding:10px; font-size:14.5px;" value="${esc(ib.people)}" placeholder="기사명 입력" onfocus="activeChipInputRef={type:'inbound', ii:${ii}}" onchange="setInbound(${ii},'people',this.value)">
+      <button class="qty-del" style="height:42px; width:38px;" onclick="delInbound(${ii})">🗑</button>
+    </div>
+  `).join('');
+
+  const previewText = customDispatchText !== null ? customDispatchText : dispatchText();
+
+  return `
+    ${helperHtml}
+    
+    <div style="margin-bottom:13px">
+      <label class="field-label">📅 날짜</label>
+      <input type="date" class="inp" value="${dispatchStore.date}" onchange="dispatchStore.date=this.value;customDispatchText=null;saveDispatch();render()">
+    </div>
+
+    <div class="section-head" style="margin-top:10px;">
+      <div class="section-title">🚛 출차순서 그룹 설정</div>
+    </div>
+    ${groupsHtml}
+    <button class="btn-add-zone" style="padding:10px;" onclick="addDispatchGroup()">＋ 출차 순서 추가</button>
+
+    <div class="section-head" style="margin-top:10px;">
+      <div class="section-title">⏳ 입차 스케줄 설정 (시간 및 기사)</div>
+    </div>
+    ${inboundsHtml}
+    <button class="btn-add-row" style="padding:10px;" onclick="addInbound()">＋ 입차 시간 추가</button>
+
+    <!-- 카톡 미리보기 -->
+    <div class="preview-wrap" style="margin-top:16px;">
+      <div class="preview-label">카톡 미리보기 (직접 편집 가능)</div>
+      <textarea class="kakao-bubble${previewText?'':' empty'}" oninput="customDispatchText=this.value; autoResizePreviews();" placeholder="출차 및 입차를 구성하면 여기에 미리보기가 생성됩니다.">${esc(previewText)}</textarea>
+      <div class="actions">
+        <button class="btn btn-share" onclick="shareText(customDispatchText !== null ? customDispatchText : dispatchText())">💬 공유하기</button>
+        <button class="btn btn-copy" onclick="copyText(customDispatchText !== null ? customDispatchText : dispatchText())">📋 복사</button>
+      </div>
+    </div>
+    <div style="height:10px"></div>
+    <div class="mini-btns">
+      <button class="mini-btn danger" onclick="askClearDispatch()">전체 초기화</button>
+    </div>
+    <div style="height:20px"></div>
+  `;
+}
+
+function handleHelperChipClick(name) {
+  if(!activeChipInputRef) {
+    showToast('아래의 [+ 기사추가] 칸이나 [입차기사 입력칸]을 먼저 터치한 뒤 기사 이름을 눌러보세요.');
+    return;
+  }
+  
+  customDispatchText = null;
+  if(activeChipInputRef.type === 'group') {
+    const gi = activeChipInputRef.gi;
+    if(!dispatchStore.groups[gi].people.includes(name)) {
+      dispatchStore.groups[gi].people.push(name);
+    }
+  } else if(activeChipInputRef.type === 'inbound') {
+    const ii = activeChipInputRef.ii;
+    const currentVal = dispatchStore.inbounds[ii].people;
+    if(currentVal.trim() === '') {
+      dispatchStore.inbounds[ii].people = name;
+    } else {
+      const namesList = currentVal.split(',').map(n => n.trim()).filter(Boolean);
+      if(!namesList.includes(name)) {
+        namesList.push(name);
+        dispatchStore.inbounds[ii].people = namesList.join(', ');
+      }
+    }
+  }
+  saveDispatch();
+  render();
+}
+
+function addDispatchGroup() {
+  customDispatchText = null;
+  dispatchStore.groups.push({ people: [] });
+  saveDispatch();
+  render();
+}
+
+function delDispatchGroup(gi) {
+  customDispatchText = null;
+  dispatchStore.groups.splice(gi, 1);
+  saveDispatch();
+  render();
+}
+
+function addDispatchPerson(gi, val) {
+  const n = val.trim();
+  if(!n) return;
+  customDispatchText = null;
+  if(!dispatchStore.groups[gi].people.includes(n)) {
+    dispatchStore.groups[gi].people.push(n);
+  }
+  saveDispatch();
+  render();
+}
+
+function delDispatchPerson(gi, pi) {
+  customDispatchText = null;
+  dispatchStore.groups[gi].people.splice(pi, 1);
+  saveDispatch();
+  render();
+}
+
+function addInbound() {
+  customDispatchText = null;
+  dispatchStore.inbounds.push({ time: '', people: '' });
+  saveDispatch();
+  render();
+}
+
+function delInbound(ii) {
+  customDispatchText = null;
+  dispatchStore.inbounds.splice(ii, 1);
+  saveDispatch();
+  render();
+}
+
+function setInbound(ii, key, val) {
+  customDispatchText = null;
+  dispatchStore.inbounds[ii][key] = val;
+  saveDispatch();
+  render();
+}
+
+function askClearDispatch() {
+  dlgAction = 'clearDispatch';
+  document.getElementById('dlg-title').textContent = '출차 데이터 초기화';
+  document.getElementById('dlg-msg').textContent = '오늘 작성 중인 출차 순서 및\n입차 시간이 모두 초기화됩니다.';
+  document.getElementById('dlg-ok').textContent = '초기화';
+  document.getElementById('overlay').classList.add('show');
+}
+
+function dispatchText() {
+  const dayKr = DAYS[dowOf(dispatchStore.date)];
+  const ordersStr = dispatchStore.groups
+    .map(g => g.people.length > 0 ? `> ${g.people.join(', ')}` : '')
+    .filter(Boolean)
+    .join('\n');
+    
+  const inboundsStr = dispatchStore.inbounds
+    .map(ib => (ib.time.trim() || ib.people.trim()) ? `${ib.people.trim() ? ib.people.trim() + ' 기사님 ' : ''}${ib.time.trim()} 입차` : '')
+    .filter(Boolean)
+    .join('\n');
+
+  if(!ordersStr && !inboundsStr) return '';
+
+  const tpl = getTemplate('dispatch');
+  return formatTemplate(tpl, {
+    day: dayKr,
+    orders: ordersStr || '등록된 출차 그룹 없음',
+    inbounds: inboundsStr || '등록된 입차 내역 없음'
+  });
+}
+
 function getApiKey(){return localStorage.getItem('gemini-key')||'';}
 const DEFAULT_MODEL='gemini-3.5-flash';
 const VALID_MODELS=['gemini-3.5-flash','gemini-3.1-flash-lite','gemini-2.5-flash'];
@@ -1083,13 +1324,12 @@ function getModel(){
   return VALID_MODELS.includes(m)?m:DEFAULT_MODEL;
 }
 
-/* 설정 팝업 제어 및 공유 문구 템플릿 연동 */
 function openSettings(){
   document.getElementById('set-apikey').value=getApiKey();
   document.getElementById('set-model').value=getModel();
   
   // 기기 내 저장된 템플릿 로드
-  const keys = ['roster', 'dawn', 'wx_heavy', 'wx_rain', 'wx_clear', 'volume'];
+  const keys = ['roster', 'dawn', 'wx_heavy', 'wx_rain', 'wx_clear', 'volume', 'dispatch'];
   keys.forEach(k => {
     editingTemplates[k] = getTemplate(k);
   });
@@ -1112,7 +1352,6 @@ function switchSettingsTab(sub){
 }
 
 function onTemplateSelectorChange() {
-  // 변경 전 수정 중이던 값을 캐시에 대피
   const ta = document.getElementById('set-tpl-ta');
   if (ta && currentTemplateKey) {
     editingTemplates[currentTemplateKey] = ta.value;
@@ -1124,14 +1363,15 @@ function onTemplateSelectorChange() {
   const newTa = document.getElementById('set-tpl-ta');
   newTa.value = editingTemplates[newKey];
   
-  // 하단 사용 가능 치환 변수 안내 패치
+  // 하단 치환 변수 가이드 갱신
   const hints = {
     roster: `<b>💡 치환 변수 목록:</b><br><code>{emoji}</code> 이모지, <code>{date}</code> 날짜, <code>{title}</code> 제목, <code>{zones}</code> 구역 명단 리스트, <code>{total}</code> 총 인원수`,
     dawn: `<b>💡 치환 변수 목록:</b><br><code>{emoji}</code> 이모지, <code>{date}</code> 날짜, <code>{title}</code> 제목, <code>{zones}</code> 구역 명단 리스트, <code>{total}</code> 총 인원수`,
     wx_heavy: `<b>💡 치환 변수 목록:</b><br><code>{time}</code> 갱신 시각, <code>{status_msg}</code> 비구름 진입 상황 안내문, <code>{rain_mm}</code> 강수량, <code>{prob}</code> 확률, <code>{duration}</code> 지속시간`,
     wx_rain: `<b>💡 치환 변수 목록:</b><br><code>{time}</code> 갱신 시각, <code>{status_msg}</code> 비 시작 상황 안내문, <code>{rain_mm}</code> 강수량, <code>{prob}</code> 확률`,
     wx_clear: `<b>💡 치환 변수 목록:</b><br><code>{time}</code> 갱신 시각, <code>{span_hours}</code> 예보 유지 범위 시간`,
-    volume: `<b>💡 치환 변수 목록:</b><br><code>{date}</code> 날짜, <code>{title}</code> 제목, <code>{rows}</code> 각 동별 물량 리스트, <code>{total}</code> 합계 수량`
+    volume: `<b>💡 치환 변수 목록:</b><br><code>{date}</code> 날짜, <code>{title}</code> 제목, <code>{rows}</code> 각 동별 물량 리스트, <code>{total}</code> 합계 수량`,
+    dispatch: `<b>💡 치환 변수 목록:</b><br><code>{day}</code> 요일(예: 수요일), <code>{orders}</code> 출차 순서 목록, <code>{inbounds}</code> 입차 내역`
   };
   document.getElementById('set-tpl-hint').innerHTML = hints[newKey] || '';
 }
@@ -1141,7 +1381,6 @@ function saveSettings(){
   if(k) localStorage.setItem('gemini-key',k); else localStorage.removeItem('gemini-key');
   localStorage.setItem('gemini-model',document.getElementById('set-model').value);
   
-  // 현재 작성 중이던 템플릿 캐시에 임시 이식 후 일괄 반영
   const ta = document.getElementById('set-tpl-ta');
   if (ta) {
     editingTemplates[currentTemplateKey] = ta.value;
@@ -1156,7 +1395,7 @@ function saveSettings(){
   showToast('⚙️ 설정 및 공유 양식이 기기에 안전하게 저장되었습니다.');
 }
 
-const BK_KEYS=['disp-roster-tpl','disp-dawn-tpl'];
+const BK_KEYS=['disp-roster-tpl','disp-dawn-tpl','disp-dispatch'];
 let pendingImport=null;
 
 function openBackup(){document.getElementById('backup-sheet').classList.add('show');}
@@ -1171,6 +1410,7 @@ function backupSummary(data){
   const parts=[];
   if(data['disp-roster-tpl'])parts.push('출근명단');
   if(data['disp-dawn-tpl'])parts.push('새벽반');
+  if(data['disp-dispatch'])parts.push('출차관리');
   return parts.join(' + ')||'명단';
 }
 function exportBackupFile(){
@@ -1179,7 +1419,7 @@ function exportBackupFile(){
     const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});
     const a=document.createElement('a');
     a.href=URL.createObjectURL(blob);
-    a.download=`출근명단_백업_${todayISO()}.json`;
+    a.download=`LK정리_백업_${todayISO()}.json`;
     document.body.appendChild(a);a.click();
     setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},600);
     showToast(`📤 ${backupSummary(obj.data)} 백업을 저장했어요`);
@@ -1217,10 +1457,15 @@ function applyImport(){
   customRosterText = null;
   customWeatherText = null;
   customVolumeText = null;
+  customDispatchText = null;
   Object.keys(pendingImport).forEach(k=>localStorage.setItem(k,pendingImport[k]));
   const summary=backupSummary(pendingImport);
   pendingImport=null;
   initRoster('main');initRoster('dawn');
+  
+  const dStore = localStorage.getItem('disp-dispatch');
+  if(dStore) dispatchStore = JSON.parse(dStore);
+  
   closeBackup();
   showToast(`✅ ${summary} 명단을 복원했어요`);
 }
@@ -1337,7 +1582,7 @@ async function runImageOCR(mode){
           matched++;
         }
       });
-      if(!matched){setStatus('표의 동 이름과 일치하는 행이 없어요','err');return;}
+      if(!matched){setStatus('표 of 동 이름과 일치하는 행이 없어요','err');return;}
       const skipped=clean.length-matched;
       saveVolume();
       setStatus(`✅ ${matched}개 동 건수 갱신${skipped?` · ${skipped}개는 표에 없어 건너뜀`:''}`,'ok');
@@ -1402,6 +1647,12 @@ document.getElementById('dlg-ok').onclick=function(){
     customVolumeText = null;
     volume.rows=[{dong:'',code:'',qty:''}];saveVolume();
     showToast('🗑 초기화했어요');
+  }else if(dlgAction==='clearDispatch'){
+    customDispatchText = null;
+    dispatchStore.groups = [];
+    dispatchStore.inbounds = [];
+    saveDispatch();
+    showToast('🗑 출차 데이터를 전체 비웠어요');
   }else if(dlgAction==='doImport'&&pendingImport){
     applyImport();
   }
