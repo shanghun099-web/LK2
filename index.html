@@ -47,7 +47,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Noto S
 @keyframes stripPulse{50%{opacity:0.72;}}
 
 .content{flex:1;overflow-y:auto;padding:16px 14px 40px;-webkit-overflow-scrolling:touch;}
-
 .dow-bar{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:14px;}
 .dow-btn{padding:11px 0 9px;border:1.5px solid var(--border);border-radius:11px;background:var(--card);color:var(--sub);font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;transition:all 0.15s;position:relative;}
 .dow-btn .dow-dot{position:absolute;top:5px;right:6px;width:5px;height:5px;border-radius:50%;background:var(--blue2);opacity:0;}
@@ -595,45 +594,85 @@ function reloadTpl(){
   render();showToast('기본 명단으로 되돌렸어요');
 }
 
-/* ═══════════ 실시간 기상 감시 ═══════════ */
+/* ═══════════ 실시간 기상 감시 및 정밀 GPS 하이브리드 탑재 ═══════════ */
 let wx={lat:37.5665,lon:126.9780,located:false,timeline:null,updated:null,err:null,model:'',alerted:0,loading:false};
 
 function initWeather(){
-  fetchWeather();
-  if(navigator.geolocation){
+  fetchWeather(); // 서울 기본 위치로 즉시 예보 표시 시작
+  
+  if (navigator.geolocation) {
+    // 앱 로드 시점에는 기기 대기시간 최소화를 위해 저정밀도로 가볍게 조회
     navigator.geolocation.getCurrentPosition(
-      p=>{
-        wx.lat=p.coords.latitude;wx.lon=p.coords.longitude;wx.located=true;
+      p => {
+        wx.lat = p.coords.latitude;
+        wx.lon = p.coords.longitude;
+        wx.located = true;
         if(tab==='weather') {
           customWeatherText = null;
           render();
         }
         fetchWeather();
       },
-      ()=>{},
-      {timeout:8000,maximumAge:600000,enableHighAccuracy:true}
+      () => {}, // 실패 시 기본(서울) 데이터를 그대로 유지
+      { timeout: 8000, maximumAge: 600000, enableHighAccuracy: false }
     );
   }
-  setInterval(fetchWeather,10*60*1000);
+  setInterval(fetchWeather, 10*60*1000);
 }
 
+/* [최고 정밀도 위성 -> 저정밀 LTE/WiFi 2단계 하이브리드 GPS 탑재] 
+   사용자가 직접 내 위치 버튼을 클릭할 때는, 실내 수신 불가를 극복하는 지능적 예외처리를 진행합니다. */
 function requestGeo(){
-  if(!navigator.geolocation){showToast('이 기기는 위치를 지원하지 않아요','err');return;}
-  showToast('📍 위치 확인 중…');
-  navigator.geolocation.getCurrentPosition(
-    p=>{
-      wx.lat=p.coords.latitude;wx.lon=p.coords.longitude;wx.located=true;
-      customWeatherText = null;
-      if(tab==='weather') render();
-      fetchWeather();
-      showToast('📍 현재 위치 기준으로 설정했어요');
-    },
-    err=>{
-      if(err&&err.code===1)showToast('위치 권한이 꺼져 있어요 — 브라우저 설정에서 허용해주세요','err');
-      else showToast('위치를 가져오지 못했어요 — 잠시 후 다시 시도','err');
-    },
-    {timeout:10000,maximumAge:0,enableHighAccuracy:true}
-  );
+  if(!navigator.geolocation){
+    showToast('⚠️ 이 기기/브라우저는 위치 기능을 지원하지 않아요','err');
+    return;
+  }
+  
+  // 보안 제한 사항(HTTP 여부) 가이드
+  if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+    showToast('🔒 일반 보안주소(https://)가 아니면 위치 확인이 불가해요.','err');
+    return;
+  }
+
+  showToast('🛰️ 정밀 위치(GPS) 탐색 중…');
+  
+  const optionsHigh = { timeout: 8000, maximumAge: 0, enableHighAccuracy: true }; // 1단계: 정밀 GPS
+  const optionsLow = { timeout: 10000, maximumAge: 600000, enableHighAccuracy: false }; // 2단계: WiFi/기지국
+
+  function success(p) {
+    wx.lat = p.coords.latitude;
+    wx.lon = p.coords.longitude;
+    wx.located = true;
+    customWeatherText = null;
+    if (tab === 'weather') render();
+    fetchWeather();
+    showToast('📍 현 배송지 위치가 확인되었습니다!');
+  }
+
+  function fail(err) {
+    console.warn("GPS Error:", err);
+    // 코드 3(타임아웃) 또는 코드 2(수신불가) 일 시 실내인 것으로 가정하여 wifi/기지국 기반 저정밀도 2차 시도
+    if (err.code === 3 || err.code === 2) {
+      showToast('🏢 실내 감지 - 기지국/WiFi 기반으로 재시도합니다…');
+      navigator.geolocation.getCurrentPosition(success, finalFail, optionsLow);
+    } else {
+      finalFail(err);
+    }
+  }
+
+  function finalFail(err) {
+    if (err.code === 1) {
+      showToast('⚠️ 권한 거부됨! 스마트폰 설정이나 브라우저 권한을 켜주세요.', 'err');
+    } else if (err.code === 3) {
+      showToast('⚠️ 위치 응답 초과! 야외로 나가거나 페이지를 새로고침 해보세요.', 'err');
+    } else {
+      // 카카오톡 브라우저에서 차단된 경우를 위한 상세 안내 탑재
+      showToast('⚠️ 인앱 브라우저 제한! (우측 하단 점3개 -> 다른 브라우저 열기)', 'err');
+    }
+  }
+
+  // 1차 고정밀도 수신 시작
+  navigator.geolocation.getCurrentPosition(success, fail, optionsHigh);
 }
 
 async function fetchWeather(){
@@ -641,6 +680,7 @@ async function fetchWeather(){
   wx.loading=true;
   const la=Number(wx.lat).toFixed(4), lo=Number(wx.lon).toFixed(4);
   
+  // 한국 날씨에 가장 고도화되어 호환되는 best_match 글로벌 기상 예측 API 사용 (안정성 보장)
   const url=`https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&hourly=precipitation_probability,precipitation,temperature_2m,weather_code,is_day&forecast_days=2&timeformat=unixtime&timezone=Asia%2FSeoul`;
   
   let d=null, lastErr='';
@@ -804,6 +844,7 @@ function updateWeatherDom(){
 }
 
 function renderWeather(){
+  // 지도에도 내 위치 핀마커가 정상 작동하도록 &marker=true 매개변수 포함
   const windySrc=`https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&zoom=9&overlay=radar&product=radar&level=surface&lat=${wx.lat.toFixed(4)}&lon=${wx.lon.toFixed(4)}&marker=true`;
   const shareTxt = customWeatherText !== null ? customWeatherText : wxShareText();
   const step=wx.timeline&&wx.timeline[0]?wx.timeline[0].step:60;
@@ -822,7 +863,7 @@ function renderWeather(){
     <div class="wx-table-wrap" id="wx-table-wrap">${wxTableHtml()}</div>
     <div class="wx-note">위 레이더는 Windy 실시간 비구름 화면이고, 타임라인은 기상청(KMA) 등 수치예보 모델 데이터로 계산됩니다. 앱이 켜져 있는 동안 10분마다 자동으로 재감지하며, 60분 내 강한 비가 감지되면 상단에 경보띠가 뜹니다.</div>
     
-    <!-- 카톡 미리보기: 실제 예보 데이터 연동 및 자동 크기 확대 -->
+    <!-- 카톡 미리보기 -->
     <div class="preview-wrap">
       <div class="preview-label">카톡 미리보기 — 실제 예보로 자동 작성 (직접 편집 가능)</div>
       <textarea class="kakao-bubble${shareTxt?'':' empty'}" id="wx-bubble" oninput="customWeatherText=this.value; autoResizePreviews();" placeholder="예보가 로드되면 공유 문구가 자동으로 만들어집니다. 직접 내용을 고치고 공유하셔도 적용됩니다.">${esc(shareTxt)}</textarea>
@@ -968,7 +1009,7 @@ function renderVolume(){
       <span class="qty-total-val" id="volTotal">${total.toLocaleString()}<small>건</small></span>
     </div>
     
-    <!-- 카톡 미리보기: 높이 자동 리사이징 및 자유 편집 연동 -->
+    <!-- 카톡 미리보기 -->
     <div class="preview-wrap">
       <div class="preview-label">카톡 미리보기 (직접 편집 가능)</div>
       <textarea class="kakao-bubble${previewText?'':' empty'}" oninput="customVolumeText=this.value; autoResizePreviews();" placeholder="동과 건수를 입력하면 여기에 미리보기가 나옵니다. 직접 템플릿 문구를 수정할 수 있습니다.">${esc(previewText)}</textarea>
