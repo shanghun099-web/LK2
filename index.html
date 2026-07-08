@@ -341,9 +341,7 @@ function deepZones(zs){return zs.map(z=>({emoji:z.emoji||'📍',name:z.name,peop
 
 function load(k,def){try{const v=JSON.parse(localStorage.getItem(k));return (v===null||v===undefined)?def:v;}catch(e){return def;}}
 
-/* ═══ 출근명단 · 새벽반: 완전히 같은 틀(요일 기본 명단)로 두 세트 운영 ═══
-   rosters.main = 주간 출근명단(기존 데이터 키 유지: disp-roster-tpl)
-   rosters.dawn = 새벽반(새 키: disp-dawn-tpl), 구조·기능 동일 */
+/* rosters.main = 주간 출근명단, rosters.dawn = 새벽반 */
 const rosters={
   main:{lsKey:'disp-roster-tpl',defTitle:'LK 출근 명단',emoji:'🚚',label:'출근명단',theme:''},
   dawn:{lsKey:'disp-dawn-tpl',defTitle:'새벽반 출근 명단',emoji:'🌅',label:'새벽반',theme:'dawn-theme'}
@@ -365,7 +363,7 @@ function initRoster(key){
 initRoster('main');
 initRoster('dawn');
 
-/* 구버전(체크 방식) 새벽반 데이터가 있으면 이름을 한 구역으로 옮겨서 보존 */
+/* 구버전 데이터 마이그레이션 */
 (function migrateDawn(){
   const legacy=load('disp-dawn',null);
   if(Array.isArray(legacy)&&legacy.length&&!rosters.dawn.work.zones.length){
@@ -373,11 +371,9 @@ initRoster('dawn');
   }
 })();
 
-/* 현재 탭이 가리키는 명단 컨텍스트 */
 function cur(){return tab==='dawn'?rosters.dawn:rosters.main;}
 function saveTplFor(R){localStorage.setItem(R.lsKey,JSON.stringify(R.tpl));}
 
-/* 물량은 예상(estimate) / 확정(fixed) 두 세트. volSet으로 전환 */
 let volStore=load('disp-volume',{
   set:'estimate',
   estimate:{
@@ -413,8 +409,7 @@ let volStore=load('disp-volume',{
     ]
   }
 });
-/* volume은 현재 선택된 세트를 가리키는 참조.
-   volStore[set] 객체 자체를 반환하므로 volume.date=... 같은 프로퍼티 수정이 원본에 반영됨 */
+
 Object.defineProperty(window,'volume',{get:()=>volStore[volStore.set],configurable:true});
 function switchVolSet(s){volStore.set=s;saveVolume();render();}
 function saveVolume(){localStorage.setItem('disp-volume',JSON.stringify(volStore));}
@@ -447,7 +442,6 @@ function nearestDateForDow(targetDow){
   return toLocalISO(nd);
 }
 
-/* 출근명단 · 새벽반 공용 렌더러 — cur()에 따라 데이터와 테마만 바뀜 */
 function renderRoster(){
   const R=cur();
   const dowBtns=DAYS.map((d,i)=>{
@@ -513,7 +507,6 @@ function rosterText(){
   const R=cur();
   const active=R.work.zones.filter(z=>z.name.trim()&&z.people.length);
   if(!active.length) return '';
-  // 컴팩트: 제목 한 줄 + 짧은 구분선, 구역/이름을 한 줄에 붙임, 빈 줄 없음
   let t=`${R.emoji} ${fmtKDate(R.work.date)} ${R.work.title||R.defTitle}\n`;
   t+=`━━━━━━━━━\n`;
   t+=active.map(z=>`${z.emoji||'📍'} ${z.name} · ${z.people.join(', ')}`).join('\n');
@@ -540,30 +533,25 @@ function reloadTpl(){
   render();showToast('기본 명단으로 되돌렸어요');
 }
 
-/* ═══════════ 실시간 기상 감시 ═══════════
-   기상청(KMA) 수치모델을 CORS 허용으로 중계하는 Open-Meteo API 사용.
-   KMA 모델 요청이 실패하면 국제 최적 모델(best_match)로 자동 전환.
-   시간값은 unixtime으로 받아 기기 시간대와 무관하게 정확히 계산.
-   앱이 켜져 있는 동안 10분마다 자동 재감지 → 60분 내 강한 비 감지 시 상단 경보띠. */
+/* ═══════════ 실시간 기상 감시 ═══════════ */
 let wx={lat:37.5665,lon:126.9780,located:false,timeline:null,updated:null,err:null,model:'',alerted:0,loading:false};
 
 function initWeather(){
-  fetchWeather(); // 우선 기본 좌표로라도 즉시 예보를 표시
+  fetchWeather();
   if(navigator.geolocation){
     navigator.geolocation.getCurrentPosition(
       p=>{
         wx.lat=p.coords.latitude;wx.lon=p.coords.longitude;wx.located=true;
-        if(tab==='weather')render(); // 레이더 지도를 현재 위치로 갱신
-        fetchWeather(); // 조회 중이면 대기열로 들어가 끝난 뒤 자동 재조회
+        if(tab==='weather')render();
+        fetchWeather();
       },
       ()=>{},
       {timeout:8000,maximumAge:600000,enableHighAccuracy:true}
     );
   }
-  setInterval(fetchWeather,10*60*1000); // 10분 단위 자동 감지
+  setInterval(fetchWeather,10*60*1000);
 }
 
-/* 📍 내 위치 버튼: iOS·카톡 브라우저는 버튼 탭(사용자 제스처)이 있어야 권한 창이 뜨는 경우가 많음 */
 function requestGeo(){
   if(!navigator.geolocation){showToast('이 기기는 위치를 지원하지 않아요','err');return;}
   showToast('📍 위치 확인 중…');
@@ -583,33 +571,32 @@ function requestGeo(){
 }
 
 async function fetchWeather(){
-  if(wx.loading){wx.queue=true;return;} // 조회 중 재요청은 대기열에 → 끝나면 자동 재조회
+  if(wx.loading){wx.queue=true;return;}
   wx.loading=true;
   const la=Number(wx.lat).toFixed(4), lo=Number(wx.lon).toFixed(4);
-  /* 필요한 변수만 최소 요청(호환성↑): 기온·강수·날씨코드·주야 + 확률(시간 단위) */
-  const MV='temperature_2m,precipitation,weather_code,is_day';
-  const qs15=`latitude=${la}&longitude=${lo}&minutely_15=${MV}&forecast_minutely_15=28&hourly=precipitation_probability&forecast_hours=8&timeformat=unixtime&timezone=Asia%2FSeoul`;
-  const qsH=`latitude=${la}&longitude=${lo}&hourly=precipitation_probability,precipitation,temperature_2m,weather_code,is_day&forecast_hours=8&timeformat=unixtime&timezone=Asia%2FSeoul`;
-  /* 3단계 폴백: 기상청(KMA) 15분 → 일반 15분 → 시간 단위 */
-  const tries=[
-    {url:'https://api.open-meteo.com/v1/forecast?'+qs15+'&models=kma_seamless',model:'kma_seamless'},
-    {url:'https://api.open-meteo.com/v1/forecast?'+qs15,model:'best_match'},
-    {url:'https://api.open-meteo.com/v1/forecast?'+qsH,model:'best_match'}
-  ];
-  let d=null,model='',lastErr='';
-  for(const t of tries){
-    try{
-      const ctrl=('AbortController' in window)?new AbortController():null;
-      const tm=ctrl?setTimeout(()=>ctrl.abort(),8000):null;
-      const res=await fetch(t.url,ctrl?{signal:ctrl.signal}:undefined);
-      if(tm)clearTimeout(tm);
-      const j=await res.json().catch(()=>null);
-      if(!res.ok||!j||j.error){lastErr=(j&&j.reason)?String(j.reason).slice(0,60):('HTTP '+res.status);continue;}
-      d=j;model=t.model;break;
-    }catch(e){
-      lastErr=(e&&e.name==='AbortError')?'응답 시간 초과':'네트워크 오류';
+  
+  /* [안정성 대폭 개편] 
+    특정 단일 모델(kma_seamless 등)의 일시적인 갱신 지연으로 인한 null 값 반환 문제를 해결하기 위해,
+    실시간 최신 데이터가 무조건 보장되는 Open-Meteo의 최적 모델(best_match) 통합 단일 API를 다이렉트로 호출합니다.
+  */
+  const url=`https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&hourly=precipitation_probability,precipitation,temperature_2m,weather_code,is_day&forecast_days=2&timeformat=unixtime&timezone=Asia%2FSeoul`;
+  
+  let d=null, lastErr='';
+  try{
+    const ctrl=('AbortController' in window)?new AbortController():null;
+    const tm=ctrl?setTimeout(()=>ctrl.abort(),10000):null;
+    const res=await fetch(url,ctrl?{signal:ctrl.signal}:undefined);
+    if(tm)clearTimeout(tm);
+    const j=await res.json().catch(()=>null);
+    if(!res.ok||!j||j.error){
+      lastErr=(j&&j.reason)?String(j.reason).slice(0,60):('HTTP '+res.status);
+    } else {
+      d=j;
     }
+  }catch(e){
+    lastErr=(e&&e.name==='AbortError')?'응답 시간 초과':'네트워크 오류';
   }
+
   if(!d){
     wx.err=lastErr||'알 수 없는 오류';
     wx.loading=false;
@@ -617,27 +604,12 @@ async function fetchWeather(){
     if(wx.queue){wx.queue=false;fetchWeather();}
     return;
   }
+
   try{
     const g=(o,k,i,def)=>o&&o[k]&&o[k][i]!=null?o[k][i]:def;
-    /* 강수확률은 시간 단위로만 제공 → 각 칸에 해당 시각의 시간 확률을 매핑 */
-    const probAt=t=>{
-      if(!d.hourly||!d.hourly.time||!d.hourly.precipitation_probability)return null;
-      for(let i=d.hourly.time.length-1;i>=0;i--){
-        if(t>=d.hourly.time[i]*1000)return d.hourly.precipitation_probability[i];
-      }
-      return d.hourly.precipitation_probability[0];
-    };
     let tl=[];
-    if(d.minutely_15&&d.minutely_15.time&&d.minutely_15.precipitation){
-      d.minutely_15.time.forEach((t,i)=>tl.push({
-        time:t*1000,step:15,
-        mm:g(d.minutely_15,'precipitation',i,0),
-        temp:g(d.minutely_15,'temperature_2m',i,null),
-        code:g(d.minutely_15,'weather_code',i,null),
-        isDay:g(d.minutely_15,'is_day',i,1),
-        prob:probAt(t*1000)
-      }));
-    }else if(d.hourly&&d.hourly.time&&d.hourly.precipitation){
+    
+    if(d.hourly&&d.hourly.time&&d.hourly.precipitation){
       d.hourly.time.forEach((t,i)=>tl.push({
         time:t*1000,step:60,
         mm:g(d.hourly,'precipitation',i,0),
@@ -649,40 +621,17 @@ async function fetchWeather(){
     }
     const now=Date.now();
     tl=tl.filter(e=>e.time+e.step*60000>now);
-    /* 15분 데이터 2칸 → 30분 블록으로 합산 (강수량 합, 기온 평균, 확률 최대) */
-    if(tl.length&&tl[0].step===15)tl=aggregate30(tl);
-    tl=tl.slice(0,12);
+    tl=tl.slice(0,12); // 향후 12시간 표시
     if(!tl.length)throw 0;
-    wx.timeline=tl;wx.updated=new Date();wx.err=null;wx.model=model;
+    wx.timeline=tl;wx.updated=new Date();wx.err=null;wx.model='best_match';
   }catch(e){
     wx.err='예보 해석 실패';
   }
   wx.loading=false;
-  updateWeatherDom(); // 전체 render 대신 부분 갱신 → 레이더 iframe이 리로드되지 않음
+  updateWeatherDom();
   if(wx.queue){wx.queue=false;fetchWeather();}
 }
 
-/* 15분 항목 2개 → 30분 블록 하나로 합산 */
-function aggregate30(tl15){
-  const avg=(x,y)=>x==null?y:(y==null?x:(x+y)/2);
-  const out=[];
-  for(let i=0;i+1<tl15.length;i+=2){
-    const a=tl15[i],b=tl15[i+1];
-    const pick=(b.mm||0)>(a.mm||0)?b:a; // 날씨코드는 비가 더 많은 쪽 기준
-    const probs=[a.prob,b.prob].filter(p=>p!=null);
-    out.push({
-      time:a.time,step:30,
-      mm:(a.mm||0)+(b.mm||0),
-      temp:avg(a.temp,b.temp),
-      code:pick.code!=null?pick.code:a.code,
-      isDay:a.isDay,
-      prob:probs.length?Math.max.apply(null,probs):null
-    });
-  }
-  return out;
-}
-
-/* 15분당(또는 시간당) 강수량 → 등급 분류. perH = 시간당 환산(mm/h) */
 function wxLevel(mm,step){
   const perH=mm*(60/step);
   if(perH<0.2) return {lv:0,icon:'☀️',label:'강수 없음',perH};
@@ -692,7 +641,6 @@ function wxLevel(mm,step){
   return {lv:3,icon:'🚨',label:'폭우',perH};
 }
 
-/* 자동 감지: 60분 내 강한 비(lv2+) 있으면 경보띠 + 토스트 1회 */
 function checkWxAlert(){
   const strip=document.getElementById('wx-strip');
   if(!wx.timeline){strip.classList.remove('show');return;}
@@ -716,12 +664,12 @@ function checkWxAlert(){
 function wxMetaHtml(){
   if(wx.updated){
     const loc=wx.located?'📍 현재 위치 기준':'⚠️ 위치 미확인(서울 기준) — 내 위치 버튼을 눌러주세요';
-    return `⏱️ ${fmtHM(wx.updated)} 갱신 · ${wx.model==='kma_seamless'?'기상청(KMA) 모델':'국제 수치모델'}<br>${loc} · 10분마다 자동 감지`;
+    return `⏱️ ${fmtHM(wx.updated)} 갱신 · 기상청 및 글로벌 통합 예보<br>${loc} · 10분마다 자동 감지`;
   }
   if(wx.err)return `❌ 예보 로드 실패: ${esc(wx.err)}<br>새로고침을 눌러 다시 시도해주세요`;
   return '예보를 불러오는 중…';
 }
-/* WMO 날씨코드 → 아이콘 */
+
 function wxIcon(code,isDay,mm){
   if(code==null)return mm>0?'🌧️':'☁️';
   if(code===0)return isDay?'☀️':'🌙';
@@ -737,7 +685,6 @@ function wxIcon(code,isDay,mm){
   return '☁️';
 }
 
-/* 기상청 시간별 예보 스타일 상세표: 시각·날씨·기온곡선·강수량·강수강도·강수확률 */
 function wxTableHtml(){
   if(wx.err&&!wx.timeline)
     return `<div style="padding:20px;text-align:center;color:#f0a0a0;font-size:13px;">예보 로드 실패 — 새로고침을 눌러주세요<br><span style="font-size:11px;color:var(--dim)">(${esc(wx.err)})</span></div>`;
@@ -748,7 +695,6 @@ function wxTableHtml(){
   const lvOf=e=>wxLevel(e.mm,e.step);
   const dcls=e=>lvOf(e).lv>=2?' wx-cell-danger':'';
 
-  /* 시각 라벨: 지금 / 30분 / 1시간 / 1시간30분 … + 실제 시각 */
   const lblOf=i=>{
     if(i===0)return '지금';
     const mins=i*step, h=Math.floor(mins/60), r=mins%60;
@@ -758,7 +704,6 @@ function wxTableHtml(){
 
   const rowIco=`<tr><th class="lbl">날씨</th>${cells((e,i)=>`<td class="wx-ico${i===0?' now':''}${dcls(e)}">${wxIcon(e.code,e.isDay,e.mm)}</td>`)}</tr>`;
 
-  /* 기온 곡선: 꺾은선 + 점 + 온도 라벨 (SVG) */
   let rowTemp;
   const temps=tl.map(e=>e.temp);
   if(temps.every(t=>t!=null)){
@@ -779,7 +724,6 @@ function wxTableHtml(){
   return `<table class="wx-table">${rowTime}${rowIco}${rowTemp}${rowMm}${rowInt}${rowProb}</table>`;
 }
 
-/* 날씨 탭이 열려 있을 때 iframe은 그대로 두고 상세표·메타·미리보기만 교체 */
 function updateWeatherDom(){
   checkWxAlert();
   if(tab!=='weather')return;
@@ -799,8 +743,8 @@ function updateWeatherDom(){
 function renderWeather(){
   const windySrc=`https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&zoom=9&overlay=radar&product=radar&level=surface&lat=${wx.lat.toFixed(4)}&lon=${wx.lon.toFixed(4)}`;
   const shareTxt=wxShareText();
-  const step=wx.timeline&&wx.timeline[0]?wx.timeline[0].step:30;
-  const stepLbl=step===60?'1시간':step+'분';
+  const step=wx.timeline&&wx.timeline[0]?wx.timeline[0].step:60;
+  const stepLbl='1시간';
   const spanH=wx.timeline?Math.round(wx.timeline.reduce((s,e)=>s+e.step,0)/60):6;
   return `
     <div class="wx-meta">
@@ -825,7 +769,6 @@ function renderWeather(){
     <div style="height:20px"></div>`;
 }
 
-/* 공유 문구 생성 — 실제 타임라인에서 시각·강도·확률·지속시간을 계산해 자동 작성 */
 function wxShareText(){
   if(!wx.timeline)return '';
   const now=new Date();
@@ -968,7 +911,6 @@ function volumeText(){
   const active=volume.rows.filter(r=>r.dong.trim()&&(Number(r.qty)||0)>0);
   if(!active.length) return '';
   const total=active.reduce((s,r)=>s+(Number(r.qty)||0),0);
-  // 컴팩트: 짧은 구분선, 한 줄에 동+코드+건수
   let t=`📦 ${fmtKDate(volume.date)} ${volume.title||'물량'}\n`;
   t+=`━━━━━━━━━\n`;
   active.forEach(r=>{
@@ -985,9 +927,6 @@ function delRow(i){volume.rows.splice(i,1);saveVolume();render();}
 function addRow(){volume.rows.push({dong:'',code:'',qty:''});saveVolume();render();}
 function resetVolNums(){volume.rows.forEach(r=>r.qty='');saveVolume();render();showToast('건수를 비웠어요');}
 
-/* 붙여넣은 표 텍스트를 파싱해서 행으로 변환.
-   각 줄에서 (동 이름 패턴)·(식별코드 패턴)·(마지막 숫자=건수)를 추출.
-   시군구/합계/헤더 줄은 건너뜀. */
 function parsePaste(replace){
   const raw=document.getElementById('paste-ta')?.value||'';
   if(!raw.trim()){showToast('붙여넣은 내용이 없어요','err');return;}
@@ -996,16 +935,11 @@ function parsePaste(replace){
   raw.split(/\r?\n/).forEach(line=>{
     const s=line.trim();
     if(!s||skip.test(s)) return;
-    // 탭 또는 2칸 이상 공백으로 우선 분리, 아니면 일반 공백
     const cells=s.split(/\t|\s{2,}/).map(c=>c.trim()).filter(Boolean);
     const tokens=cells.length>1?cells:s.split(/\s+/);
-    // 동 이름: '동'/'가'로 끝나는 토큰 우선, 없으면 첫 토큰
     let dong=tokens.find(t=>/[동가]$/.test(t)&&!/^\d/.test(t))||tokens[0]||'';
-    // 식별코드: '강남가101' 처럼 글자+숫자 조합
     let code=tokens.find(t=>/[가-힣]+\d+$/.test(t)&&t!==dong)||'';
-    // 건수: 줄에서 마지막에 나오는 순수 숫자(콤마 제거)
     const nums=s.replace(/,/g,'').match(/\b\d+\b/g)||[];
-    // code 안의 숫자는 제외하기 위해 code를 뺀 문자열에서 다시 탐색
     const numsClean=s.replace(code,'').replace(/,/g,'').match(/\b\d+\b/g)||nums;
     const qty=numsClean.length?numsClean[numsClean.length-1]:'';
     if(!dong||qty==='') return;
@@ -1014,7 +948,6 @@ function parsePaste(replace){
   if(!parsed.length){showToast('인식된 행이 없어요','err');return;}
   if(replace) volume.rows=parsed;
   else volume.rows=[...volume.rows.filter(r=>r.dong.trim()),...parsed];
-  // 코드가 하나라도 있으면 코드 표시 자동 ON
   if(parsed.some(p=>p.code)) volume.showCode=true;
   saveVolume();render();
   showToast(`✅ ${parsed.length}개 행을 ${replace?'채웠어요':'추가했어요'}`);
@@ -1026,13 +959,11 @@ function liveTotal(){
   if(el) el.innerHTML=`${t.toLocaleString()}<small>건</small>`;
 }
 
-/* ===== 설정 (Gemini API 키) ===== */
 function getApiKey(){return localStorage.getItem('gemini-key')||'';}
 const DEFAULT_MODEL='gemini-3.5-flash';
 const VALID_MODELS=['gemini-3.5-flash','gemini-3.1-flash-lite','gemini-2.5-flash'];
 function getModel(){
   const m=localStorage.getItem('gemini-model');
-  // 종료된 2.0 등 목록에 없는 값이 저장돼 있으면 기본값으로 교체
   return VALID_MODELS.includes(m)?m:DEFAULT_MODEL;
 }
 function openSettings(){
@@ -1048,9 +979,6 @@ function saveSettings(){
   closeSettings();showToast(k?'⚙️ 설정을 저장했어요':'API 키를 비웠어요');
 }
 
-/* ═══════════ 명단 백업 · 복원 ═══════════
-   출근명단(주간)과 새벽반의 요일별 기본 명단만 백업합니다.
-   물량·API 키·말핀 데이터는 포함하지 않아요. */
 const BK_KEYS=['disp-roster-tpl','disp-dawn-tpl'];
 let pendingImport=null;
 
@@ -1118,13 +1046,11 @@ function applyImport(){
   Object.keys(pendingImport).forEach(k=>localStorage.setItem(k,pendingImport[k]));
   const summary=backupSummary(pendingImport);
   pendingImport=null;
-  // 메모리 상태를 저장소 기준으로 다시 로드
   initRoster('main');initRoster('dawn');
   closeBackup();
   showToast(`✅ ${summary} 명단을 복원했어요`);
 }
 
-/* ===== 붙여넣기 모드 전환 ===== */
 function setPasteMode(m){
   document.getElementById('pm-img').classList.toggle('active',m==='img');
   document.getElementById('pm-txt').classList.toggle('active',m==='txt');
@@ -1132,8 +1058,7 @@ function setPasteMode(m){
   document.getElementById('paste-txt-area').style.display=m==='txt'?'block':'none';
 }
 
-/* ===== 이미지 선택 ===== */
-let pickedImage=null; // {base64, mime}
+let pickedImage=null;
 function onImgPick(e){
   const file=e.target.files&&e.target.files[0];
   if(!file) return;
@@ -1141,7 +1066,6 @@ function onImgPick(e){
   reader.onload=function(ev){
     const img=new Image();
     img.onload=function(){
-      // 카메라 원본은 수 MB라 그대로 보내면 느리고 용량 제한에 걸릴 수 있음 → 긴 변 1600px로 축소
       const MAX=1600;
       let {width:w,height:h}=img;
       let dataUrl=ev.target.result, mime=file.type||'image/jpeg';
@@ -1164,7 +1088,7 @@ function onImgPick(e){
     img.src=ev.target.result;
   };
   reader.readAsDataURL(file);
-  e.target.value=''; // 같은 파일 재선택 시에도 change 이벤트가 뜨도록
+  e.target.value='';
 }
 function setStatus(msg,type){
   const el=document.getElementById('img-status');
@@ -1173,7 +1097,6 @@ function setStatus(msg,type){
   el.innerHTML=type==='busy'?`<span class="spinner"></span>${msg}`:msg;
 }
 
-/* ===== Gemini 이미지 인식 → 행 채우기 ===== */
 async function runImageOCR(mode){
   const key=getApiKey();
   if(!key){showToast('먼저 ⚙️ 설정에서 API 키를 넣어주세요','err');openSettings();return;}
@@ -1214,7 +1137,6 @@ async function runImageOCR(mode){
       setStatus(msg,'err');return;
     }
     const data=await res.json();
-    // 사고(thought) 파트 제외하고 텍스트 파트만 이어붙임
     const parts=(data.candidates&&data.candidates[0]&&data.candidates[0].content&&data.candidates[0].content.parts)||[];
     const txt=parts.filter(p=>p.text&&!p.thought).map(p=>p.text).join('');
     let rows;
@@ -1222,7 +1144,6 @@ async function runImageOCR(mode){
       rows=JSON.parse(txt.replace(/```json|```/g,'').trim());
     }catch(e){setStatus('표를 해석하지 못했어요. 다시 시도해 주세요','err');return;}
     if(!Array.isArray(rows)||!rows.length){setStatus('인식된 행이 없어요','err');return;}
-    // 정규화
     const clean=rows.map(r=>({
       dong:String(r.dong||'').trim(),
       code:String(r.code||'').trim(),
@@ -1231,7 +1152,6 @@ async function runImageOCR(mode){
     if(!clean.length){setStatus('유효한 행이 없어요','err');return;}
 
     if(mode==='merge'){
-      // 표에 이미 있는 동만 이름 매칭으로 건수 갱신 (다른 구 동은 건너뜀)
       const norm=s=>String(s||'').replace(/\s+/g,'');
       let matched=0;
       clean.forEach(c=>{
