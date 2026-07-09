@@ -292,6 +292,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     <button class="tab" id="tab-weather" onclick="switchTab('weather')">⛈️ 날씨</button>
     <button class="tab" id="tab-volume" onclick="switchTab('volume')">📦 물량</button>
     <button class="tab" id="tab-dispatch" onclick="switchTab('dispatch')">🚛 출차</button>
+    <button class="tab" id="tab-inbound" onclick="switchTab('inbound')">🚚 입고</button>
   </div>
 
   <div class="wx-strip" id="wx-strip" onclick="switchTab('weather')"></div>
@@ -333,6 +334,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
         <option value="wx_clear">☀️ 기상 안내 (비 없음)</option>
         <option value="volume">📦 물량 양식</option>
         <option value="dispatch">🚛 출차 순서 양식</option>
+        <option value="inbound">🚚 간선 도착 · 입고 양식</option>
       </select>
       <div style="height:10px"></div>
       <label class="field-label">양식 문구 내용</label>
@@ -385,12 +387,13 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 const DAYS=['일','월','화','수','목','금','토'];
 const DOW_FULL=['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
 let tab='roster';
-const TAB_TITLES={roster:'출근명단 정리',dawn:'새벽반 명단',weather:'실시간 기상 감시',volume:'물량 정리',dispatch:'출차 및 입차 관리'};
+const TAB_TITLES={roster:'출근명단 정리',dawn:'새벽반 명단',weather:'실시간 기상 감시',volume:'물량 정리',dispatch:'출차 및 입차 관리',inbound:'간선 도착 · 입고'};
 
 let customRosterText = null;
 let customWeatherText = null;
 let customVolumeText = null;
 let customDispatchText = null;
+let customInboundText = null;
 
 const DEFAULT_TEMPLATES = {
   roster: `{emoji} {date} {title}\n━━━━━━━━━\n{zones}\n━━━━━━━━━\n👥 총 {total}명`,
@@ -399,7 +402,8 @@ const DEFAULT_TEMPLATES = {
   wx_rain: `🌦️ [기상 안내]\n⏱️ {time} 기준 · 강남구 기준 실시간 예보\n━━━━━━━━━\n{status_msg}\n(시간당 약 {rain_mm}mm{prob})\n━━━━━━━━━\n젖은 노면 미끄럼에 주의하시고, 안전운전하세요! 🚗`,
   wx_clear: `☀️ [기상 안내]\n⏱️ {time} 기준 · 강남구 기준 실시간 예보\n━━━━━━━━━\n앞으로 약 {span_hours}시간 동안 배송 구역에 비 소식은 없습니다.\n━━━━━━━━━\n오늘도 기상 상황이 양호합니다.\n수고 많으십니다, 기분 좋은 하루 보내시고 안전운행하세요! 👍`,
   volume: `📦 {date} {title}\n━━━━━━━━━\n{rows}━━━━━━━━━\n📊 합계 {total}건`,
-  dispatch: `(공지) {date} ({day}) 출차순서\n━━━━━━━━━\n{orders}\n━━━━━━━━━\n{inbounds}`
+  dispatch: `(공지) {date} ({day}) 출차순서\n━━━━━━━━━\n{orders}\n━━━━━━━━━\n{inbounds}`,
+  inbound: `🚚 [간선 도착 안내]\n📅 {date}\n━━━━━━━━━\n{rows}━━━━━━━━━\n입고 시간 참고하셔서 대기 부탁드립니다 🙏`
 };
 
 let editingTemplates = {};
@@ -587,8 +591,9 @@ function switchTab(t){
   customWeatherText = null;
   customVolumeText = null;
   customDispatchText = null;
+  customInboundText = null;
   tab=t;
-  ['roster','dawn','weather','volume','dispatch'].forEach(x=>document.getElementById('tab-'+x).classList.toggle('active',x===t));
+  ['roster','dawn','weather','volume','dispatch','inbound'].forEach(x=>document.getElementById('tab-'+x).classList.toggle('active',x===t));
   document.getElementById('hTitle').textContent=TAB_TITLES[t];
   render();
 }
@@ -599,6 +604,7 @@ function render(){
   if(tab==='roster'||tab==='dawn') c.innerHTML=renderRoster();
   else if(tab==='volume') c.innerHTML=renderVolume();
   else if(tab==='weather') c.innerHTML=renderWeather();
+  else if(tab==='inbound') c.innerHTML=renderInbound();
   else c.innerHTML=renderDispatch();
   
   setTimeout(autoResizePreviews, 10);
@@ -1418,6 +1424,164 @@ function dispatchText() {
   });
 }
 
+/* ═══════════ 간선 도착 · 입고 관리 ═══════════ */
+/* Redash 공개 대시보드는 iframe 임베드와 파라미터 API 조회가 모두 막혀 있어,
+   ① 저장된 번호로 조회 페이지를 원터치로 열고
+   ② 조회 화면의 표를 붙여넣어 카톡 문구를 자동 생성하는 방식으로 동작합니다. */
+
+const INBOUND_BASE_URL = 'https://redash.delivus.co.kr/public/dashboards/nEnlpAHhLMe6r28kykOwZvznXK7CmDAPTg8y0A31';
+
+let inboundStore = load('disp-inbound', {
+  phone: '1036535848',
+  date: todayISO(),
+  rows: []   // {base:'강남 거점', kind:'당신의 위치', time:'16시 55분'}
+});
+function saveInbound(){ localStorage.setItem('disp-inbound', JSON.stringify(inboundStore)); }
+
+function buildInboundUrl(useYesterday){
+  const phone = (inboundStore.phone||'').replace(/[^0-9]/g,'');
+  const params = new URLSearchParams();
+  params.set('org_slug','default');
+  // 어제 조회 바로가기는 Redash 내장 d_yesterday 사용, 아니면 선택 날짜 고정
+  if(useYesterday){
+    params.set('p_Date','d_yesterday');
+  }else{
+    params.set('p_Date', inboundStore.date);
+  }
+  // 파라미터명이 한글(휴대폰번호)이라 인코딩 필요
+  params.set('p_휴대폰번호', phone);
+  return INBOUND_BASE_URL + '?' + params.toString();
+}
+
+function openInboundPage(useYesterday){
+  const phone=(inboundStore.phone||'').replace(/[^0-9]/g,'');
+  if(!phone){ showToast('먼저 휴대폰 번호를 입력하세요','err'); return; }
+  const url=buildInboundUrl(useYesterday);
+  window.open(url,'_blank');
+  showToast('🔗 조회 페이지를 새 창으로 열었어요');
+}
+
+function renderInbound(){
+  const previewText = customInboundText !== null ? customInboundText : inboundText();
+  const rowsHtml = inboundStore.rows.map((r,i)=>`
+    <div class="qty-row" style="grid-template-columns:1fr 96px 38px;">
+      <input class="inp" value="${esc(r.base)}" placeholder="거점명" onchange="setInb(${i},'base',this.value)">
+      <input class="inp" style="text-align:center;font-weight:800;color:var(--teal3);" value="${esc(r.time)}" placeholder="16:55" onchange="setInb(${i},'time',this.value)">
+      <button class="qty-del" onclick="delInb(${i})">🗑</button>
+    </div>`).join('');
+
+  return `
+    <div class="tpl-banner">
+      <span class="tpl-banner-icon">🚚</span>
+      <span class="tpl-banner-txt">번호를 저장해두면 <b>조회 페이지</b>를 원터치로 열 수 있어요. Redash가 자동 연동을 막아둬서, 열린 화면의 <b>표를 복사·붙여넣기</b>하면 카톡 문구로 정리해 드립니다.</span>
+    </div>
+
+    <div class="row2" style="margin-bottom:13px">
+      <div class="field" style="margin:0">
+        <label class="field-label">📱 조회용 휴대폰 번호</label>
+        <input class="inp" inputmode="numeric" value="${esc(inboundStore.phone)}" placeholder="01012345678" onchange="inboundStore.phone=this.value.replace(/[^0-9]/g,'');saveInbound();render()">
+      </div>
+      <div class="field" style="margin:0">
+        <label class="field-label">📅 조회 날짜</label>
+        <input type="date" class="inp" value="${inboundStore.date}" onchange="inboundStore.date=this.value;customInboundText=null;saveInbound();render()">
+      </div>
+    </div>
+
+    <div class="section-head"><div class="section-title">🔗 <b>조회 페이지</b> 바로 열기</div></div>
+    <div class="row2" style="margin-bottom:8px">
+      <button class="btn-add-zone" style="margin:0;padding:14px;border-style:solid;border-color:#1d3a66;background:linear-gradient(135deg,#10243f,#13294a);color:var(--blue3);" onclick="openInboundPage(false)">📅 선택 날짜로 조회</button>
+      <button class="btn-add-zone" style="margin:0;padding:14px;border-style:solid;border-color:#155244;background:linear-gradient(135deg,#0a2620,#0d2e26);color:var(--teal3);" onclick="openInboundPage(true)">⏮ 어제자 바로 조회</button>
+    </div>
+    <div class="wx-note" style="margin-bottom:16px">열린 페이지 하단 <b style="color:var(--sub)">"유닛 도착 시간"</b> 표가 뜨면, 그 표를 길게 눌러 복사한 뒤 아래에 붙여넣으세요. 로딩이 느리면 페이지 새로고침을 한 번 해주세요.</div>
+
+    <details class="paste-box" open>
+      <summary>📥 조회 결과 표 붙여넣기 → 자동 정리</summary>
+      <div class="paste-inner">
+        <div class="paste-hint">조회 화면의 표를 그대로 붙여넣으면 <b>거점명</b>과 <b>도착시간</b>을 뽑아 아래 목록에 채웁니다. (예: <code>강남 거점  2026년 7월 9일  당신의 위치  16시 55분</code>)</div>
+        <textarea class="paste-ta" id="inb-paste-ta" placeholder="여기에 조회 결과 표를 붙여넣기…&#10;강남 거점   2026년 7월 9일   당신의 위치   16시 55분"></textarea>
+        <div class="paste-btns">
+          <button class="mini-btn" onclick="parseInboundPaste(false)">기존에 추가</button>
+          <button class="mini-btn" style="border-color:#1d3a66;color:var(--blue3)" onclick="parseInboundPaste(true)">전체 교체</button>
+        </div>
+      </div>
+    </details>
+
+    <div class="section-head"><div class="section-title">🚚 도착 목록 <b>${inboundStore.rows.length}</b>건</div></div>
+    <div class="qty-head" style="grid-template-columns:1fr 96px 38px;"><span>거점명</span><span>도착시간</span><span></span></div>
+    ${rowsHtml}
+    <button class="btn-add-row" onclick="addInb()">＋ 도착 항목 추가</button>
+
+    <div class="preview-wrap">
+      <div class="preview-label">카톡 미리보기 (직접 편집 가능)</div>
+      <textarea class="kakao-bubble${previewText?'':' empty'}" oninput="customInboundText=this.value; autoResizePreviews();" placeholder="조회 결과를 붙여넣거나 항목을 추가하면 여기에 카톡 문구가 만들어집니다.">${esc(previewText)}</textarea>
+      <div class="actions">
+        <button class="btn btn-share" onclick="shareText(customInboundText !== null ? customInboundText : inboundText())">💬 공유하기</button>
+        <button class="btn btn-copy" onclick="copyText(customInboundText !== null ? customInboundText : inboundText())">📋 복사</button>
+      </div>
+    </div>
+    <div style="height:10px"></div>
+    <div class="mini-btns">
+      <button class="mini-btn danger" onclick="inboundStore.rows=[];customInboundText=null;saveInbound();render();showToast('🗑 목록을 비웠어요')">목록 전체 비우기</button>
+    </div>
+    <div style="height:20px"></div>`;
+}
+
+function setInb(i,key,v){ customInboundText=null; inboundStore.rows[i][key]=v.trim(); saveInbound(); render(); }
+function delInb(i){ customInboundText=null; inboundStore.rows.splice(i,1); saveInbound(); render(); }
+function addInb(){ customInboundText=null; inboundStore.rows.push({base:'',kind:'',time:''}); saveInbound(); render(); }
+
+function parseInboundPaste(replace){
+  const raw=document.getElementById('inb-paste-ta')?.value||'';
+  if(!raw.trim()){ showToast('붙여넣은 내용이 없어요','err'); return; }
+  customInboundText=null;
+  const skip=/부대명|거점명|날짜|부품별|도착\s*시간|단위별|간선/i;
+  // 시간 패턴: "16시 55분" 또는 "16:55"
+  const timeRe=/(\d{1,2})\s*시\s*(\d{1,2})\s*분|(\d{1,2}):(\d{2})/;
+  const parsed=[];
+  raw.split(/\r?\n/).forEach(line=>{
+    const s=line.trim();
+    if(!s) return;
+    const m=s.match(timeRe);
+    if(!m) return;                    // 시간 없는 줄(헤더 등)은 건너뜀
+    let time;
+    if(m[1]!=null){ time=`${parseInt(m[1],10)}:${String(m[2]).padStart(2,'0')}`; }
+    else { time=`${parseInt(m[3],10)}:${m[4]}`; }
+    // 거점명: 줄 맨 앞 토큰들 중 날짜/시간이 아닌 첫 덩어리
+    let head=s.slice(0, m.index).trim();
+    // 날짜 조각 제거 (2026년 7월 9일 / 2026-07-09 등)
+    head=head.replace(/\d{4}\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일/g,'')
+             .replace(/\d{4}-\d{2}-\d{2}/g,'')
+             .replace(/당신의?\s*위치/g,'')
+             .trim();
+    // 여러 공백/탭 정리
+    const cells=head.split(/\t|\s{2,}/).map(c=>c.trim()).filter(Boolean);
+    let base=cells.length?cells[0]:head.split(/\s+/)[0]||'';
+    if(!base || skip.test(base)) base=head||'거점';
+    parsed.push({base, kind:'', time});
+  });
+  if(!parsed.length){ showToast('시간이 포함된 행을 찾지 못했어요','err'); return; }
+  if(replace) inboundStore.rows=parsed;
+  else inboundStore.rows=[...inboundStore.rows.filter(r=>r.base||r.time), ...parsed];
+  saveInbound(); render();
+  showToast(`✅ ${parsed.length}건을 ${replace?'채웠어요':'추가했어요'}`);
+}
+
+function inboundText(){
+  const active=inboundStore.rows.filter(r=>(r.base||'').trim()||(r.time||'').trim());
+  if(!active.length) return '';
+  let rowsStr='';
+  active.forEach(r=>{
+    const base=(r.base||'').trim()||'거점';
+    const time=(r.time||'').trim()||'-';
+    rowsStr += `📍 ${base} · ${time} 도착\n`;
+  });
+  const tpl=getTemplate('inbound');
+  return formatTemplate(tpl, {
+    date: fmtKDate(inboundStore.date),
+    rows: rowsStr
+  });
+}
+
 /* ═══════════ 설정 및 백업 관리 시스템 ═══════════ */
 function getApiKey(){return localStorage.getItem('gemini-key')||'';}
 const DEFAULT_MODEL='gemini-3.5-flash';
@@ -1431,7 +1595,7 @@ function openSettings(){
   document.getElementById('set-apikey').value=getApiKey();
   document.getElementById('set-model').value=getModel();
   
-  const keys = ['roster', 'dawn', 'wx_heavy', 'wx_rain', 'wx_clear', 'volume', 'dispatch'];
+  const keys = ['roster', 'dawn', 'wx_heavy', 'wx_rain', 'wx_clear', 'volume', 'dispatch', 'inbound'];
   keys.forEach(k => {
     editingTemplates[k] = getTemplate(k);
   });
@@ -1472,7 +1636,8 @@ function onTemplateSelectorChange() {
     wx_rain: `<b>💡 치환 변수 목록:</b><br><code>{time}</code> 갱신 시각, <code>{status_msg}</code> 비 시작 상황 안내문, <code>{rain_mm}</code> 강수량, <code>{prob}</code> 확률`,
     wx_clear: `<b>💡 치환 변수 목록:</b><br><code>{time}</code> 갱신 시각, <code>{span_hours}</code> 예보 유지 범위 시간`,
     volume: `<b>💡 치환 변수 목록:</b><br><code>{date}</code> 날짜, <code>{title}</code> 제목, <code>{rows}</code> 각 동별 물량 리스트, <code>{total}</code> 합계 수량`,
-    dispatch: `<b>💡 치환 변수 목록:</b><br><code>{date}</code> 날짜(예: 7월 8일), <code>{day}</code> 요일(예: 수요일), <code>{orders}</code> 출차 순서 목록, <code>{inbounds}</code> 입차 내역`
+    dispatch: `<b>💡 치환 변수 목록:</b><br><code>{date}</code> 날짜(예: 7월 8일), <code>{day}</code> 요일(예: 수요일), <code>{orders}</code> 출차 순서 목록, <code>{inbounds}</code> 입차 내역`,
+    inbound: `<b>💡 치환 변수 목록:</b><br><code>{date}</code> 날짜, <code>{rows}</code> 거점별 도착시간 리스트`
   };
   document.getElementById('set-tpl-hint').innerHTML = hints[newKey] || '';
 }
@@ -1496,7 +1661,7 @@ function saveSettings(){
   showToast('⚙️ 설정 및 공유 양식이 기기에 안전하게 저장되었습니다.');
 }
 
-const BK_KEYS=['disp-roster-tpl','disp-dawn-tpl','disp-dispatch-tpl'];
+const BK_KEYS=['disp-roster-tpl','disp-dawn-tpl','disp-dispatch-tpl','disp-inbound'];
 let pendingImport=null;
 
 function openBackup(){document.getElementById('backup-sheet').classList.add('show');}
@@ -1512,6 +1677,7 @@ function backupSummary(data){
   if(data['disp-roster-tpl'])parts.push('출근명단');
   if(data['disp-dawn-tpl'])parts.push('새벽반');
   if(data['disp-dispatch-tpl'])parts.push('출차관리');
+  if(data['disp-inbound'])parts.push('입고');
   return parts.join(' + ')||'명단';
 }
 function exportBackupFile(){
@@ -1570,6 +1736,9 @@ function applyImport(){
   // 가동 버퍼 동기화
   dispatchStore.groups = deepDispatchData(dispatchTplStore[dispatchWorkDow]).groups;
   dispatchStore.inbounds = deepDispatchData(dispatchTplStore[dispatchWorkDow]).inbounds;
+
+  // 입고 저장소 재로드
+  inboundStore = load('disp-inbound', inboundStore);
 
   closeBackup();
   showToast(`✅ ${summary} 데이터를 복원했어요`);
