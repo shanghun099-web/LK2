@@ -227,10 +227,6 @@ input[type="time"].time-hint{
 .wx-int2{color:var(--amber2);font-weight:800;}
 .wx-int3{color:var(--red2);font-weight:800;}
 .wx-cell-danger{background:rgba(220,38,38,0.10);}
-.wx-prob{font-weight:700;color:var(--blue3);}
-.wx-wind{font-size:11px;color:var(--sub);line-height:1.35;}
-.wx-wind .arr{display:inline-block;font-size:13px;color:var(--text);}
-.wx-hum{color:var(--sub);}
 .wx-note{font-size:11px;color:var(--dim);line-height:1.6;margin-bottom:14px;}
 
 .sheet-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:120;align-items:flex-end;justify-content:center;}
@@ -1586,7 +1582,7 @@ function renderInbound(){
 
   const bannerTxt = isTrunk
     ? `호차별 <b>도착시각</b>을 터치로 정하면 카톡 문구가 만들어집니다.`
-    : `딜리래빗 <b>조회 페이지</b>에서 도착시각을 확인한 뒤, 시각을 넣어 카톡 문구를 만드세요.`;
+    : `딜리래빗 <b>조회 페이지</b>에서 도착시간을 확인한 뒤, 시간을 넣어 카톡 문구를 만드세요.`;
 
   return `
     <div class="set-tabs">
