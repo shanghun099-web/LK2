@@ -740,7 +740,7 @@ async function fetchWeather(){
   if(wx.loading){wx.queue=true;return;}
   wx.loading=true;
   const la=Number(wx.lat).toFixed(4), lo=Number(wx.lon).toFixed(4);
-  const url=`https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&hourly=precipitation_probability,precipitation,temperature_2m,weather_code,is_day&forecast_days=2&timeformat=unixtime&timezone=Asia%2FSeoul`;
+  const url=`https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&hourly=precipitation_probability,precipitation,temperature_2m,apparent_temperature,weather_code,is_day&forecast_days=2&timeformat=unixtime&timezone=Asia%2FSeoul`;
   
   let d=null, lastErr='';
   try{
@@ -775,6 +775,7 @@ async function fetchWeather(){
         time:t*1000,step:60,
         mm:g(d.hourly,'precipitation',i,0),
         temp:g(d.hourly,'temperature_2m',i,null),
+        feels:g(d.hourly,'apparent_temperature',i,null),
         code:g(d.hourly,'weather_code',i,null),
         isDay:g(d.hourly,'is_day',i,1),
         prob:g(d.hourly,'precipitation_probability',i,null)
@@ -861,30 +862,37 @@ function wxTableHtml(){
     const mins=i*step, h=Math.floor(mins/60), r=mins%60;
     return (h?h+'시간':'')+(r?r+'분':'');
   };
+  // ── 날씨누리 형태 5행 테이블: 시각 / 날씨 / 기온 / 체감온도 / 강수량 / 강수강도 ──
   const rowTime=`<tr><th class="lbl">시각</th>${cells((e,i)=>`<th class="${i===0?'now':''}"><div class="wx-time">${lblOf(i)}<small>${fmtHM(new Date(e.time))}</small></div></th>`)}</tr>`;
 
-  const rowIco=`<tr><th class="lbl">날씨</th>${cells((e,i)=>`<td class="wx-ico${i===0?' now':''}${dcls(e)}">${wxIcon(e.code,e.isDay,e.mm)}</td>`)}</tr>`;
+  // 날씨 아이콘: 강수량이 있으면 우산, 없으면 하늘상태(맑음/구름) 이모지
+  const nuriIcon=e=>{
+    const perH=e.mm*(60/e.step);
+    if(perH>=0.1) return '☔';
+    return wxIcon(e.code,e.isDay,e.mm);
+  };
+  const rowIco=`<tr><th class="lbl">날씨</th>${cells((e,i)=>`<td class="wx-ico${i===0?' now':''}${dcls(e)}">${nuriIcon(e)}</td>`)}</tr>`;
 
-  let rowTemp;
-  const temps=tl.map(e=>e.temp);
-  if(temps.every(t=>t!=null)){
-    const H=62,PT=17,PB=8;
-    const mn=Math.min.apply(null,temps),mx=Math.max.apply(null,temps),rg=Math.max(mx-mn,1);
-    const yOf=t=>PT+(mx-t)/rg*(H-PT-PB);
-    const pts=temps.map((t,i)=>`${i*CW+half},${yOf(t).toFixed(1)}`).join(' ');
-    const dots=temps.map((t,i)=>`<circle cx="${i*CW+half}" cy="${yOf(t).toFixed(1)}" r="3" fill="#60a5fa"/><text x="${i*CW+half}" y="${(yOf(t)-7).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="700" fill="#eceff3">${Math.round(t)}°</text>`).join('');
-    rowTemp=`<tr><th class="lbl">기온</th><td colspan="${N}" style="padding:0"><svg width="${N*CW}" height="${H}" style="display:block"><polyline points="${pts}" fill="none" stroke="#3b82f6" stroke-width="2"/>${dots}</svg></td></tr>`;
-  }else{
-    rowTemp=`<tr><th class="lbl">기온</th>${cells(e=>`<td>${e.temp!=null?Math.round(e.temp)+'°':'-'}</td>`)}</tr>`;
-  }
+  // 기온
+  const rowTemp=`<tr><th class="lbl">기온</th>${cells(e=>`<td class="wx-mm" style="color:var(--blue3)">${e.temp!=null?Math.round(e.temp)+'°':'-'}</td>`)}</tr>`;
 
-  const rowMm=`<tr><th class="lbl">강수량<br>(mm)</th>${cells(e=>`<td class="wx-mm${dcls(e)}">${e.mm>=0.05?(e.mm<10?e.mm.toFixed(1):Math.round(e.mm)):'-'}</td>`)}</tr>`;
-  const rowInt=`<tr><th class="lbl">강수강도</th>${cells(e=>{const L=lvOf(e);return `<td class="wx-int${L.lv}${dcls(e)}">${L.lv?L.label:'-'}</td>`;})}</tr>`;
-  const rowProb=`<tr><th class="lbl">강수확률</th>${cells(e=>`<td class="wx-prob">${e.prob!=null?Math.round(e.prob)+'%':'-'}</td>`)}</tr>`;
+  // 체감온도
+  const rowFeel=`<tr><th class="lbl">체감온도</th>${cells(e=>`<td style="color:var(--amber2);font-weight:700">${e.feels!=null?Math.round(e.feels)+'°':'-'}</td>`)}</tr>`;
 
-  return `<table class="wx-table">${rowTime}${rowIco}${rowTemp}${rowMm}${rowInt}${rowProb}</table>`;
-}
+  // 강수량 (mm)
+  const rowMm=`<tr><th class="lbl">강수량<br>(mm)</th>${cells(e=>`<td class="wx-mm${dcls(e)}">${e.mm>=0.05?(e.mm<1?e.mm.toFixed(1):Math.round(e.mm)):'-'}</td>`)}</tr>`;
 
+  // 강수강도 (날씨누리 표기: 약한비/보통비/강한비/매우강한비)
+  const nuriInt=L=>{
+    if(L.lv===0) return '-';
+    if(L.perH<1)  return '약한비';
+    if(L.perH<4)  return '보통비';
+    if(L.perH<10) return '강한비';
+    return '매우강한비';
+  };
+  const rowInt=`<tr><th class="lbl">강수강도</th>${cells(e=>{const L=lvOf(e);return `<td class="wx-int${L.lv}${dcls(e)}">${nuriInt(L)}</td>`;})}</tr>`;
+
+  return `<table class="wx-table">${rowTime}${rowIco}${rowTemp}${rowFeel}${rowMm}${rowInt}</table>`;
 function updateWeatherDom(){
   checkWxAlert();
   if(tab!=='weather')return;
