@@ -118,6 +118,13 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   filter: invert(0.8) sepia(1) saturate(5) hue-rotate(190deg);
   cursor: pointer;
 }
+/* 시간 입력칸 흐릿한 시계 배경 (값 입력 안내) */
+input[type="time"].time-hint{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%235a6270' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpolyline points='12 7 12 12 15 14'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:10px center;
+  background-size:19px 19px;
+}
 
 .qty-total-bar{background:linear-gradient(135deg,#0a2620,#0d2e26);border:1.5px solid #155244;border-radius:13px;padding:14px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;}
 .qty-total-lbl{font-size:13px;color:var(--teal3);font-weight:700;}
@@ -332,6 +339,9 @@ input[type="time"]::-webkit-calendar-picker-indicator {
         <option value="wx_heavy">🚨 기상 전파 (강한 비)</option>
         <option value="wx_rain">🌦️ 기상 안내 (일반 비)</option>
         <option value="wx_clear">☀️ 기상 안내 (비 없음)</option>
+        <option value="tip_light">🌦️ 기사멘트 (약한 비)</option>
+        <option value="tip_normal">🌧️ 기사멘트 (보통 비)</option>
+        <option value="tip_heavy">⛈️ 기사멘트 (강한 비·폭우)</option>
         <option value="volume">📦 물량 양식</option>
         <option value="dispatch">🚛 출차 순서 양식</option>
         <option value="inbound">🚚 간선 도착 · 입고 양식</option>
@@ -401,6 +411,9 @@ const DEFAULT_TEMPLATES = {
   wx_heavy: `🚨 [기상 상황 전파]\n⏱️ {time} 기준 · 강남구 기준 실시간 예보\n━━━━━━━━━\n{status_msg}\n(시간당 약 {rain_mm}mm{prob})\n· 예상 지속 시간: 약 {duration}\n━━━━━━━━━\n{tip}\n오늘도 안전운행이 최우선입니다 🙏`,
   wx_rain: `🌦️ [기상 안내]\n⏱️ {time} 기준 · 강남구 기준 실시간 예보\n━━━━━━━━━\n{status_msg}\n(시간당 약 {rain_mm}mm{prob})\n━━━━━━━━━\n{tip}`,
   wx_clear: `☀️ [기상 안내]\n⏱️ {time} 기준 · 강남구 기준 실시간 예보\n━━━━━━━━━\n앞으로 약 {span_hours}시간 동안 배송 구역에 비 소식은 없습니다.\n━━━━━━━━━\n오늘도 기상 상황이 양호합니다.\n수고 많으십니다, 기분 좋은 하루 보내시고 안전운행하세요! 👍`,
+  tip_light: `부슬비가 이어집니다. 우비는 애매해도 송장 젖을 수 있으니 가림막 미리 챙기세요.|약한 비로 노면이 계속 젖어 있어요. 지하주차장 진입 시 미끄러짐 조심하세요.`,
+  tip_normal: `줄기차게 내립니다. 우비 챙기시고, 탑차 문은 뒤쪽부터 단단히 단속하세요.|노면 물고임이 심해집니다. 물웅덩이 보행자 물튀김 주의하고 안전거리 넉넉히 두세요.`,
+  tip_heavy: `장대비가 쏟아져 와이퍼로도 시야 확보가 어렵습니다. 무리한 추월 절대 금물이에요.|폭우로 신발·장갑이 젖어 페달·핸들이 미끄러울 수 있어요. 수시로 닦고 완배보다 안전 먼저입니다.`,
   volume: `📦 {date} {title}\n━━━━━━━━━\n{rows}━━━━━━━━━\n📊 합계 {total}건`,
   dispatch: `(공지) {date} ({day}) 출차순서\n━━━━━━━━━\n{orders}\n━━━━━━━━━\n{inbounds}`,
   inbound: `🚚 [{set} 입고 안내] {date}\n━━━━━━━━━\n{rows}━━━━━━━━━\n도착 시간 참고 및 확인 부탁드립니다`
@@ -939,25 +952,14 @@ function renderWeather(){
     <div style="height:20px"></div>`;
 }
 
-// 강수강도별 기사용 안내 멘트 (perH: 시간당 mm) — 매번 랜덤으로 하나
+// 강수강도별 기사용 안내 멘트 — 설정에서 편집 가능(| 로 구분), 매번 랜덤 하나
 function rainTip(perH){
-  let pool;
-  if(perH < 1){          // 약한 비 (0.2~1mm)
-    pool = [
-      '부슬비가 이어집니다. 우비는 애매해도 송장 젖을 수 있으니 가림막 미리 챙기세요.',
-      '약한 비로 노면이 계속 젖어 있어요. 지하주차장 진입 시 미끄러짐 조심하세요.'
-    ];
-  } else if(perH < 3){   // 보통 비 (1~3mm)
-    pool = [
-      '줄기차게 내립니다. 우비 챙기시고, 탑차 문은 뒤쪽부터 단단히 단속하세요.',
-      '노면 물고임이 심해집니다. 물웅덩이 보행자 물튀김 주의하고 안전거리 넉넉히 두세요.'
-    ];
-  } else {               // 강한 비 / 폭우 (3mm 이상)
-    pool = [
-      '장대비가 쏟아져 와이퍼로도 시야 확보가 어렵습니다. 무리한 추월 절대 금물이에요.',
-      '폭우로 신발·장갑이 젖어 페달·핸들이 미끄러울 수 있어요. 수시로 닦고 완배보다 안전 먼저입니다.'
-    ];
-  }
+  let key;
+  if(perH < 1)      key = 'tip_light';   // 약한 비 (0.2~1mm)
+  else if(perH < 3) key = 'tip_normal';  // 보통 비 (1~3mm)
+  else              key = 'tip_heavy';   // 강한 비/폭우 (3mm 이상)
+  const pool = getTemplate(key).split('|').map(x=>x.trim()).filter(Boolean);
+  if(!pool.length) return '';
   return pool[Math.floor(Math.random()*pool.length)];
 }
 
@@ -1260,7 +1262,7 @@ function renderDispatch(){
 
   const inboundsHtml = dispatchStore.inbounds.map((ib, ii) => `
     <div class="dispatch-row">
-      <input type="time" class="inp" id="ib-time-${ii}" style="padding:10px; font-size:14.5px; text-align:center; font-weight:800; color:var(--teal3);" 
+      <input type="time" class="inp time-hint" id="ib-time-${ii}" style="padding:10px; font-size:14.5px; text-align:center; font-weight:800; color:var(--teal3);" 
              value="${formatTimeForInput(ib.time)}" 
              onchange="setInbound(${ii},'time',this.value)">
       <input class="inp" id="ib-people-${ii}" style="padding:10px; font-size:14.5px; font-weight:600;" 
@@ -1544,7 +1546,7 @@ function renderInbound(){
   const carsHtml = cur.cars.map((car, ci)=>`
     <div class="dispatch-row" style="grid-template-columns:60px 1fr 38px;">
       <div style="font-size:13.5px;font-weight:900;color:var(--blue3);text-align:center;">${ci+1}호차</div>
-      <input type="time" class="inp" style="padding:10px; font-size:15px; text-align:center; font-weight:800; color:var(--teal3);"
+      <input type="time" class="inp time-hint" style="padding:10px; font-size:15px; text-align:center; font-weight:800; color:var(--teal3);"
              value="${formatTimeForInput(car.time)}"
              onchange="setInbCarTime(${ci}, this.value)">
       <button class="qty-del" style="height:42px; width:38px;" onclick="delInbCar(${ci})">🗑</button>
@@ -1646,7 +1648,7 @@ function openSettings(){
   document.getElementById('set-apikey').value=getApiKey();
   document.getElementById('set-model').value=getModel();
   
-  const keys = ['roster', 'dawn', 'wx_heavy', 'wx_rain', 'wx_clear', 'volume', 'dispatch', 'inbound'];
+  const keys = ['roster', 'dawn', 'wx_heavy', 'wx_rain', 'wx_clear', 'tip_light', 'tip_normal', 'tip_heavy', 'volume', 'dispatch', 'inbound'];
   keys.forEach(k => {
     editingTemplates[k] = getTemplate(k);
   });
@@ -1686,6 +1688,9 @@ function onTemplateSelectorChange() {
     wx_heavy: `<b>💡 치환 변수 목록:</b><br><code>{time}</code> 갱신 시각, <code>{status_msg}</code> 비구름 진입 상황 안내문, <code>{tip}</code> 강도별 기사 안내멘트, <code>{rain_mm}</code> 강수량, <code>{prob}</code> 확률, <code>{duration}</code> 지속시간`,
     wx_rain: `<b>💡 치환 변수 목록:</b><br><code>{time}</code> 갱신 시각, <code>{status_msg}</code> 비 시작 상황 안내문, <code>{tip}</code> 강도별 기사 안내멘트, <code>{rain_mm}</code> 강수량, <code>{prob}</code> 확률`,
     wx_clear: `<b>💡 치환 변수 목록:</b><br><code>{time}</code> 갱신 시각, <code>{span_hours}</code> 예보 유지 범위 시간`,
+    tip_light: `<b>💡 약한 비 안내멘트</b><br>여러 문장을 <code>|</code>(막대기)로 구분하면 공유할 때마다 그중 하나가 랜덤으로 나옵니다.`,
+    tip_normal: `<b>💡 보통 비 안내멘트</b><br>여러 문장을 <code>|</code>(막대기)로 구분하면 공유할 때마다 그중 하나가 랜덤으로 나옵니다.`,
+    tip_heavy: `<b>💡 강한 비·폭우 안내멘트</b><br>여러 문장을 <code>|</code>(막대기)로 구분하면 공유할 때마다 그중 하나가 랜덤으로 나옵니다.`,
     volume: `<b>💡 치환 변수 목록:</b><br><code>{date}</code> 날짜, <code>{title}</code> 제목, <code>{rows}</code> 각 동별 물량 리스트, <code>{total}</code> 합계 수량`,
     dispatch: `<b>💡 치환 변수 목록:</b><br><code>{date}</code> 날짜(예: 7월 8일), <code>{day}</code> 요일(예: 수요일), <code>{orders}</code> 출차 순서 목록, <code>{inbounds}</code> 입차 내역`,
     inbound: `<b>💡 치환 변수 목록:</b><br><code>{set}</code> 구분(간선/딜리래빗), <code>{date}</code> 날짜, <code>{rows}</code> 호차별 도착시각 리스트`
