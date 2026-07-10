@@ -868,7 +868,7 @@ function wxTableHtml(){
   // 날씨 아이콘: 강수량이 있으면 우산 계열, 없으면 하늘상태(맑음/구름) 이모지
   const nuriIcon=e=>{
     const perH=e.mm*(60/e.step);
-    if(perH>=0.1) return e.isDay?'🌂':'☔';   // 비 예보 시 우산
+    if(perH>=0.1) return '☔';   // 비 예보 시 우산
     return wxIcon(e.code,e.isDay,e.mm);        // 맑음/구름 등은 기존 아이콘
   };
   const rowIco=`<tr><th class="lbl">날씨</th>${cells((e,i)=>`<td class="wx-ico${i===0?' now':''}${dcls(e)}">${nuriIcon(e)}</td>`)}</tr>`;
