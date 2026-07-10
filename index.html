@@ -1485,7 +1485,7 @@ let inboundStore = load('disp-inbound', {
   rabbit: {
     phone: '',
     date: todayISO(),
-    cars: [ { time: '' } ]
+    cars: [ { time: '' }, { time: '' } ]   // 딜리래빗1, 딜리래빗 새벽
   }
 });
 
@@ -1518,10 +1518,22 @@ let inboundStore = load('disp-inbound', {
       }
     }
   });
+  // 딜리래빗은 항상 2칸(딜리래빗1 / 딜리래빗 새벽) 고정
+  if(inboundStore.rabbit){
+    if(!Array.isArray(inboundStore.rabbit.cars)) inboundStore.rabbit.cars=[];
+    while(inboundStore.rabbit.cars.length < 2) inboundStore.rabbit.cars.push({time:''});
+    if(inboundStore.rabbit.cars.length > 2) inboundStore.rabbit.cars = inboundStore.rabbit.cars.slice(0,2);
+  }
 })();
 
 function saveInbound(){ localStorage.setItem('disp-inbound', JSON.stringify(inboundStore)); }
 function inbCur(){ return inboundStore[inboundStore.set]; }   // 현재 세트
+
+// 입고 라벨: 간선=N호차, 딜리래빗=딜리래빗1/딜리래빗 새벽 (idx는 원본 0-based)
+function inbLabel(idx){
+  if(inboundStore.set==='trunk') return `${idx+1}호차`;
+  return idx===0 ? '딜리래빗1' : (idx===1 ? '딜리래빗 새벽' : `딜리래빗${idx+1}`);
+}
 
 function switchInbSet(s){
   customInboundText = null;
@@ -1553,11 +1565,11 @@ function renderInbound(){
   // 호차 행들 (시각만: [시각][🗑])
   const carsHtml = cur.cars.map((car, ci)=>`
     <div class="dispatch-row" style="grid-template-columns:60px 1fr 38px;">
-      <div style="font-size:13.5px;font-weight:900;color:var(--blue3);text-align:center;">${isTrunk ? (ci+1)+'호차' : (cur.cars.length>1 ? '딜리래빗'+(ci+1) : '딜리래빗')}</div>
+      <div style="font-size:13.5px;font-weight:900;color:var(--blue3);text-align:center;">${inbLabel(ci)}</div>
       <input type="time" class="inp time-hint" style="padding:10px; font-size:15px; text-align:center; font-weight:800; color:var(--teal3);"
              value="${formatTimeForInput(car.time)}"
              onchange="setInbCarTime(${ci}, this.value)">
-      <button class="qty-del" style="height:42px; width:38px;" onclick="delInbCar(${ci})">🗑</button>
+      ${isTrunk ? `<button class="qty-del" style="height:42px; width:38px;" onclick="delInbCar(${ci})">🗑</button>` : `<div style="width:38px"></div>`}
     </div>`).join('');
 
   // 딜리래빗 전용: 조회용 번호 + 조회 버튼
@@ -1594,9 +1606,9 @@ function renderInbound(){
       <input type="date" class="inp" value="${cur.date}" onchange="inbCur().date=this.value;customInboundText=null;saveInbound();render()">
     </div>
 
-    <div class="section-head" style="margin-top:14px;"><div class="section-title">🚛 ${isTrunk?'호차별':'딜리래빗'} 입고 시각 <b>${cur.cars.length}</b>${isTrunk?'대':'건'}</div></div>
+    <div class="section-head" style="margin-top:14px;"><div class="section-title">🚛 ${isTrunk?`호차별 입고 시각 <b>${cur.cars.length}</b>대`:'딜리래빗 입고 시각'}</div></div>
     ${carsHtml}
-    <button class="btn-add-row" style="padding:11px; border-color:var(--teal2); color:var(--teal3);" onclick="addInbCar()">＋ ${isTrunk?'호차':'딜리래빗'} 추가</button>
+    ${isTrunk ? `<button class="btn-add-row" style="padding:11px; border-color:var(--teal2); color:var(--teal3);" onclick="addInbCar()">＋ 호차 추가</button>` : ''}
 
     <div class="preview-wrap">
       <div class="preview-label">카톡 미리보기 (직접 편집 가능)</div>
@@ -1608,13 +1620,23 @@ function renderInbound(){
     </div>
     <div style="height:10px"></div>
     <div class="mini-btns">
-      <button class="mini-btn danger" onclick="inbCur().cars=[{time:''}];customInboundText=null;saveInbound();render();showToast('🗑 비웠어요')">호차 전체 비우기</button>
+      <button class="mini-btn danger" onclick="clearInbCars()">${isTrunk?'호차 전체 비우기':'시각 비우기'}</button>
     </div>
     <div style="height:20px"></div>`;
 }
 
 function addInbCar(){ customInboundText=null; inbCur().cars.push({time:''}); saveInbound(); render(); }
 function delInbCar(ci){ customInboundText=null; inbCur().cars.splice(ci,1); if(!inbCur().cars.length)inbCur().cars.push({time:''}); saveInbound(); render(); }
+function clearInbCars(){
+  customInboundText=null;
+  if(inboundStore.set==='rabbit'){
+    // 딜리래빗은 2칸 유지, 시각만 비움
+    inbCur().cars=[{time:''},{time:''}];
+  } else {
+    inbCur().cars=[{time:''}];
+  }
+  saveInbound(); render(); showToast('🗑 비웠어요');
+}
 function setInbCarTime(ci,v){ customInboundText=null; inbCur().cars[ci].time=v; saveInbound(); render(); }
 
 // 시각 "15:20" → "3시 20분" (12시간제)
@@ -1628,14 +1650,16 @@ function timeToKor(t){
 
 function inboundText(){
   const cur = inbCur();
-  const active = cur.cars.filter(c=>c.time);
-  if(!active.length) return '';
   const isTrunk = inboundStore.set==='trunk';
   const setName = isTrunk ? '간선' : '딜리래빗';
+  // 시간이 입력된 호차만, 단 원래 호차 번호(원본 인덱스)는 유지
+  const active = cur.cars
+    .map((c, idx)=>({c, idx}))
+    .filter(o=>o.c.time);
+  if(!active.length) return '';
   let body = '';
-  active.forEach((c,i)=>{
-    const label = isTrunk ? `${i+1}호차` : (active.length>1 ? `딜리래빗${i+1}` : '딜리래빗');
-    body += `${label} ${timeToKor(c.time)} 도착입니다\n`;
+  active.forEach(o=>{
+    body += `${inbLabel(o.idx)} ${timeToKor(o.c.time)} 도착입니다\n`;
   });
   const tpl = getTemplate('inbound');
   return formatTemplate(tpl, {
