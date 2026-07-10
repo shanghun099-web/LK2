@@ -865,21 +865,21 @@ function wxTableHtml(){
   // ── 날씨누리 형태 5행 테이블: 시각 / 날씨 / 기온 / 체감온도 / 강수량 / 강수강도 ──
   const rowTime=`<tr><th class="lbl">시각</th>${cells((e,i)=>`<th class="${i===0?'now':''}"><div class="wx-time">${lblOf(i)}<small>${fmtHM(new Date(e.time))}</small></div></th>`)}</tr>`;
 
-  // 날씨 아이콘: 강수량이 있으면 우산, 없으면 하늘상태(맑음/구름) 이모지
+  // 날씨 아이콘: 강수량이 있으면 우산 계열, 없으면 하늘상태(맑음/구름) 이모지
   const nuriIcon=e=>{
     const perH=e.mm*(60/e.step);
-    if(perH>=0.1) return '☔';
-    return wxIcon(e.code,e.isDay,e.mm);
+    if(perH>=0.1) return e.isDay?'🌂':'☔';   // 비 예보 시 우산
+    return wxIcon(e.code,e.isDay,e.mm);        // 맑음/구름 등은 기존 아이콘
   };
   const rowIco=`<tr><th class="lbl">날씨</th>${cells((e,i)=>`<td class="wx-ico${i===0?' now':''}${dcls(e)}">${nuriIcon(e)}</td>`)}</tr>`;
 
-  // 기온
+  // 기온 (숫자 표기, 날씨누리처럼 °C)
   const rowTemp=`<tr><th class="lbl">기온</th>${cells(e=>`<td class="wx-mm" style="color:var(--blue3)">${e.temp!=null?Math.round(e.temp)+'°':'-'}</td>`)}</tr>`;
 
   // 체감온도
   const rowFeel=`<tr><th class="lbl">체감온도</th>${cells(e=>`<td style="color:var(--amber2);font-weight:700">${e.feels!=null?Math.round(e.feels)+'°':'-'}</td>`)}</tr>`;
 
-  // 강수량 (mm)
+  // 강수량 (mm, 날씨누리처럼 정수)
   const rowMm=`<tr><th class="lbl">강수량<br>(mm)</th>${cells(e=>`<td class="wx-mm${dcls(e)}">${e.mm>=0.05?(e.mm<1?e.mm.toFixed(1):Math.round(e.mm)):'-'}</td>`)}</tr>`;
 
   // 강수강도 (날씨누리 표기: 약한비/보통비/강한비/매우강한비)
@@ -893,6 +893,8 @@ function wxTableHtml(){
   const rowInt=`<tr><th class="lbl">강수강도</th>${cells(e=>{const L=lvOf(e);return `<td class="wx-int${L.lv}${dcls(e)}">${nuriInt(L)}</td>`;})}</tr>`;
 
   return `<table class="wx-table">${rowTime}${rowIco}${rowTemp}${rowFeel}${rowMm}${rowInt}</table>`;
+}
+
 function updateWeatherDom(){
   checkWxAlert();
   if(tab!=='weather')return;
