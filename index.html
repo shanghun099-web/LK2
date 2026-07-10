@@ -1712,6 +1712,13 @@ function saveSettings(){
     localStorage.setItem('disp-tpl-' + key, editingTemplates[key]);
   }
   
+  // 설정에서 양식을 바꿨으면, 손댔던 미리보기 캐시를 비워 새 양식이 반영되게 함
+  customRosterText = null;
+  customWeatherText = null;
+  customVolumeText = null;
+  customDispatchText = null;
+  customInboundText = null;
+  
   closeSettings();
   render();
   showToast('⚙️ 설정 및 공유 양식이 기기에 안전하게 저장되었습니다.');
