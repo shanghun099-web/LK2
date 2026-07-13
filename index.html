@@ -622,7 +622,7 @@ function render(){
     if(!document.getElementById('code-frame')){
       const tplEl=document.getElementById('accesscode-html');
       let html=tplEl?tplEl.textContent:'<p style="color:#fff;padding:20px">출입코드 로드 실패</p>';
-      html=html.split('<\\/script>').join('</script>');
+      html=html.split('<\\/script>').join('<'+'/script>');
       c.innerHTML='<iframe id="code-frame" class="code-frame" title="출입코드 노트"></iframe>';
       const ifr=document.getElementById('code-frame');
       ifr.srcdoc=html;
