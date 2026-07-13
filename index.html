@@ -617,11 +617,12 @@ function switchTab(t){
 function render(){
   document.getElementById('hDate').textContent=new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
   const c=document.getElementById('content');
-  if(tab==='code'){
+ if(tab==='code'){
     c.classList.add('noscroll');
-    if(!codeFrameLoaded){
+    if(!document.getElementById('code-frame')){
       const tplEl=document.getElementById('accesscode-html');
-      const html=tplEl?tplEl.textContent:'<p style="color:#fff;padding:20px">출입코드 로드 실패</p>';
+      let html=tplEl?tplEl.textContent:'<p style="color:#fff;padding:20px">출입코드 로드 실패</p>';
+      html=html.split('<\\/script>').join('</script>');
       c.innerHTML='<iframe id="code-frame" class="code-frame" title="출입코드 노트"></iframe>';
       const ifr=document.getElementById('code-frame');
       ifr.srcdoc=html;
@@ -2871,7 +2872,7 @@ document.addEventListener('keydown',e=>{
 });
 
 load();render();
-</script>
+<\/script>
 </body>
 </html></script>
 </body>
