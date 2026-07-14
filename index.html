@@ -467,15 +467,37 @@ const rosters={
   dawn:{lsKey:'disp-dawn-tpl',defTitle:'새벽반 출근 명단',emoji:'🌅',label:'새벽반',theme:'dawn-theme'}
 };
 
+function sanitizeRosterArr(arr,defTitle){
+  const base=[0,1,2,3,4,5,6].map(()=>blankTpl(defTitle));
+  if(!Array.isArray(arr)) return base;
+  for(let i=0;i<7;i++){
+    const t=arr[i];
+    if(t&&typeof t==='object'&&!Array.isArray(t)){
+      base[i]={
+        title:typeof t.title==='string'?t.title:defTitle,
+        zones:Array.isArray(t.zones)?t.zones.map(z=>({
+          emoji:(z&&typeof z.emoji==='string'&&z.emoji)?z.emoji:'📍',
+          name:(z&&typeof z.name==='string')?z.name:'',
+          people:(z&&Array.isArray(z.people))?z.people.filter(p=>typeof p==='string'&&p.trim()):[]
+        })):[],
+        saved:!!t.saved
+      };
+    }
+  }
+  return base;
+}
+
 function initRoster(key){
   const R=rosters[key];
-  R.tpl=load(R.lsKey,null);
-  if(!R.tpl){
+  const raw=load(R.lsKey,null);
+  if(!raw){
     R.tpl=[0,1,2,3,4,5,6].map(()=>blankTpl(R.defTitle));
     if(key==='main'){
       [1,2,3,4,5].forEach(d=>{R.tpl[d]={title:R.defTitle,zones:deepZones(DEFAULT_ZONES),saved:true};});
     }
     localStorage.setItem(R.lsKey,JSON.stringify(R.tpl));
+  } else {
+    R.tpl=sanitizeRosterArr(raw,R.defTitle);
   }
   R.workDow=dowOf(todayISO());
   R.work={date:todayISO(),title:R.tpl[R.workDow].title,zones:deepZones(R.tpl[R.workDow].zones)};
@@ -529,6 +551,25 @@ let volStore=load('disp-volume',{
   }
 });
 
+(function sanitizeVol(){
+  if(!volStore||typeof volStore!=='object'||Array.isArray(volStore)) volStore={set:'estimate'};
+  if(volStore.set!=='estimate'&&volStore.set!=='fixed') volStore.set='estimate';
+  [['estimate','CJ 오네 물량(강남구)',false],['fixed','딜리래빗 물량',true]].forEach(([k,defTitle,defCode])=>{
+    let s=volStore[k];
+    if(!s||typeof s!=='object'||Array.isArray(s)) s=volStore[k]={date:todayISO(),title:defTitle,showCode:defCode,rows:[]};
+    if(typeof s.date!=='string'||!s.date) s.date=todayISO();
+    if(typeof s.title!=='string') s.title=defTitle;
+    s.showCode=!!s.showCode;
+    if(!Array.isArray(s.rows)) s.rows=[];
+    s.rows=s.rows.map(r=>({
+      dong:String((r&&r.dong)||''),
+      code:String((r&&r.code)||''),
+      qty:String((r&&r.qty)||'').replace(/[^0-9]/g,'')
+    }));
+    if(!s.rows.length) s.rows.push({dong:'',code:'',qty:''});
+  });
+})();
+
 Object.defineProperty(window,'volume',{get:()=>volStore[volStore.set],configurable:true});
 
 function switchVolSet(s){
@@ -543,16 +584,32 @@ function blankDispatchTpl() {
   return { groups: [], inbounds: [], saved: false };
 }
 function deepDispatchData(src) {
+  src = (src && typeof src === 'object') ? src : {};
   return {
-    groups: (src.groups || []).map(g => ({ people: [...g.people] })),
-    inbounds: (src.inbounds || []).map(ib => ({ time: ib.time, people: ib.people }))
+    groups: (Array.isArray(src.groups) ? src.groups : []).map(g => ({ people: [...((g && Array.isArray(g.people)) ? g.people : [])] })),
+    inbounds: (Array.isArray(src.inbounds) ? src.inbounds : []).map(ib => ({ time: String((ib && ib.time) || ''), people: String((ib && ib.people) || '') }))
   };
+}
+
+function sanitizeDispatchArr(arr) {
+  const base = [0,1,2,3,4,5,6].map(() => blankDispatchTpl());
+  if (!Array.isArray(arr)) return base;
+  for (let i = 0; i < 7; i++) {
+    const t = arr[i];
+    if (t && typeof t === 'object' && !Array.isArray(t)) {
+      const d = deepDispatchData(t);
+      base[i] = { groups: d.groups, inbounds: d.inbounds, saved: !!t.saved };
+    }
+  }
+  return base;
 }
 
 let dispatchTplStore = load('disp-dispatch-tpl', null);
 if (!dispatchTplStore) {
   dispatchTplStore = [0,1,2,3,4,5,6].map(() => blankDispatchTpl());
   localStorage.setItem('disp-dispatch-tpl', JSON.stringify(dispatchTplStore));
+} else {
+  dispatchTplStore = sanitizeDispatchArr(dispatchTplStore);
 }
 
 let dispatchWorkDow = dowOf(todayISO());
@@ -1451,8 +1508,8 @@ function dispatchText() {
     
   const inboundsStr = dispatchStore.inbounds
     .map(ib => {
-      const timeVal = formatTimeForPreview(ib.time.trim());
-      const peopleVal = ib.people.trim();
+      const timeVal = formatTimeForPreview(String(ib.time || '').trim());
+      const peopleVal = String(ib.people || '').trim();
       if(!timeVal && !peopleVal) return '';
       return `🕒 ${timeVal} 입차 🚚 ${peopleVal}`;
     })
@@ -1488,6 +1545,12 @@ let inboundStore = load('disp-inbound', {
 });
 
 (function migrateInbound(){
+  if(!inboundStore||typeof inboundStore!=='object'||Array.isArray(inboundStore)){
+    inboundStore={set:'trunk',trunk:{phone:'1036535848',date:todayISO(),cars:[{time:''}]},rabbit:{phone:'',date:todayISO(),cars:[{time:''},{time:''}]}};
+    localStorage.setItem('disp-inbound', JSON.stringify(inboundStore));
+    return;
+  }
+  if(inboundStore.set!=='trunk'&&inboundStore.set!=='rabbit') inboundStore.set='trunk';
   if(inboundStore.rows && !inboundStore.trunk){
     inboundStore = {
       set:'trunk',
@@ -1503,16 +1566,20 @@ let inboundStore = load('disp-inbound', {
     delete inboundStore.phone;
   }
   ['trunk','rabbit'].forEach(k=>{
-    const st=inboundStore[k];
-    if(st){
-      if(st.phone===undefined) st.phone = (k==='trunk'?'1036535848':'');
-      if(Array.isArray(st.cars)){
-        st.cars.forEach(c=>{
-          if(c.people && c.names===undefined){ c.names = c.people.join(', '); delete c.people; }
-          if(c.names===undefined) c.names='';
-        });
-      }
+    let st=inboundStore[k];
+    if(!st||typeof st!=='object'||Array.isArray(st)){
+      st=inboundStore[k]={phone:(k==='trunk'?'1036535848':''),date:todayISO(),cars:[{time:''}]};
     }
+    if(st.phone===undefined) st.phone = (k==='trunk'?'1036535848':'');
+    if(typeof st.date!=='string'||!st.date) st.date=todayISO();
+    if(!Array.isArray(st.cars)||!st.cars.length) st.cars=[{time:''}];
+    st.cars=st.cars.map(c=>{
+      if(!c||typeof c!=='object') c={time:''};
+      if(c.people && c.names===undefined){ c.names = Array.isArray(c.people)?c.people.join(', '):String(c.people); delete c.people; }
+      if(c.names===undefined) c.names='';
+      c.time=String(c.time||'');
+      return c;
+    });
   });
   if(inboundStore.rabbit){
     if(!Array.isArray(inboundStore.rabbit.cars)) inboundStore.rabbit.cars=[];
@@ -1818,12 +1885,31 @@ function applyImport(){
   initRoster('main');initRoster('dawn');
   
   const dStore = localStorage.getItem('disp-dispatch-tpl');
-  if(dStore) dispatchTplStore = JSON.parse(dStore);
+  if(dStore){
+    try{ dispatchTplStore = sanitizeDispatchArr(JSON.parse(dStore)); }
+    catch(e){ dispatchTplStore = [0,1,2,3,4,5,6].map(() => blankDispatchTpl()); }
+  }
   
   dispatchStore.groups = deepDispatchData(dispatchTplStore[dispatchWorkDow]).groups;
   dispatchStore.inbounds = deepDispatchData(dispatchTplStore[dispatchWorkDow]).inbounds;
 
-  inboundStore = load('disp-inbound', inboundStore);
+  const restoredInb = load('disp-inbound', null);
+  if(restoredInb && typeof restoredInb==='object' && !Array.isArray(restoredInb)){
+    inboundStore = restoredInb;
+    if(inboundStore.set!=='trunk'&&inboundStore.set!=='rabbit') inboundStore.set='trunk';
+    ['trunk','rabbit'].forEach(k=>{
+      let st=inboundStore[k];
+      if(!st||typeof st!=='object'||Array.isArray(st)) st=inboundStore[k]={phone:(k==='trunk'?'1036535848':''),date:todayISO(),cars:[{time:''}]};
+      if(st.phone===undefined) st.phone=(k==='trunk'?'1036535848':'');
+      if(typeof st.date!=='string'||!st.date) st.date=todayISO();
+      if(!Array.isArray(st.cars)||!st.cars.length) st.cars=[{time:''}];
+      st.cars=st.cars.map(c=>({time:String((c&&c.time)||''),names:String((c&&c.names)||'')}));
+    });
+    if(inboundStore.rabbit){
+      while(inboundStore.rabbit.cars.length < 2) inboundStore.rabbit.cars.push({time:'',names:''});
+      if(inboundStore.rabbit.cars.length > 2) inboundStore.rabbit.cars = inboundStore.rabbit.cars.slice(0,2);
+    }
+  }
 
   // 출입코드가 복원됐으면 iframe을 다음 진입 시 새로 로드
   if(hadCode){ codeFrameLoaded=false; if(tab==='code'){ document.getElementById('content').innerHTML=''; render(); } }
@@ -2294,7 +2380,33 @@ let data={regions:[]};
 let openR=new Set(),openC=new Set(),q='';
 
 function save(){try{localStorage.setItem('acn5',JSON.stringify(data));}catch(e){}}
-function load(){try{const r=localStorage.getItem('acn5');data=r?JSON.parse(r):JSON.parse(JSON.stringify(DFLT));}catch(e){data=JSON.parse(JSON.stringify(DFLT));}}
+function sanitizeData(d){
+  if(!d||typeof d!=='object'||Array.isArray(d)||!Array.isArray(d.regions)) return JSON.parse(JSON.stringify(DFLT));
+  d.regions=d.regions.filter(r=>r&&typeof r==='object').map(r=>{
+    if(!r.id) r.id=uid();
+    if(typeof r.name!=='string') r.name=String(r.name||'이름 없는 지역');
+    if(!Array.isArray(r.complexes)) r.complexes=[];
+    r.complexes=r.complexes.filter(c=>c&&typeof c==='object').map(c=>{
+      if(!c.id) c.id=uid();
+      if(typeof c.name!=='string') c.name=String(c.name||'이름 없는 단지');
+      if(typeof c.addr!=='string') c.addr='';
+      if(!Array.isArray(c.codes)) c.codes=[];
+      c.codes=c.codes.filter(k=>k&&typeof k==='object').map(k=>{
+        if(!k.id) k.id=uid();
+        if(typeof k.section!=='string') k.section='';
+        if(typeof k.label!=='string') k.label=String(k.label||'');
+        if(typeof k.sublabel!=='string') k.sublabel='';
+        if(typeof k.value!=='string') k.value=String(k.value||'');
+        k.isGlobal=!!k.isGlobal;
+        return k;
+      });
+      return c;
+    });
+    return r;
+  });
+  return d;
+}
+function load(){try{const r=localStorage.getItem('acn5');data=sanitizeData(r?JSON.parse(r):JSON.parse(JSON.stringify(DFLT)));}catch(e){data=JSON.parse(JSON.stringify(DFLT));}}
 function fR(id){return data.regions.find(x=>x.id===id);}
 function fC(rid,cid){return fR(rid)?.complexes.find(x=>x.id===cid);}
 function fK(rid,cid,kid){return fC(rid,cid)?.codes.find(x=>x.id===kid);}
