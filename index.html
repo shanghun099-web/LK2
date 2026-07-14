@@ -242,7 +242,10 @@ input[type="time"].time-hint{
 .wx-head-none{background:var(--card);border-color:var(--border);color:var(--sub);}
 .wx-head-none .wx-head-big{font-size:16px;font-weight:700;color:var(--sub);}
 
-.wx-bar-wrap{background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:14px 12px 10px;margin-bottom:14px;}
+.wx-bar-wrap{background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:12px 12px 10px;margin-bottom:14px;}
+.wx-badges{position:relative;height:18px;}
+.wx-startbadge{position:absolute;transform:translateX(-50%);font-size:10.5px;font-weight:800;color:#fff;background:var(--red2);padding:2px 7px;border-radius:5px;white-space:nowrap;}
+.wx-startbadge::after{content:'';position:absolute;left:50%;bottom:-4px;transform:translateX(-50%);border-left:4px solid transparent;border-right:4px solid transparent;border-top:4px solid var(--red2);}
 .wx-bar{position:relative;display:flex;height:26px;border-radius:7px;overflow:hidden;background:var(--card3);}
 .wx-seg{height:100%;}
 .wx-seg-dim{background:var(--card3);}
@@ -250,10 +253,9 @@ input[type="time"].time-hint{
 .wx-seg-amber{background:var(--amber2);}
 .wx-seg-red{background:var(--red2);}
 .wx-nowline{position:absolute;top:-3px;bottom:-3px;width:2px;background:#fff;border-radius:2px;}
-.wx-marks{position:relative;height:16px;margin-top:5px;}
+.wx-marks{position:relative;height:15px;margin-top:6px;}
 .wx-mark{position:absolute;font-size:10px;color:var(--dim);font-weight:600;white-space:nowrap;}
-.wx-mark-hot{color:#fff;font-weight:800;}
-.wx-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:9px;padding-top:9px;border-top:1px solid var(--border);}
+.wx-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:8px;padding-top:9px;border-top:1px solid var(--border);}
 .wx-legend span{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--sub);font-weight:600;}
 .wx-dot{width:9px;height:9px;border-radius:2px;display:inline-block;}
 
@@ -994,7 +996,7 @@ async function fetchWeather(){
     }
     const now=Date.now();
     tl=tl.filter(e=>e.time+e.step*60000>now);
-    tl=tl.slice(0,12); 
+    tl=tl.slice(0,WX_SPAN_HOURS);
     if(!tl.length)throw new Error('empty');
     wx.timeline=tl;wx.updated=new Date();wx.err=null;wx.model='best_match';
   }catch(e){
@@ -1004,6 +1006,10 @@ async function fetchWeather(){
   updateWeatherDom();
   if(wx.queue){wx.queue=false;fetchWeather();}
 }
+
+/* 예보 표시 구간 (시간). 1시간 단위 데이터이므로 칸 수와 동일하다.
+   타임라인 바·표·헤드라인이 모두 이 값을 따른다. */
+const WX_SPAN_HOURS = 6;
 
 /* 강수강도 5단계 — 기상청 용어. 헤드라인·타임라인·표·카톡 문구가 모두 이걸 쓴다. */
 const WX_STEPS=[
@@ -1053,7 +1059,9 @@ function wxAnalyze(){
 
   const first=tl[startIdx];
   const minsToStart=Math.max(0,Math.round((first.time-now)/60000));
-  const ongoing = minsToStart<=5;              /* 이미 오는 중 */
+  /* 첫 칸은 '현재 시간대' 버킷이므로, 거기서 비가 오면 이미 내리는 중으로 본다.
+     (예보 슬롯 시각이 몇 분 앞서 있어도 '곧 온다'로 오판하지 않도록) */
+  const ongoing = startIdx===0 || minsToStart<=5;
   const endTime = tl[endIdx].time + tl[endIdx].step*60000;
   const minsToEnd=Math.max(0,Math.round((endTime-now)/60000));
 
@@ -1115,6 +1123,7 @@ function wxTimelineHtml(){
   const a=wxAnalyze();
   if(!a) return '';
   const tl=a.timeline, n=tl.length;
+  if(!n) return '';
   const w=100/n;
 
   const segs=tl.map(e=>{
@@ -1122,19 +1131,32 @@ function wxTimelineHtml(){
     return `<div class="wx-seg wx-seg-${L.color}" style="width:${w}%"></div>`;
   }).join('');
 
-  /* 눈금: 지금 / 비 시작 / 중간 / 끝 */
-  let marks=`<span class="wx-mark" style="left:0">지금</span>`;
+  /* 눈금: 지금 / 1시간 / 2시간 … n시간 (경과시간 기준, 칸 경계에 맞춤) */
+  let marks='';
+  for(let i=0;i<=n;i++){
+    const pos=(i/n)*100;
+    const txt = i===0 ? '지금' : `${i}시간`;
+    let style;
+    if(i===0) style='left:0';
+    else if(i===n) style='right:0';
+    else style=`left:${pos}%;transform:translateX(-50%)`;
+    /* 칸이 좁으면 홀수 눈금은 생략해 겹침 방지 */
+    const skip = n>6 && i>0 && i<n && (i%2===1);
+    if(!skip) marks+=`<span class="wx-mark" style="${style}">${txt}</span>`;
+  }
+
+  const nowLine=`<div class="wx-nowline" style="left:0"></div>`;
+
+  /* 비 구간이 있으면 그 위에 시작 시각을 얹는다 */
+  let startTag='';
   if(a.rain && !a.ongoing){
     const pos=(a.startIdx/n)*100 + w/2;
-    marks+=`<span class="wx-mark wx-mark-hot" style="left:${pos}%;transform:translateX(-50%)">${wxDur(a.minsToStart)}</span>`;
+    startTag=`<span class="wx-startbadge" style="left:${pos}%">${fmtHM(new Date(a.startTime))}</span>`;
   }
-  marks+=`<span class="wx-mark" style="right:0">${a.spanH}시간</span>`;
-
-  /* 현재 위치 표시선 */
-  const nowLine=`<div class="wx-nowline" style="left:0"></div>`;
 
   return `<div class="section-head"><div class="section-title">앞으로 <b>${a.spanH}시간</b></div></div>
   <div class="wx-bar-wrap">
+    <div class="wx-badges">${startTag}</div>
     <div class="wx-bar">${segs}${nowLine}</div>
     <div class="wx-marks">${marks}</div>
     <div class="wx-legend">
