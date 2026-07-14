@@ -305,7 +305,6 @@ input[type="time"].time-hint{
   <div class="content" id="content"></div>
 </div>
 
-<!-- ... existing sheet overlay templates ... -->
 <div class="sheet-overlay" id="settings-sheet" onclick="if(event.target===this)closeSettings()">
   <div class="sheet" style="max-height: 85vh; overflow-y: auto;">
     <div class="sheet-title">⚙️ 설정 및 문구 양식</div>
@@ -328,6 +327,16 @@ input[type="time"].time-hint{
         <option value="gemini-2.5-flash">Gemini 2.5 Flash (2026-10-16 종료 예정)</option>
       </select>
       <div class="sheet-hint">인식 오류가 발생하면 모델을 변경해보세요.</div>
+      <div style="height:14px"></div>
+      <label class="field-label">날짜 자동 갱신 기준 시각</label>
+      <select class="inp" id="set-rollover">
+        <option value="0">밤 12시 (자정 기준)</option>
+        <option value="1">새벽 1시 (권장 · 야간 배송 기준)</option>
+        <option value="2">새벽 2시</option>
+        <option value="3">새벽 3시</option>
+        <option value="4">새벽 4시</option>
+      </select>
+      <div class="sheet-hint">이 시각이 지나야 출차·물량·입고 탭의 날짜가 다음 날로 넘어갑니다. 새벽 1시로 두면 자정 직후에도 "어제" 날짜가 유지됩니다.</div>
     </div>
 
     <div id="set-panel-tpl" style="display:none;">
@@ -437,16 +446,38 @@ function getTemplate(key) {
 function formatTemplate(tpl, dict) {
   let s = tpl;
   for (const k in dict) {
-    s = s.replace(new RegExp('{' + k + '}', 'g'), dict[k]);
+    s = s.split('{' + k + '}').join(dict[k]);
   }
   return s;
 }
 
+/* ===== 업무일 기준 날짜 (롤오버 시각 반영) =====
+   기본 새벽 1시. 즉 00:00~00:59 접속 시에는 아직 "어제"로 계산된다. */
+const DEFAULT_ROLLOVER_HOUR = 1;
+function getRolloverHour(){
+  const v = parseInt(localStorage.getItem('disp-rollover-hour'), 10);
+  return (Number.isInteger(v) && v >= 0 && v <= 4) ? v : DEFAULT_ROLLOVER_HOUR;
+}
 function toLocalISO(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
-function todayISO(){return toLocalISO(new Date());}
+/* 업무일 기준 오늘. 롤오버 시각 이전이면 전날로 본다. */
+function todayISO(){
+  const d = new Date();
+  d.setHours(d.getHours() - getRolloverHour());
+  return toLocalISO(d);
+}
+/* 실제 달력상 오늘 (헤더 표시 등 순수 시계용) */
+function calendarTodayISO(){ return toLocalISO(new Date()); }
 function dowOf(iso){return new Date(iso+'T00:00:00').getDay();}
 function fmtKDate(iso){const d=new Date(iso+'T00:00:00');return `${d.getMonth()+1}월 ${d.getDate()}일(${DAYS[d.getDay()]})`;}
 function fmtHM(d){return d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});}
+
+/* 저장된 날짜가 업무일 기준 오늘보다 과거면 오늘로 끌어올린다.
+   미래 날짜(사용자가 의도적으로 앞당겨 잡은 것)는 건드리지 않는다. */
+function rollDate(saved){
+  const t = todayISO();
+  if (typeof saved !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(saved)) return t;
+  return saved < t ? t : saved;
+}
 
 const DEFAULT_ZONES=[
   {emoji:'📍',name:'도곡',people:['전진환','이정휘']},
@@ -459,7 +490,7 @@ const DEFAULT_ZONES=[
 ];
 
 function blankTpl(title){return {title:title,zones:[],saved:false};}
-function deepZones(zs){return zs.map(z=>({emoji:z.emoji||'📍',name:z.name,people:[...z.people]}));}
+function deepZones(zs){return (Array.isArray(zs)?zs:[]).map(z=>({emoji:(z&&z.emoji)||'📍',name:(z&&z.name)||'',people:[...((z&&Array.isArray(z.people))?z.people:[])]}));}
 
 function load(k,def){try{const v=JSON.parse(localStorage.getItem(k));return (v===null||v===undefined)?def:v;}catch(e){return def;}}
 
@@ -509,7 +540,7 @@ initRoster('dawn');
 (function migrateDawn(){
   const legacy=load('disp-dawn',null);
   if(Array.isArray(legacy)&&legacy.length&&!rosters.dawn.work.zones.length){
-    rosters.dawn.work.zones=[{emoji:'🌅',name:'새벽반',people:legacy.map(c=>c.name).filter(Boolean)}];
+    rosters.dawn.work.zones=[{emoji:'🌅',name:'새벽반',people:legacy.map(c=>c&&c.name).filter(Boolean)}];
   }
 })();
 
@@ -558,7 +589,7 @@ let volStore=load('disp-volume',{
   [['estimate','CJ 오네 물량(강남구)',false],['fixed','딜리래빗 물량',true]].forEach(([k,defTitle,defCode])=>{
     let s=volStore[k];
     if(!s||typeof s!=='object'||Array.isArray(s)) s=volStore[k]={date:todayISO(),title:defTitle,showCode:defCode,rows:[]};
-    if(typeof s.date!=='string'||!s.date) s.date=todayISO();
+    s.date = rollDate(s.date);
     if(typeof s.title!=='string') s.title=defTitle;
     s.showCode=!!s.showCode;
     if(!Array.isArray(s.rows)) s.rows=[];
@@ -569,6 +600,7 @@ let volStore=load('disp-volume',{
     }));
     if(!s.rows.length) s.rows.push({dong:'',code:'',qty:''});
   });
+  saveVolume();
 })();
 
 Object.defineProperty(window,'volume',{get:()=>volStore[volStore.set],configurable:true});
@@ -614,15 +646,32 @@ if (!dispatchTplStore) {
 }
 
 let dispatchWorkDow = dowOf(todayISO());
-let dispatchStore = {
-  date: todayISO(),
-  groups: deepDispatchData(dispatchTplStore[dispatchWorkDow]).groups,
-  inbounds: deepDispatchData(dispatchTplStore[dispatchWorkDow]).inbounds
-};
+let dispatchStore = (function initDispatchStore(){
+  const saved = load('disp-dispatch', null);
+  /* 저장된 작업본이 있으면 그대로 복원한다. 날짜는 rollDate가 오늘로 끌어올린다.
+     (예전에는 매번 요일 템플릿으로 덮어써서, 입력해 둔 출차 내용이 사라졌다) */
+  if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+    const date = rollDate(saved.date);
+    /* 날이 바뀌었으면 어제 작업본이 아니라 그날 요일 기본을 불러온다 */
+    if (date !== saved.date) {
+      const t = deepDispatchData(dispatchTplStore[dowOf(date)]);
+      return { date: date, groups: t.groups, inbounds: t.inbounds };
+    }
+    const d = deepDispatchData(saved);
+    return { date: date, groups: d.groups, inbounds: d.inbounds };
+  }
+  return {
+    date: todayISO(),
+    groups: deepDispatchData(dispatchTplStore[dispatchWorkDow]).groups,
+    inbounds: deepDispatchData(dispatchTplStore[dispatchWorkDow]).inbounds
+  };
+})();
+dispatchWorkDow = dowOf(dispatchStore.date);
 
 function saveDispatch() {
   localStorage.setItem('disp-dispatch', JSON.stringify(dispatchStore));
 }
+saveDispatch();
 function saveDispatchTpl() {
   localStorage.setItem('disp-dispatch-tpl', JSON.stringify(dispatchTplStore));
 }
@@ -634,6 +683,7 @@ function selectDispatchDow(d) {
   dispatchStore.groups = deepDispatchData(targetTpl).groups;
   dispatchStore.inbounds = deepDispatchData(targetTpl).inbounds;
   dispatchStore.date = nearestDateForDow(d);
+  saveDispatch();
   render();
 }
 
@@ -657,12 +707,57 @@ function autoResizePreviews() {
   });
 }
 
+/* ===== 날짜 자동 갱신 (A안) =====
+   업무일이 바뀌면 명단/출차/물량/입고의 날짜와 요일 선택을 오늘로 끌어올린다. */
+let lastWorkDay = todayISO();
+
+function applyDayRollover(force){
+  const t = todayISO();
+  if (!force && t === lastWorkDay) return false;
+  lastWorkDay = t;
+  const dow = dowOf(t);
+
+  ['main','dawn'].forEach(k=>{
+    const R = rosters[k];
+    R.workDow = dow;
+    R.work.date = t;
+    R.work.title = R.tpl[dow].title;
+    R.work.zones = deepZones(R.tpl[dow].zones);
+  });
+
+  dispatchWorkDow = dow;
+  const dTpl = dispatchTplStore[dow];
+  dispatchStore.date = t;
+  dispatchStore.groups = deepDispatchData(dTpl).groups;
+  dispatchStore.inbounds = deepDispatchData(dTpl).inbounds;
+  saveDispatch();
+
+  ['estimate','fixed'].forEach(k=>{ if(volStore[k]) volStore[k].date = t; });
+  saveVolume();
+
+  ['trunk','rabbit'].forEach(k=>{ if(inboundStore && inboundStore[k]) inboundStore[k].date = t; });
+  saveInbound();
+
+  customRosterText = customWeatherText = customVolumeText = customDispatchText = customInboundText = null;
+  return true;
+}
+
+/* 앱이 켜진 채로 롤오버 시각을 넘길 때, 그리고 백그라운드 복귀 시 자동 반영 */
+function startDayWatcher(){
+  setInterval(()=>{ if(applyDayRollover(false)) render(); }, 60*1000);
+  document.addEventListener('visibilitychange', ()=>{
+    if(!document.hidden && applyDayRollover(false)) render();
+  });
+  window.addEventListener('focus', ()=>{ if(applyDayRollover(false)) render(); });
+}
+
 function switchTab(t){
   customRosterText = null;
   customWeatherText = null;
   customVolumeText = null;
   customDispatchText = null;
   customInboundText = null;
+  applyDayRollover(false);
   tab=t;
   ALL_TABS.forEach(x=>{
     const el=document.getElementById('tab-'+x);
@@ -675,14 +770,12 @@ function switchTab(t){
 function render(){
   document.getElementById('hDate').textContent=new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
   const c=document.getElementById('content');
- if(tab==='code'){
+  if(tab==='code'){
     c.classList.add('noscroll');
     if(!document.getElementById('code-frame')){
       const tplEl=document.getElementById('accesscode-html');
       let html=tplEl?tplEl.textContent:'<p style="color:#fff;padding:20px">출입코드 로드 실패</p>';
       html=html.split('<\\/script>').join('<'+'/script>');
-      
-      // Bypassing Safari/Chrome/KakaoTalk iframe sandboxed share & copy block using "allow" policies
       c.innerHTML='<iframe id="code-frame" class="code-frame" title="출입코드 노트" allow="clipboard-write; web-share"></iframe>';
       const ifr=document.getElementById('code-frame');
       ifr.srcdoc=html;
@@ -709,10 +802,12 @@ function selectDow(d){
   R.work.date=nearestDateForDow(d);
   render();
 }
+/* 업무일 기준 오늘을 중심으로 해당 요일에 가장 가까운 날짜 */
 function nearestDateForDow(targetDow){
-  const t=new Date();const diff=targetDow-t.getDay();
-  const nd=new Date(t);nd.setDate(t.getDate()+diff);
-  return toLocalISO(nd);
+  const base=new Date(todayISO()+'T00:00:00');
+  const diff=targetDow-base.getDay();
+  base.setDate(base.getDate()+diff);
+  return toLocalISO(base);
 }
 
 function renderRoster(){
@@ -818,7 +913,7 @@ function reloadTpl(){
   render();showToast('기본 명단으로 되돌렸어요');
 }
 
-let wx={lat:37.4882,lon:127.0518,timeline:null,updated:null,err:null,model:'',alerted:0,loading:false};
+let wx={lat:37.4882,lon:127.0518,timeline:null,updated:null,err:null,model:'',alerted:0,loading:false,queue:false};
 
 function initWeather(){
   fetchWeather(); 
@@ -873,7 +968,7 @@ async function fetchWeather(){
     const now=Date.now();
     tl=tl.filter(e=>e.time+e.step*60000>now);
     tl=tl.slice(0,12); 
-    if(!tl.length)throw 0;
+    if(!tl.length)throw new Error('empty');
     wx.timeline=tl;wx.updated=new Date();wx.err=null;wx.model='best_match';
   }catch(e){
     wx.err='예보 해석 실패';
@@ -941,7 +1036,7 @@ function wxTableHtml(){
     return `<div style="padding:20px;text-align:center;color:#f0a0a0;font-size:13px;">예보 로드 실패 — 새로고침을 눌러주세요<br><span style="font-size:11px;color:var(--dim)">(${esc(wx.err)})</span></div>`;
   if(!wx.timeline)
     return `<div style="padding:20px;text-align:center;color:var(--sub);font-size:13px;"><span class="spinner"></span>예보를 불러오는 중…</div>`;
-  const now=Date.now(), tl=wx.timeline, N=tl.length, CW=60, half=CW/2, step=tl[0].step;
+  const tl=wx.timeline, step=tl[0].step;
   const cells=fn=>tl.map((e,i)=>fn(e,i)).join('');
   const lvOf=e=>wxLevel(e.mm,e.step);
   const dcls=e=>lvOf(e).lv>=2?' wx-cell-danger':'';
@@ -987,7 +1082,7 @@ function updateWeatherDom(){
   if(bub){
     const s = customWeatherText !== null ? customWeatherText : wxShareText();
     bub.className='kakao-bubble'+(s?'':' empty');
-    bub.value = s || '예보가 로드되면 공유 문구가 자동으로 만들어집니다';
+    bub.value = s || '';
     autoResizePreviews();
   }
 }
@@ -1156,7 +1251,7 @@ function renderVolume(){
 
     <div class="row2" style="margin-bottom:13px">
       <div class="field" style="margin:0"><label class="field-label">📅 날짜</label><input type="date" class="inp" value="${volume.date}" onchange="volume.date=this.value;customVolumeText=null;saveVolume();render()"></div>
-      <div class="field" style="margin:0"><label class="field-label">📋 제목</label><input class="inp" value="${esc(volume.title)}" placeholder="당일배송 물량" onchange="volume.title=this.value;customVolumeText=null;saveVolume()"></div>
+      <div class="field" style="margin:0"><label class="field-label">📋 제목</label><input class="inp" value="${esc(volume.title)}" placeholder="당일배송 물량" onchange="volume.title=this.value;customVolumeText=null;saveVolume();render()"></div>
     </div>
     <div class="opt-row">
       <div><div class="opt-text">식별 코드 표시</div><div class="opt-sub">강남가101 같은 코드 칸을 켜고 끕니다</div></div>
@@ -1207,12 +1302,12 @@ function volumeText(){
 }
 
 function setVol(i,key,v){customVolumeText=null;volume.rows[i][key]=key==='qty'?v.replace(/[^0-9]/g,''):v.trim();saveVolume();render();}
-function delRow(i){customVolumeText=null;volume.rows.splice(i,1);saveVolume();render();}
+function delRow(i){customVolumeText=null;volume.rows.splice(i,1);if(!volume.rows.length)volume.rows.push({dong:'',code:'',qty:''});saveVolume();render();}
 function addRow(){customVolumeText=null;volume.rows.push({dong:'',code:'',qty:''});saveVolume();render();}
 function resetVolNums(){customVolumeText=null;volume.rows.forEach(r=>r.qty='');saveVolume();render();showToast('건수를 비웠어요');}
 
 function parsePaste(replace){
-  const raw=document.getElementById('paste-ta')?.value||'';
+  const raw=document.getElementById('paste-ta')?document.getElementById('paste-ta').value:'';
   if(!raw.trim()){showToast('붙여넣은 내용이 없어요','err');return;}
   customVolumeText=null;
   const skip=/시군구|법정동|상세\s*동|식별\s*코드|소계|합계|total|건수|기준/i;
@@ -1225,7 +1320,7 @@ function parsePaste(replace){
     let dong=tokens.find(t=>/[동가]$/.test(t)&&!/^\d/.test(t))||tokens[0]||'';
     let code=tokens.find(t=>/[가-힣]+\d+$/.test(t)&&t!==dong)||'';
     const nums=s.replace(/,/g,'').match(/\b\d+\b/g)||[];
-    const numsClean=s.replace(code,'').replace(/,/g,'').match(/\b\d+\b/g)||nums;
+    const numsClean=code?(s.split(code).join(' ').replace(/,/g,'').match(/\b\d+\b/g)||nums):nums;
     const qty=numsClean.length?numsClean[numsClean.length-1]:'';
     if(!dong||qty==='') return;
     parsed.push({dong,code,qty});
@@ -1247,19 +1342,26 @@ function liveTotal(){
 const DISPATCH_RANK_EMOJIS = ['🥇', '🥈', '🥉', '🚚', '🚛', '📦', '📍'];
 
 function formatTimeForInput(t) {
+  t = String(t||'');
   if (!t) return "";
   if (t.includes(':')) {
-    let [h, m] = t.split(':');
-    return `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
+    const parts = t.split(':');
+    const h = String(parts[0]||'').padStart(2, '0');
+    const m = String(parts[1]||'0').padStart(2, '0');
+    return `${h}:${m}`;
   }
   return t;
 }
 
 function formatTimeForPreview(t) {
+  t = String(t||'');
   if (!t) return "";
   if (t.includes(':')) {
-    let [h, m] = t.split(':');
-    return `${parseInt(h, 10)}:${m.padStart(2, '0')}`;
+    const parts = t.split(':');
+    const h = parseInt(parts[0], 10);
+    const m = String(parts[1]||'0').padStart(2, '0');
+    if (isNaN(h)) return t;
+    return `${h}:${m}`;
   }
   return t;
 }
@@ -1290,7 +1392,7 @@ function renderDispatch(){
         <div class="helper-title">👥 오늘 출근 기사 (아래 입력칸을 누르고 기사를 터치하세요)</div>
         <div class="helper-chips">
           ${activeDrivers.map(name => `
-            <span class="helper-chip" onclick="handleHelperChipClick('${esc(name)}')">${esc(name)}</span>
+            <span class="helper-chip" onclick="handleHelperChipClick(this.textContent.trim())">${esc(name)}</span>
           `).join('')}
         </div>
       </div>
@@ -1393,12 +1495,14 @@ function handleHelperChipClick(name) {
   customDispatchText = null;
   if(activeChipInputRef.type === 'group') {
     const gi = activeChipInputRef.gi;
+    if(!dispatchStore.groups[gi]) return;
     if(!dispatchStore.groups[gi].people.includes(name)) {
       dispatchStore.groups[gi].people.push(name);
     }
   } else if(activeChipInputRef.type === 'inbound') {
     const ii = activeChipInputRef.ii;
-    const currentVal = dispatchStore.inbounds[ii].people;
+    if(!dispatchStore.inbounds[ii]) return;
+    const currentVal = String(dispatchStore.inbounds[ii].people||'');
     if(currentVal.trim() === '') {
       dispatchStore.inbounds[ii].people = name;
     } else {
@@ -1428,8 +1532,9 @@ function delDispatchGroup(gi) {
 }
 
 function addDispatchPerson(gi, val) {
-  const n = val.trim();
+  const n = String(val||'').trim();
   if(!n) return;
+  if(!dispatchStore.groups[gi]) return;
   customDispatchText = null;
   if(!dispatchStore.groups[gi].people.includes(n)) {
     dispatchStore.groups[gi].people.push(n);
@@ -1440,6 +1545,7 @@ function addDispatchPerson(gi, val) {
 
 function delDispatchPerson(gi, pi) {
   customDispatchText = null;
+  if(!dispatchStore.groups[gi]) return;
   dispatchStore.groups[gi].people.splice(pi, 1);
   saveDispatch();
   render();
@@ -1461,7 +1567,8 @@ function delInbound(ii) {
 
 function setInbound(ii, key, val) {
   customDispatchText = null;
-  dispatchStore.inbounds[ii][key] = val;
+  if(!dispatchStore.inbounds[ii]) return;
+  dispatchStore.inbounds[ii][key] = String(val||'');
   saveDispatch();
   render();
 }
@@ -1483,6 +1590,7 @@ function reloadDispatchTpl() {
   const targetTpl = dispatchTplStore[dispatchWorkDow];
   dispatchStore.groups = deepDispatchData(targetTpl).groups;
   dispatchStore.inbounds = deepDispatchData(targetTpl).inbounds;
+  saveDispatch();
   render();
   showToast('기본 형식으로 되돌렸어요');
 }
@@ -1535,34 +1643,21 @@ const RABBIT_PHONE = '1036535848';
 
 let inboundStore = load('disp-inbound', {
   set: 'trunk',
-  trunk: {
-    phone: '1036535848',
-    date: todayISO(),
-    cars: [ { time: '' } ]
-  },
-  rabbit: {
-    phone: '',
-    date: todayISO(),
-    cars: [ { time: '' }, { time: '' } ]
-  }
+  trunk: { phone: RABBIT_PHONE, date: todayISO(), cars: [ { time: '' } ] },
+  rabbit: { phone: '', date: todayISO(), cars: [ { time: '' }, { time: '' } ] }
 });
 
 (function migrateInbound(){
   if(!inboundStore||typeof inboundStore!=='object'||Array.isArray(inboundStore)){
-    inboundStore={set:'trunk',trunk:{phone:'1036535848',date:todayISO(),cars:[{time:''}]},rabbit:{phone:'',date:todayISO(),cars:[{time:''},{time:''}]}};
-    localStorage.setItem('disp-inbound', JSON.stringify(inboundStore));
-    return;
-  }
-  if(inboundStore.set!=='trunk'&&inboundStore.set!=='rabbit') inboundStore.set='trunk';
-  if(inboundStore.rows && !inboundStore.trunk){
+    inboundStore={set:'trunk',trunk:{phone:RABBIT_PHONE,date:todayISO(),cars:[{time:''}]},rabbit:{phone:'',date:todayISO(),cars:[{time:''},{time:''}]}};
+  } else if(inboundStore.rows && !inboundStore.trunk){
     inboundStore = {
       set:'trunk',
-      trunk:{ phone: inboundStore.phone || '1036535848', date: todayISO(), cars:[{time:''}] },
-      rabbit:{ phone: '', date: todayISO(), cars:[{time:''}] }
+      trunk:{ phone: inboundStore.phone || RABBIT_PHONE, date: todayISO(), cars:[{time:''}] },
+      rabbit:{ phone: '', date: todayISO(), cars:[{time:''},{time:''}] }
     };
-    localStorage.setItem('disp-inbound', JSON.stringify(inboundStore));
-    return;
   }
+  if(inboundStore.set!=='trunk'&&inboundStore.set!=='rabbit') inboundStore.set='trunk';
   if(inboundStore.phone !== undefined){
     if(inboundStore.trunk && inboundStore.trunk.phone===undefined) inboundStore.trunk.phone = inboundStore.phone;
     if(inboundStore.rabbit && inboundStore.rabbit.phone===undefined) inboundStore.rabbit.phone = '';
@@ -1571,10 +1666,10 @@ let inboundStore = load('disp-inbound', {
   ['trunk','rabbit'].forEach(k=>{
     let st=inboundStore[k];
     if(!st||typeof st!=='object'||Array.isArray(st)){
-      st=inboundStore[k]={phone:(k==='trunk'?'1036535848':''),date:todayISO(),cars:[{time:''}]};
+      st=inboundStore[k]={phone:(k==='trunk'?RABBIT_PHONE:''),date:todayISO(),cars:[{time:''}]};
     }
-    if(st.phone===undefined) st.phone = (k==='trunk'?'1036535848':'');
-    if(typeof st.date!=='string'||!st.date) st.date=todayISO();
+    if(st.phone===undefined) st.phone = (k==='trunk'?RABBIT_PHONE:'');
+    st.date = rollDate(st.date);
     if(!Array.isArray(st.cars)||!st.cars.length) st.cars=[{time:''}];
     st.cars=st.cars.map(c=>{
       if(!c||typeof c!=='object') c={time:''};
@@ -1584,11 +1679,9 @@ let inboundStore = load('disp-inbound', {
       return c;
     });
   });
-  if(inboundStore.rabbit){
-    if(!Array.isArray(inboundStore.rabbit.cars)) inboundStore.rabbit.cars=[];
-    while(inboundStore.rabbit.cars.length < 2) inboundStore.rabbit.cars.push({time:''});
-    if(inboundStore.rabbit.cars.length > 2) inboundStore.rabbit.cars = inboundStore.rabbit.cars.slice(0,2);
-  }
+  while(inboundStore.rabbit.cars.length < 2) inboundStore.rabbit.cars.push({time:'',names:''});
+  if(inboundStore.rabbit.cars.length > 2) inboundStore.rabbit.cars = inboundStore.rabbit.cars.slice(0,2);
+  saveInbound();
 })();
 
 function saveInbound(){ localStorage.setItem('disp-inbound', JSON.stringify(inboundStore)); }
@@ -1607,12 +1700,11 @@ function switchInbSet(s){
 }
 
 function buildInboundUrl(useYesterday){
-  const phone = RABBIT_PHONE;
   const params = new URLSearchParams();
   params.set('org_slug','default');
   if(useYesterday){ params.set('p_Date','d_yesterday'); }
   else { params.set('p_Date', inbCur().date); }
-  params.set('p_휴대폰번호', phone);
+  params.set('p_휴대폰번호', RABBIT_PHONE);
   return INBOUND_BASE_URL + '?' + params.toString();
 }
 
@@ -1622,13 +1714,13 @@ function openInboundPage(useYesterday){
 }
 
 function renderInbound(){
-  const cur = inbCur();
+  const c = inbCur();
   const isTrunk = inboundStore.set === 'trunk';
   const previewText = customInboundText !== null ? customInboundText : inboundText();
 
-  const carsHtml = cur.cars.map((car, ci)=>`
-    <div class="dispatch-row" style="grid-template-columns:60px 1fr 38px;">
-      <div style="font-size:13.5px;font-weight:900;color:var(--blue3);text-align:center;">${inbLabel(ci)}</div>
+  const carsHtml = c.cars.map((car, ci)=>`
+    <div class="dispatch-row" style="grid-template-columns:76px 1fr 38px;">
+      <div style="font-size:13px;font-weight:900;color:var(--blue3);text-align:center;">${esc(inbLabel(ci))}</div>
       <input type="time" class="inp time-hint" style="padding:10px; font-size:15px; text-align:center; font-weight:800; color:var(--teal3);"
              value="${formatTimeForInput(car.time)}"
              onchange="setInbCarTime(${ci}, this.value)">
@@ -1665,16 +1757,16 @@ function renderInbound(){
 
     <div class="field" style="margin-bottom:13px">
       <label class="field-label">📅 입고 날짜</label>
-      <input type="date" class="inp" value="${cur.date}" onchange="inbCur().date=this.value;customInboundText=null;saveInbound();render()">
+      <input type="date" class="inp" value="${c.date}" onchange="inbCur().date=this.value;customInboundText=null;saveInbound();render()">
     </div>
 
-    <div class="section-head" style="margin-top:14px;"><div class="section-title">🚛 ${isTrunk?`호차별 입고 시각 <b>${cur.cars.length}</b>대`:'딜리래빗 입고 시각'}</div></div>
+    <div class="section-head" style="margin-top:14px;"><div class="section-title">🚛 ${isTrunk?`호차별 입고 시각 <b>${c.cars.length}</b>대`:'딜리래빗 입고 시각'}</div></div>
     ${carsHtml}
     ${isTrunk ? `<button class="btn-add-row" style="padding:11px; border-color:var(--teal2); color:var(--teal3);" onclick="addInbCar()">＋ 호차 추가</button>` : ''}
 
     <div class="preview-wrap">
       <div class="preview-label">카톡 미리보기 (직접 편집 가능)</div>
-      <textarea class="kakao-bubble${previewText?'':' empty'}" oninput="customInboundText=this.value; autoResizePreviews();" placeholder="호차와 시각·기사를 넣으면 여기에 카톡 문구가 만들어집니다.">${esc(previewText)}</textarea>
+      <textarea class="kakao-bubble${previewText?'':' empty'}" oninput="customInboundText=this.value; autoResizePreviews();" placeholder="호차와 시각을 넣으면 여기에 카톡 문구가 만들어집니다.">${esc(previewText)}</textarea>
       <div class="actions">
         <button class="btn btn-share" onclick="shareText(customInboundText !== null ? customInboundText : inboundText())">💬 공유하기</button>
         <button class="btn btn-copy" onclick="copyText(customInboundText !== null ? customInboundText : inboundText())">📋 복사</button>
@@ -1687,42 +1779,43 @@ function renderInbound(){
     <div style="height:20px"></div>`;
 }
 
-function addInbCar(){ customInboundText=null; inbCur().cars.push({time:''}); saveInbound(); render(); }
-function delInbCar(ci){ customInboundText=null; inbCur().cars.splice(ci,1); if(!inbCur().cars.length)inbCur().cars.push({time:''}); saveInbound(); render(); }
+function addInbCar(){ customInboundText=null; inbCur().cars.push({time:'',names:''}); saveInbound(); render(); }
+function delInbCar(ci){ customInboundText=null; inbCur().cars.splice(ci,1); if(!inbCur().cars.length)inbCur().cars.push({time:'',names:''}); saveInbound(); render(); }
 function clearInbCars(){
   customInboundText=null;
   if(inboundStore.set==='rabbit'){
-    inbCur().cars=[{time:''},{time:''}];
+    inbCur().cars=[{time:'',names:''},{time:'',names:''}];
   } else {
-    inbCur().cars=[{time:''}];
+    inbCur().cars=[{time:'',names:''}];
   }
   saveInbound(); render(); showToast('🗑 비웠어요');
 }
-function setInbCarTime(ci,v){ customInboundText=null; inbCur().cars[ci].time=v; saveInbound(); render(); }
+function setInbCarTime(ci,v){ customInboundText=null; if(!inbCur().cars[ci])return; inbCur().cars[ci].time=String(v||''); saveInbound(); render(); }
 
 function timeToKor(t){
+  t = String(t||'');
   if(!t) return '';
-  let [h,m] = t.split(':').map(x=>parseInt(x,10));
+  const parts = t.split(':');
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
   if(isNaN(h)) return t;
   let h12 = h % 12; if(h12===0) h12 = 12;
-  return `${h12}시 ${String(m||0).padStart(2,'0')}분`;
+  return `${h12}시 ${String(isNaN(m)?0:m).padStart(2,'0')}분`;
 }
 
 function inboundText(){
-  const cur = inbCur();
+  const c = inbCur();
   const isTrunk = inboundStore.set==='trunk';
   const setName = isTrunk ? '간선' : '딜리래빗';
-  const active = cur.cars
-    .map((c, idx)=>({c, idx}))
-    .filter(o=>o.c.time);
+  const active = c.cars.map((car, idx)=>({car, idx})).filter(o=>o.car.time);
   if(!active.length) return '';
   let body = '';
   active.forEach(o=>{
-    body += `${inbLabel(o.idx)} ${timeToKor(o.c.time)} 도착입니다\n`;
+    body += `${inbLabel(o.idx)} ${timeToKor(o.car.time)} 도착입니다\n`;
   });
   const tpl = getTemplate('inbound');
   return formatTemplate(tpl, {
-    date: fmtKDate(cur.date),
+    date: fmtKDate(c.date),
     set: setName,
     rows: body
   });
@@ -1739,12 +1832,14 @@ function getModel(){
 function openSettings(){
   document.getElementById('set-apikey').value=getApiKey();
   document.getElementById('set-model').value=getModel();
+  document.getElementById('set-rollover').value=String(getRolloverHour());
   
   const keys = ['roster', 'dawn', 'wx_heavy', 'wx_rain', 'wx_clear', 'tip_clear', 'tip_light', 'tip_normal', 'tip_heavy', 'volume', 'dispatch', 'inbound'];
-  keys.forEach(k => {
-    editingTemplates[k] = getTemplate(k);
-  });
+  editingTemplates = {};
+  keys.forEach(k => { editingTemplates[k] = getTemplate(k); });
   
+  currentTemplateKey = 'roster';
+  document.getElementById('set-tpl-selector').value = 'roster';
   switchSettingsTab('gen');
   document.getElementById('settings-sheet').classList.add('show');
 }
@@ -1758,8 +1853,28 @@ function switchSettingsTab(sub){
   document.getElementById('set-panel-tpl').style.display = isGen ? 'none' : 'block';
   
   if(!isGen) {
-    onTemplateSelectorChange();
+    const ta = document.getElementById('set-tpl-ta');
+    ta.value = editingTemplates[currentTemplateKey] || '';
+    renderTplHint(currentTemplateKey);
   }
+}
+
+const TPL_HINTS = {
+  roster: `<b>💡 치환 변수 목록:</b><br><code>{emoji}</code> 이모지, <code>{date}</code> 날짜, <code>{title}</code> 제목, <code>{zones}</code> 구역 명단 리스트, <code>{total}</code> 총 인원수`,
+  dawn: `<b>💡 치환 변수 목록:</b><br><code>{emoji}</code> 이모지, <code>{date}</code> 날짜, <code>{title}</code> 제목, <code>{zones}</code> 구역 명단 리스트, <code>{total}</code> 총 인원수`,
+  wx_heavy: `<b>💡 치환 변수 목록:</b><br><code>{time}</code> 갱신 시각, <code>{status_msg}</code> 비구름 진입 상황 안내문, <code>{tip}</code> 강도별 기사 안내멘트, <code>{rain_mm}</code> 강수량, <code>{prob}</code> 확률, <code>{duration}</code> 지속시간`,
+  wx_rain: `<b>💡 치환 변수 목록:</b><br><code>{time}</code> 갱신 시각, <code>{status_msg}</code> 비 시작 상황 안내문, <code>{tip}</code> 강도별 기사 안내멘트, <code>{rain_mm}</code> 강수량, <code>{prob}</code> 확률`,
+  wx_clear: `<b>💡 치환 변수 목록:</b><br><code>{time}</code> 갱신 시각, <code>{span_hours}</code> 예보 유지 범위 시간, <code>{tip}</code> 비 없음 안내멘트`,
+  tip_clear: `<b>💡 비 없음 안내멘트</b><br>여러 문장을 <code>|</code>(막대기)로 구분하면 공유할 때마다 그중 하나가 랜덤으로 나옵니다.`,
+  tip_light: `<b>💡 약한 비 안내멘트</b><br>여러 문장을 <code>|</code>(막대기)로 구분하면 공유할 때마다 그중 하나가 랜덤으로 나옵니다.`,
+  tip_normal: `<b>💡 보통 비 안내멘트</b><br>여러 문장을 <code>|</code>(막대기)로 구분하면 공유할 때마다 그중 하나가 랜덤으로 나옵니다.`,
+  tip_heavy: `<b>💡 강한 비·폭우 안내멘트</b><br>여러 문장을 <code>|</code>(막대기)로 구분하면 공유할 때마다 그중 하나가 랜덤으로 나옵니다.`,
+  volume: `<b>💡 치환 변수 목록:</b><br><code>{date}</code> 날짜, <code>{title}</code> 제목, <code>{rows}</code> 각 동별 물량 리스트, <code>{total}</code> 합계 수량`,
+  dispatch: `<b>💡 치환 변수 목록:</b><br><code>{date}</code> 날짜(예: 7월 8일), <code>{day}</code> 요일(예: 수요일), <code>{orders}</code> 출차 순서 목록, <code>{inbounds}</code> 입차 내역`,
+  inbound: `<b>💡 치환 변수 목록:</b><br><code>{set}</code> 구분(간선/딜리래빗), <code>{date}</code> 날짜, <code>{rows}</code> 호차별 도착시각 리스트`
+};
+function renderTplHint(key){
+  document.getElementById('set-tpl-hint').innerHTML = TPL_HINTS[key] || '';
 }
 
 function onTemplateSelectorChange() {
@@ -1767,40 +1882,25 @@ function onTemplateSelectorChange() {
   if (ta && currentTemplateKey) {
     editingTemplates[currentTemplateKey] = ta.value;
   }
-  
   const newKey = document.getElementById('set-tpl-selector').value;
   currentTemplateKey = newKey;
-  
-  const newTa = document.getElementById('set-tpl-ta');
-  newTa.value = editingTemplates[newKey];
-  
-  const hints = {
-    roster: `<b>💡 치환 변수 목록:</b><br><code>{emoji}</code> 이모지, <code>{date}</code> 날짜, <code>{title}</code> 제목, <code>{zones}</code> 구역 명단 리스트, <code>{total}</code> 총 인원수`,
-    dawn: `<b>💡 치환 변수 목록:</b><br><code>{emoji}</code> 이모지, <code>{date}</code> 날짜, <code>{title}</code> 제목, <code>{zones}</code> 구역 명단 리스트, <code>{total}</code> 총 인원수`,
-    wx_heavy: `<b>💡 치환 변수 목록:</b><br><code>{time}</code> 갱신 시각, <code>{status_msg}</code> 비구름 진입 상황 안내문, <code>{tip}</code> 강도별 기사 안내멘트, <code>{rain_mm}</code> 강수량, <code>{prob}</code> 확률, <code>{duration}</code> 지속시간`,
-    wx_rain: `<b>💡 치환 변수 목록:</b><br><code>{time}</code> 갱신 시각, <code>{status_msg}</code> 비 시작 상황 안내문, <code>{tip}</code> 강도별 기사 안내멘트, <code>{rain_mm}</code> 강수량, <code>{prob}</code> 확률`,
-    wx_clear: `<b>💡 치환 변수 목록:</b><br><code>{time}</code> 갱신 시각, <code>{span_hours}</code> 예보 유지 범위 시간, <code>{tip}</code> 비 없음 안내멘트`,
-    tip_clear: `<b>💡 비 없음 안내멘트</b><br>여러 문장을 <code>|</code>(막대기)로 구분하면 공유할 때마다 그중 하나가 랜덤으로 나옵니다.`,
-    tip_light: `<b>💡 약한 비 안내멘트</b><br>여러 문장을 <code>|</code>(막대기)로 구분하면 공유할 때마다 그중 하나가 랜덤으로 나옵니다.`,
-    tip_normal: `<b>💡 보통 비 안내멘트</b><br>여러 문장을 <code>|</code>(막대기)로 구분하면 공유할 때마다 그중 하나가 랜덤으로 나옵니다.`,
-    tip_heavy: `<b>💡 강한 비·폭우 안내멘트</b><br>여러 문장을 <code>|</code>(막대기)로 구분하면 공유할 때마다 그중 하나가 랜덤으로 나옵니다.`,
-    volume: `<b>💡 치환 변수 목록:</b><br><code>{date}</code> 날짜, <code>{title}</code> 제목, <code>{rows}</code> 각 동별 물량 리스트, <code>{total}</code> 합계 수량`,
-    dispatch: `<b>💡 치환 변수 목록:</b><br><code>{date}</code> 날짜(예: 7월 8일), <code>{day}</code> 요일(예: 수요일), <code>{orders}</code> 출차 순서 목록, <code>{inbounds}</code> 입차 내역`,
-    inbound: `<b>💡 치환 변수 목록:</b><br><code>{set}</code> 구분(간선/딜리래빗), <code>{date}</code> 날짜, <code>{rows}</code> 호차별 도착시각 리스트`
-  };
-  document.getElementById('set-tpl-hint').innerHTML = hints[newKey] || '';
+  ta.value = editingTemplates[newKey] || '';
+  renderTplHint(newKey);
 }
 
 function saveSettings(){
   const k=document.getElementById('set-apikey').value.trim();
   if(k) localStorage.setItem('gemini-key',k); else localStorage.removeItem('gemini-key');
   localStorage.setItem('gemini-model',document.getElementById('set-model').value);
+
+  const prevRoll = getRolloverHour();
+  const newRoll = parseInt(document.getElementById('set-rollover').value,10);
+  if(Number.isInteger(newRoll)) localStorage.setItem('disp-rollover-hour', String(newRoll));
   
   const ta = document.getElementById('set-tpl-ta');
-  if (ta) {
+  if (ta && currentTemplateKey) {
     editingTemplates[currentTemplateKey] = ta.value;
   }
-  
   for (const key in editingTemplates) {
     localStorage.setItem('disp-tpl-' + key, editingTemplates[key]);
   }
@@ -1810,6 +1910,9 @@ function saveSettings(){
   customVolumeText = null;
   customDispatchText = null;
   customInboundText = null;
+
+  /* 롤오버 기준이 바뀌면 업무일이 달라질 수 있으므로 즉시 반영 */
+  if(newRoll !== prevRoll) applyDayRollover(true);
   
   closeSettings();
   render();
@@ -1825,7 +1928,7 @@ function closeBackup(){document.getElementById('backup-sheet').classList.remove(
 function collectBackupData(){
   const data={};
   BK_KEYS.forEach(k=>{const v=localStorage.getItem(k);if(v!==null)data[k]=v;});
-  return {app:'dispatch-organizer',kind:'roster-backup',version:7,exported:new Date().toISOString(),data};
+  return {app:'dispatch-organizer',kind:'roster-backup',version:8,exported:new Date().toISOString(),data};
 }
 function backupSummary(data){
   const parts=[];
@@ -1842,7 +1945,7 @@ function exportBackupFile(){
     const blob=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'});
     const a=document.createElement('a');
     a.href=URL.createObjectURL(blob);
-    a.download=`LK정리_백업_${todayISO()}.json`;
+    a.download=`LK정리_백업_${calendarTodayISO()}.json`;
     document.body.appendChild(a);a.click();
     setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},600);
     showToast(`📤 ${backupSummary(obj.data)} 백업을 저장했어요`);
@@ -1876,45 +1979,50 @@ function tryImport(text){
   document.getElementById('dlg-ok').textContent='복원';
   document.getElementById('overlay').classList.add('show');
 }
+
 function applyImport(){
   customRosterText = null;
   customWeatherText = null;
   customVolumeText = null;
   customDispatchText = null;
+  customInboundText = null;
   Object.keys(pendingImport).forEach(k=>localStorage.setItem(k,pendingImport[k]));
   const summary=backupSummary(pendingImport);
   const hadCode = !!pendingImport['acn5'];
   pendingImport=null;
+
   initRoster('main');initRoster('dawn');
   
   const dStore = localStorage.getItem('disp-dispatch-tpl');
   if(dStore){
     try{ dispatchTplStore = sanitizeDispatchArr(JSON.parse(dStore)); }
     catch(e){ dispatchTplStore = [0,1,2,3,4,5,6].map(() => blankDispatchTpl()); }
+    saveDispatchTpl();
   }
-  
-  dispatchStore.groups = deepDispatchData(dispatchTplStore[dispatchWorkDow]).groups;
-  dispatchStore.inbounds = deepDispatchData(dispatchTplStore[dispatchWorkDow]).inbounds;
 
   const restoredInb = load('disp-inbound', null);
   if(restoredInb && typeof restoredInb==='object' && !Array.isArray(restoredInb)){
     inboundStore = restoredInb;
     if(inboundStore.set!=='trunk'&&inboundStore.set!=='rabbit') inboundStore.set='trunk';
     ['trunk','rabbit'].forEach(k=>{
-      let rst=inboundStore[k];
-      if(!rst||typeof rst!=='object'||Array.isArray(rst)) rst=inboundStore[k]={phone:(k==='trunk'?'1036535848':''),date:todayISO(),cars:[{time:''}]};
-      if(rst.phone===undefined) rst.phone=(k==='trunk'?'1036535848':'');
-      if(typeof rst.date!=='string'||!rst.date) rst.date=todayISO();
-      if(!Array.isArray(rst.cars)||!rst.cars.length) rst.cars=[{time:''}];
-      rst.cars=rst.cars.map(c=>({time:String((c&&c.time)||''),names:String((c&&c.names)||'')}));
+      let st=inboundStore[k];
+      if(!st||typeof st!=='object'||Array.isArray(st)) st=inboundStore[k]={phone:(k==='trunk'?RABBIT_PHONE:''),date:todayISO(),cars:[{time:'',names:''}]};
+      if(st.phone===undefined) st.phone=(k==='trunk'?RABBIT_PHONE:'');
+      if(!Array.isArray(st.cars)||!st.cars.length) st.cars=[{time:'',names:''}];
+      st.cars=st.cars.map(c=>({time:String((c&&c.time)||''),names:String((c&&c.names)||'')}));
     });
-    if(inboundStore.rabbit){
-      while(inboundStore.rabbit.cars.length < 2) inboundStore.rabbit.cars.push({time:'',names:''});
-      if(inboundStore.rabbit.cars.length > 2) inboundStore.rabbit.cars = inboundStore.rabbit.cars.slice(0,2);
-    }
+    while(inboundStore.rabbit.cars.length < 2) inboundStore.rabbit.cars.push({time:'',names:''});
+    if(inboundStore.rabbit.cars.length > 2) inboundStore.rabbit.cars = inboundStore.rabbit.cars.slice(0,2);
   }
 
-  if(hadCode){ codeFrameLoaded=false; if(tab==='code'){ document.getElementById('content').innerHTML=''; render(); } }
+  /* 복원 직후 모든 날짜를 오늘 업무일로 정렬 */
+  applyDayRollover(true);
+
+  if(hadCode){
+    codeFrameLoaded=false;
+    const cf=document.getElementById('code-frame');
+    if(cf) cf.remove();
+  }
 
   closeBackup();
   showToast(`✅ ${summary} 데이터를 복원했어요`);
@@ -1936,7 +2044,7 @@ function onImgPick(e){
     const img=new Image();
     img.onload=function(){
       const MAX=1600;
-      let {width:w,height:h}=img;
+      const w=img.width, h=img.height;
       let dataUrl=ev.target.result, mime=file.type||'image/jpeg';
       if(Math.max(w,h)>MAX){
         const scale=MAX/Math.max(w,h);
@@ -1945,12 +2053,19 @@ function onImgPick(e){
         cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
         dataUrl=cv.toDataURL('image/jpeg',0.88);mime='image/jpeg';
       }
-      pickedImage={base64:dataUrl.split(',')[1],mime};
+      pickedImage={base64:String(dataUrl).split(',')[1],mime};
       const drop=document.getElementById('img-drop');
       const inner=document.getElementById('img-drop-inner');
+      if(!drop||!inner) return;
       drop.classList.add('has-img');
-      inner.innerHTML=`<img class="img-preview" src="${dataUrl}" alt="선택한 이미지">`;
-      document.getElementById('img-btns').style.display='flex';
+      inner.innerHTML='';
+      const prev=document.createElement('img');
+      prev.className='img-preview';
+      prev.src=dataUrl;
+      prev.alt='선택한 이미지';
+      inner.appendChild(prev);
+      const btns=document.getElementById('img-btns');
+      if(btns) btns.style.display='flex';
       setStatus('','');
     };
     img.onerror=function(){setStatus('이미지를 읽지 못했어요','err');};
@@ -1963,7 +2078,11 @@ function setStatus(msg,type){
   const el=document.getElementById('img-status');
   if(!el) return;
   el.className='img-status'+(type?' '+type:'');
-  el.innerHTML=type==='busy'?`<span class="spinner"></span>${msg}`:msg;
+  if(type==='busy'){
+    el.innerHTML='<span class="spinner"></span>'+esc(msg);
+  } else {
+    el.textContent=msg;
+  }
 }
 
 async function runImageOCR(mode){
@@ -2001,7 +2120,7 @@ async function runImageOCR(mode){
       let msg='인식 실패';
       if(res.status===400&&/API_KEY|API key/i.test(errTxt)) msg='API 키가 올바르지 않아요';
       else if(res.status===403) msg='API 키 권한 문제';
-      else if(res.status===404) msg=`모델을 찾을 수 없어요`;
+      else if(res.status===404) msg='모델을 찾을 수 없어요 — 설정에서 다른 모델을 선택해보세요';
       else if(res.status===429) msg='요청 한도 초과';
       else msg=`오류 (${res.status})`;
       setStatus(msg,'err');return;
@@ -2011,13 +2130,13 @@ async function runImageOCR(mode){
     const txt=parts.filter(p=>p.text&&!p.thought).map(p=>p.text).join('');
     let rows;
     try{
-      rows=JSON.parse(txt.replace(/```json|```/g,'').trim());
+      rows=JSON.parse(txt.split('```json').join('').split('```').join('').trim());
     }catch(e){setStatus('표를 해석하지 못했어요. 다시 시도해 주세요','err');return;}
     if(!Array.isArray(rows)||!rows.length){setStatus('인식된 행이 없어요','err');return;}
     const clean=rows.map(r=>({
-      dong:String(r.dong||'').trim(),
-      code:String(r.code||'').trim(),
-      qty:String(r.qty||'').replace(/[^0-9]/g,'')
+      dong:String((r&&r.dong)||'').trim(),
+      code:String((r&&r.code)||'').trim(),
+      qty:String((r&&r.qty)||'').replace(/[^0-9]/g,'')
     })).filter(r=>r.dong&&r.qty!=='');
     if(!clean.length){setStatus('유효한 행이 없어요','err');return;}
 
@@ -2057,14 +2176,24 @@ function shareText(text){
     navigator.share({text}).then(()=>showToast('💬 공유 메뉴를 열었어요')).catch(()=>copyText(text));
   }else{copyText(text);}
 }
+function fallbackCopy(text){
+  const ta=document.createElement('textarea');
+  ta.value=text;ta.style.position='fixed';ta.style.left='-9999px';
+  document.body.appendChild(ta);ta.focus();ta.select();
+  let ok=false;
+  try{ ok=document.execCommand('copy'); }catch(e){ ok=false; }
+  document.body.removeChild(ta);
+  showToast(ok?'📋 복사 완료 — 단톡에 붙여넣기':'복사 실패', ok?undefined:'err');
+}
 function copyText(text){
   if(!text){showToast('내용이 비어 있어요','err');return;}
-  navigator.clipboard.writeText(text).then(()=>showToast('📋 복사 완료 — 단톡에 붙여넣기')).catch(()=>{
-    const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
-    document.body.appendChild(ta);ta.select();
-    try{document.execCommand('copy');showToast('📋 복사 완료 — 단톡에 붙여넣기');}catch(e){showToast('복사 실패','err');}
-    document.body.removeChild(ta);
-  });
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text)
+      .then(()=>showToast('📋 복사 완료 — 단톡에 붙여넣기'))
+      .catch(()=>fallbackCopy(text));
+  }else{
+    fallbackCopy(text);
+  }
 }
 
 let dlgAction=null, dlgRosterKey=null;
@@ -2086,18 +2215,20 @@ function askResetVol(){
   document.getElementById('overlay').classList.add('show');
 }
 function closeDialog(){dlgAction=null;dlgRosterKey=null;document.getElementById('overlay').classList.remove('show');}
+
 document.getElementById('dlg-ok').onclick=function(){
-  if(dlgAction==='clearDow'){
+  const act=dlgAction;
+  if(act==='clearDow'){
     const R=rosters[dlgRosterKey||'main'];
     customRosterText = null;
     R.tpl[R.workDow]=blankTpl(R.defTitle);saveTplFor(R);
     R.work.title=R.defTitle;R.work.zones=[];
     showToast('🗑 이 요일 기본을 비웠어요');
-  }else if(dlgAction==='resetVol'){
+  }else if(act==='resetVol'){
     customVolumeText = null;
     volume.rows=[{dong:'',code:'',qty:''}];saveVolume();
     showToast('🗑 초기화했어요');
-  }else if(dlgAction==='clearDispatch'){
+  }else if(act==='clearDispatch'){
     customDispatchText = null;
     dispatchTplStore[dispatchWorkDow] = blankDispatchTpl();
     saveDispatchTpl();
@@ -2105,27 +2236,31 @@ document.getElementById('dlg-ok').onclick=function(){
     dispatchStore.inbounds = [];
     saveDispatch();
     showToast('🗑 이 요일의 출차 기본 설정을 비웠어요');
-  }else if(dlgAction==='doImport'&&pendingImport){
+  }else if(act==='doImport'&&pendingImport){
     applyImport();
   }
-  closeDialog();render();
+  closeDialog();
+  render();
 };
 
-function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function showToast(msg,type){const t=document.getElementById('toast');if(!t)return;t.textContent=msg;t.className='toast show'+(type==='err'?' err':'');setTimeout(()=>t.className='toast'+(type==='err'?' err':''),2400);}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function showToast(msg,type){const t=document.getElementById('toast');if(!t)return;t.textContent=msg;t.className='toast show'+(type==='err'?' err':'');clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.className='toast'+(type==='err'?' err':''),2400);}
 
-// Top-Level Event Listener to securely capture custom share/copy requests from the nested sandboxed iframe
+/* 출입코드 iframe에서 올라온 공유·복사 요청을 부모 창에서 처리 */
 window.addEventListener('message', function(e) {
+  const f = document.getElementById('code-frame');
+  if (!f || e.source !== f.contentWindow) return;
   if (!e.data || typeof e.data !== 'object') return;
-  if (e.data.type === 'share') {
+  if (e.data.type === 'share' && typeof e.data.text === 'string') {
     shareText(e.data.text);
-  } else if (e.data.type === 'copy') {
+  } else if (e.data.type === 'copy' && typeof e.data.text === 'string') {
     copyText(e.data.text);
   }
 });
 
 render();
 initWeather();
+startDayWatcher();
 </script>
 
 <script id="accesscode-html" type="text/template"><!DOCTYPE html>
@@ -2213,6 +2348,13 @@ body.dragging .cscroll{scroll-snap-type:none; user-select: none; -webkit-user-se
 .rg-body{display:none;background:var(--bg);padding:8px 10px 10px;}
 .region-card.open .rg-body{display:block;}
 
+.bulk-bar{display:flex;gap:6px;margin-bottom:10px;}
+.bulk-btn{flex:1;height:34px;border-radius:8px;border:1px solid var(--border2);background:var(--s3);color:var(--text2);font-size:12px;font-weight:700;font-family:var(--sans);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;}
+.bulk-btn:active{transform:scale(.97);}
+.bulk-btn.amber{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.22);color:var(--amber);}
+.bulk-bar.sm .bulk-btn{height:32px;font-size:11.5px;}
+.bulk-btn.blue{background:rgba(96,165,250,.1);border-color:rgba(96,165,250,.25);color:var(--blue);}
+
 .complex-card{border-radius:12px;border:1px solid var(--border);margin-bottom:8px;overflow:hidden;transition:border-color .2s;}
 .complex-card.open{border-color:var(--border2);box-shadow:0 2px 14px rgba(0,0,0,.4);}
 .complex-card.drag-placeholder{opacity:.2;pointer-events:none;}
@@ -2240,7 +2382,6 @@ body.dragging .cscroll{scroll-snap-type:none; user-select: none; -webkit-user-se
 
 .code-row{display:flex;align-items:center;background:var(--s2);border:1px solid var(--border);border-radius:10px;margin-bottom:5px;position:relative;overflow:hidden;}
 .code-row.global{background:rgba(245,158,11,.05);border-color:rgba(245,158,11,.18);}
-.code-row.copied{border-color:var(--green)!important;background:rgba(52,211,153,.06)!important;}
 .code-row.drag-placeholder{opacity:.2;pointer-events:none;}
 .code-main{flex:1;min-width:0;cursor:pointer;padding:12px 10px;}
 .code-lbl{font-size:15px;color:var(--text);font-weight:500;line-height:1.4;}
@@ -2248,8 +2389,6 @@ body.dragging .cscroll{scroll-snap-type:none; user-select: none; -webkit-user-se
 .code-val{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--green2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.03em;margin-top:2px;}
 .code-row.global .code-val{color:var(--amber2);}
 .code-acts{display:flex;gap:3px;padding:0 8px 0 0;flex-shrink:0;}
-.copy-hint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:11px;color:var(--green);font-weight:700;font-family:var(--mono);background:rgba(10,10,14,.92);padding:3px 12px;border-radius:6px;opacity:0;pointer-events:none;transition:opacity .15s;white-space:nowrap;}
-.code-row.copied .copy-hint{opacity:1;}
 .add-row-btn{width:100%;padding:9px;border:1px dashed var(--border2);border-radius:9px;background:transparent;color:var(--text3);font-size:12px;font-family:var(--sans);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:border-color .15s,color .15s;margin-top:4px;}
 .add-row-btn.amber-btn{border-color:rgba(245,158,11,.22);color:rgba(245,158,11,.5);}
 .add-row-btn:active{border-color:var(--amber);color:var(--amber);}
@@ -2284,7 +2423,7 @@ body.dragging .cscroll{scroll-snap-type:none; user-select: none; -webkit-user-se
 .bk-close{width:100%;padding:11px;background:transparent;border:1px solid var(--border2);border-radius:11px;color:var(--text3);font-size:13px;font-family:var(--sans);cursor:pointer;margin-top:8px;}
 .bk-close:active{background:var(--border2);}
 
-.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--s3);border:1px solid var(--green);color:var(--green);padding:10px 20px;border-radius:50px;font-size:12px;font-family:var(--mono);font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:600;white-space:nowrap;}
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--s3);border:1px solid var(--green);color:var(--green);padding:10px 20px;border-radius:50px;font-size:12px;font-family:var(--mono);font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:600;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
 #drag-ghost{position:fixed;z-index:400;pointer-events:none;border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,.75),0 0 0 1.5px rgba(245,158,11,.5);transform:scale(1.03) rotate(.5deg);opacity:.9;display:none;}
@@ -2343,7 +2482,7 @@ body.dragging .cscroll{scroll-snap-type:none; user-select: none; -webkit-user-se
     </div>
     <div class="fg">
       <label class="flbl" for="parseTargetComplex">대상 단지 선택</label>
-      <select class="finp" id="parseTargetComplex" style="background: var(--s3); color: var(--text); font-weight: 500;"></select>
+      <select class="finp" id="parseTargetComplex" style="background: var(--s3); color: var(--text); font-weight: 500;" onchange="updateParseHint()"></select>
       <div class="fhint" id="parseComplexHint">＊ 자동 분류: 텍스트에서 단지명을 추출해 단지를 만들거나 매칭합니다.</div>
     </div>
     <div class="fg">
@@ -2370,12 +2509,14 @@ body.dragging .cscroll{scroll-snap-type:none; user-select: none; -webkit-user-se
 
 <script>
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
-function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 
 function showToast(msg){
   const t=document.getElementById('toast');
+  if(!t)return;
   t.textContent=msg;t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),2400);
+  clearTimeout(showToast._t);
+  showToast._t=setTimeout(()=>t.classList.remove('show'),2400);
 }
 
 const DFLT={regions:[{id:'rg1',name:'대치동',complexes:[
@@ -2392,6 +2533,7 @@ let data={regions:[]};
 let openR=new Set(),openC=new Set(),q='';
 
 function save(){try{localStorage.setItem('acn5',JSON.stringify(data));}catch(e){}}
+
 function sanitizeData(d){
   if(!d||typeof d!=='object'||Array.isArray(d)||!Array.isArray(d.regions)) return JSON.parse(JSON.stringify(DFLT));
   d.regions=d.regions.filter(r=>r&&typeof r==='object').map(r=>{
@@ -2418,60 +2560,70 @@ function sanitizeData(d){
   });
   return d;
 }
-function load(){try{const r=localStorage.getItem('acn5');data=sanitizeData(r?JSON.parse(r):JSON.parse(JSON.stringify(DFLT)));}catch(e){data=JSON.parse(JSON.stringify(DFLT));}}
-function fR(id){return data.regions.find(x=>x.id===id);}
-function fC(rid,cid){return fR(rid)?.complexes.find(x=>x.id===cid);}
-function fK(rid,cid,kid){return fC(rid,cid)?.codes.find(x=>x.id===kid);}
 
+function load(){
+  try{
+    const r=localStorage.getItem('acn5');
+    data=sanitizeData(r?JSON.parse(r):JSON.parse(JSON.stringify(DFLT)));
+  }catch(e){
+    data=JSON.parse(JSON.stringify(DFLT));
+  }
+}
+
+function fR(id){return data.regions.find(x=>x.id===id);}
+function fC(rid,cid){const r=fR(rid);return r?r.complexes.find(x=>x.id===cid):undefined;}
+function fK(rid,cid,kid){const c=fC(rid,cid);return c?c.codes.find(x=>x.id===kid):undefined;}
+
+/* ===== 코드 확대 보기 ===== */
 function openZoomModal(rid, cid, kid) {
   const cd = fK(rid, cid, kid);
   if (!cd) return;
   const rg = fR(rid);
   const cx = fC(rid, cid);
 
-  const html = `
-    <div style="text-align: center; padding: 10px 0;">
-      <div style="font-size: 11px; color: var(--text3); font-family: var(--mono); margin-bottom: 4px; letter-spacing: 0.05em;">
-        ${esc(rg?.name)} › ${esc(cx?.name)}
+  const box = document.getElementById('zoomModalContent');
+  box.innerHTML = `
+    <div style="text-align:center; padding:10px 0;">
+      <div style="font-size:11px; color:var(--text3); font-family:var(--mono); margin-bottom:4px; letter-spacing:.05em;">
+        ${esc(rg?rg.name:'')} › ${esc(cx?cx.name:'')}
       </div>
-      <div style="font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 6px;">
+      <div style="font-size:18px; font-weight:700; color:var(--text); margin-bottom:6px;">
         ${esc(cd.label)}
       </div>
-      ${cd.sublabel ? `<div style="font-size: 12px; color: var(--blue); margin-bottom: 12px; font-weight: 500;">${esc(cd.sublabel)}</div>` : ''}
-      
-      <div style="background: var(--s3); border: 1px solid var(--border3); border-radius: 14px; padding: 28px 16px; margin: 18px 0; position: relative;">
-        <div id="zoomValue" style="font-family: var(--mono); font-size: 34px; font-weight: 700; color: var(--green2); word-break: break-all; letter-spacing: 0.05em;">
+      ${cd.sublabel ? `<div style="font-size:12px; color:var(--blue); margin-bottom:12px; font-weight:500;">${esc(cd.sublabel)}</div>` : ''}
+      <div style="background:var(--s3); border:1px solid var(--border3); border-radius:14px; padding:28px 16px; margin:18px 0;">
+        <div id="zoomValue" style="font-family:var(--mono); font-size:34px; font-weight:700; color:var(--green2); word-break:break-all; letter-spacing:.05em;">
           ${esc(cd.value)}
         </div>
       </div>
-      
-      <button class="bpri" onclick="copyZoomValue('${esc(cd.value)}')" style="width: 100%; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+      <button class="bpri" id="zoomCopyBtn" style="width:100%; margin-top:10px; display:flex; align-items:center; justify-content:center; gap:8px;">
         📋 코드 복사하기
       </button>
     </div>
   `;
+  /* 코드값에 따옴표가 있어도 안전하도록 onclick 문자열 대신 핸들러 직접 연결 */
+  const btn = document.getElementById('zoomCopyBtn');
+  if(btn) btn.onclick = () => copyZoomValue(cd.value);
 
-  document.getElementById('zoomModalContent').innerHTML = html;
   document.getElementById('zoomModal').classList.add('active');
   document.body.style.overflow = 'hidden';
 }
 
-// Bypasses sandbox iframe limits by posting sharing/copying requests up to the parent window
+/* iframe 샌드박스 제약을 피해 부모창에 복사/공유를 요청한다 */
 function copyZoomValue(val) {
   if (!val || val === '코드 확인 필요') return;
   window.parent.postMessage({ type: 'copy', text: val }, '*');
 }
 
-/* 단지 전체 및 구역 전체 공유용 텍스트 생성기 */
+/* ===== 단지 전체 / 구역 전체 공유용 텍스트 ===== */
 function getComplexCodesText(rid, cid) {
-  const rg = fR(rid);
   const cx = fC(rid, cid);
-  if (!rg || !cx || !cx.codes.length) return '';
-  
+  if (!cx || !cx.codes.length) return '';
+
   let text = `🏢 ${cx.name}\n`;
   if (cx.addr) text += `📍 ${cx.addr}\n`;
   text += `━━━━━━━━━━━━━━\n`;
-  
+
   let currentSection = '';
   cx.codes.forEach(cd => {
     if (cd.section && cd.section !== currentSection) {
@@ -2489,16 +2641,18 @@ function getComplexCodesText(rid, cid) {
 function getRegionCodesText(rid) {
   const rg = fR(rid);
   if (!rg || !rg.complexes.length) return '';
-  
+
   let text = `🏘️ [${rg.name}] 구역 출입코드 목록\n`;
   text += `━━━━━━━━━━━━━━\n`;
-  
+
+  let any = false;
   rg.complexes.forEach(cx => {
     if (!cx.codes.length) return;
+    any = true;
     text += `\n🏢 ${cx.name}`;
     if (cx.addr) text += ` (${cx.addr})`;
     text += `\n`;
-    
+
     let currentSection = '';
     cx.codes.forEach(cd => {
       if (cd.section && cd.section !== currentSection) {
@@ -2510,36 +2664,33 @@ function getRegionCodesText(rid) {
       text += `${labelLine}: ${cd.value}\n`;
     });
   });
+  if (!any) return '';
   text += `\n━━━━━━━━━━━━━━`;
   return text;
 }
 
-/* 단지 전체 공유/복사 */
 function shareComplexCodes(rid, cid) {
   const txt = getComplexCodesText(rid, cid);
   if (!txt) { showToast('⚠️ 공유할 코드가 없습니다'); return; }
   window.parent.postMessage({ type: 'share', text: txt }, '*');
 }
-
 function copyComplexCodes(rid, cid) {
   const txt = getComplexCodesText(rid, cid);
   if (!txt) { showToast('⚠️ 복사할 코드가 없습니다'); return; }
   window.parent.postMessage({ type: 'copy', text: txt }, '*');
 }
-
-/* 구역 전체 공유/복사 */
 function shareRegionCodes(rid) {
   const txt = getRegionCodesText(rid);
   if (!txt) { showToast('⚠️ 공유할 코드가 없습니다'); return; }
   window.parent.postMessage({ type: 'share', text: txt }, '*');
 }
-
 function copyRegionCodes(rid) {
   const txt = getRegionCodesText(rid);
   if (!txt) { showToast('⚠️ 복사할 코드가 없습니다'); return; }
   window.parent.postMessage({ type: 'copy', text: txt }, '*');
 }
 
+/* ===== 렌더 ===== */
 function render(){
   const root=document.getElementById('contentRoot');
   if(!data.regions.length){
@@ -2560,7 +2711,7 @@ function render(){
           cd.sublabel.toLowerCase().includes(q)||
           (cd.section && cd.section.toLowerCase().includes(q))
         );
-        if(rm||cm||mk.length) mcx.push({...cx,codes:rm||cm?cx.codes:mk});
+        if(rm||cm||mk.length) mcx.push({...cx,codes:(rm||cm)?cx.codes:mk});
       });
     }
     if(q&&!mcx.length)return;
@@ -2584,13 +2735,11 @@ function render(){
 </div>
 <div class="rg-body">`;
 
-    // [구역 전체 복사/공유 버튼 배치]
-    if (mcx.length > 0) {
-      html += `
-      <div style="display:flex; gap:6px; margin-bottom:10px;">
-        <button class="abt" style="flex:1; height:34px; font-size:12px; background:rgba(245,158,11,.1); border-color:rgba(245,158,11,.22); color:var(--amber); font-weight:700; display:flex; align-items:center; justify-content:center; gap:4px;" onclick="shareRegionCodes('${esc(rg.id)}')">💬 구역전체 공유</button>
-        <button class="abt" style="flex:1; height:34px; font-size:12px; background:var(--s3); font-weight:700; display:flex; align-items:center; justify-content:center; gap:4px;" onclick="copyRegionCodes('${esc(rg.id)}')">📋 구역전체 복사</button>
-      </div>`;
+    if(kc>0){
+      html+=`<div class="bulk-bar">
+<button class="bulk-btn amber" onclick="shareRegionCodes('${esc(rg.id)}')">💬 구역전체 공유</button>
+<button class="bulk-btn" onclick="copyRegionCodes('${esc(rg.id)}')">📋 구역전체 복사</button>
+</div>`;
     }
 
     if(!mcx.length){
@@ -2615,13 +2764,11 @@ function render(){
 </div>
 <div class="cx-body">`;
 
-        // [단지 전체 복사/공유 버튼 배치]
-        if (cx.codes.length > 0) {
-          html += `
-          <div style="display:flex; gap:6px; margin-bottom:10px;">
-            <button class="asm" style="flex:1; height:32px; font-size:11.5px; background:rgba(96,165,250,.1); border-color:rgba(96,165,250,.25); color:var(--blue); font-weight:700; display:flex; align-items:center; justify-content:center; gap:4px;" onclick="shareComplexCodes('${esc(rg.id)}','${esc(cx.id)}')">💬 단지전체 공유</button>
-            <button class="asm" style="flex:1; height:32px; font-size:11.5px; background:var(--s3); font-weight:700; display:flex; align-items:center; justify-content:center; gap:4px;" onclick="copyComplexCodes('${esc(rg.id)}','${esc(cx.id)}')">📋 단지전체 복사</button>
-          </div>`;
+        if(cx.codes.length>0){
+          html+=`<div class="bulk-bar sm">
+<button class="bulk-btn blue" onclick="shareComplexCodes('${esc(rg.id)}','${esc(cx.id)}')">💬 단지전체 공유</button>
+<button class="bulk-btn" onclick="copyComplexCodes('${esc(rg.id)}','${esc(cx.id)}')">📋 단지전체 복사</button>
+</div>`;
         }
 
         let ps='__NONE__';
@@ -2630,7 +2777,7 @@ function render(){
           ps=cd.section||ps;
           html+=`<div class="code-row${cd.isGlobal?' global':''}" id="kd_${esc(cd.id)}" data-id="${esc(cd.id)}" data-rid="${esc(rg.id)}" data-cid="${esc(cx.id)}">
 <div class="dh kh" data-type="code" data-id="${esc(cd.id)}" data-rid="${esc(rg.id)}" data-cid="${esc(cx.id)}">⠿</div>
-<div class="code-main" onclick="openZoomModal('${esc(rg.id)}', '${esc(cx.id)}', '${esc(cd.id)}')">
+<div class="code-main" onclick="openZoomModal('${esc(rg.id)}','${esc(cx.id)}','${esc(cd.id)}')">
 ${cd.sublabel?`<span class="code-sub">${esc(cd.sublabel)}</span>`:''}
 <div class="code-lbl">${esc(cd.label)}</div>
 <div class="code-val">${esc(cd.value)}</div>
@@ -2639,7 +2786,6 @@ ${cd.sublabel?`<span class="code-sub">${esc(cd.sublabel)}</span>`:''}
 <button class="asm" onclick="openModal('eK',{r:'${esc(rg.id)}',c:'${esc(cx.id)}',k:'${esc(cd.id)}'})">✏️</button>
 <button class="asm del" onclick="cdK('${esc(rg.id)}','${esc(cx.id)}','${esc(cd.id)}')">🗑</button>
 </div>
-<span class="copy-hint">✓ 복사됨</span>
 </div>`;
         });
         html+=`<button class="add-row-btn" onclick="openModal('aK',{r:'${esc(rg.id)}',c:'${esc(cx.id)}'})">＋ 코드 추가</button></div></div>`;
@@ -2656,16 +2802,17 @@ ${cd.sublabel?`<span class="code-sub">${esc(cd.sublabel)}</span>`:''}
 function tR(id){openR.has(id)?openR.delete(id):openR.add(id);render();}
 function tC(id){openC.has(id)?openC.delete(id):openC.add(id);render();}
 function handleSearch(v){
-  q=v.toLowerCase().trim();
+  q=String(v||'').toLowerCase().trim();
   document.getElementById('contentRoot').classList.toggle('searching',!!q);
   render();
 }
 
+/* ===== 드래그 순서변경 ===== */
 const DND={
   active:false,type:null,id:null,rid:null,cid:null,
   src:null,ghost:null,indicator:null,dropBefore:null,offY:0,
   _timer:null,_startY:0,_startX:0,_scrollDir:0,_raf:null,
-  _onMoveBound:null,_onEndBound:null,_onCancelBound:null,
+  _onMoveBound:null,_onEndBound:null,_onCancelBound:null,_earlyMove:null,_pressHandle:null,
 
   begin(e,type,id,rid,cid){
     if(this.active)return;
@@ -2674,12 +2821,17 @@ const DND={
     this._startY=t.clientY;this._startX=t.clientX;
     let el=e.currentTarget;
     while(el){if(el.classList.contains('region-card')||el.classList.contains('complex-card')||el.classList.contains('code-row'))break;el=el.parentElement;}
+    if(!el){return;}
     this.src=el;
     e.currentTarget.classList.add('pressing');this._pressHandle=e.currentTarget;
     this._earlyMove=(ev)=>{
       const dy=Math.abs(ev.touches[0].clientY-this._startY);
       const dx=Math.abs(ev.touches[0].clientX-this._startX);
-      if(dy>8||dx>8){clearTimeout(this._timer);this._timer=null;this._pressHandle?.classList.remove('pressing');document.removeEventListener('touchmove',this._earlyMove);}
+      if(dy>8||dx>8){
+        clearTimeout(this._timer);this._timer=null;
+        if(this._pressHandle)this._pressHandle.classList.remove('pressing');
+        document.removeEventListener('touchmove',this._earlyMove);
+      }
     };
     document.addEventListener('touchmove',this._earlyMove,{passive:true});
     this._timer=setTimeout(()=>{
@@ -2689,12 +2841,13 @@ const DND={
   },
 
   _activate(touch){
+    if(!this.src){return;}
     this.active=true;if(navigator.vibrate)navigator.vibrate(30);
-    this._pressHandle?.classList.remove('pressing');
+    if(this._pressHandle)this._pressHandle.classList.remove('pressing');
     const rect=this.src.getBoundingClientRect();this.offY=touch.clientY-rect.top;
     const ghost=document.getElementById('drag-ghost');
     const clone=this.src.cloneNode(true);
-    clone.querySelectorAll('.rg-body,.cx-body,.add-row-btn').forEach(b=>b.remove());
+    clone.querySelectorAll('.rg-body,.cx-body,.add-row-btn,.bulk-bar').forEach(b=>b.remove());
     clone.style.cssText='width:100%;';ghost.innerHTML='';ghost.appendChild(clone);
     ghost.style.cssText=`display:block;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;`;
     this.ghost=ghost;this.src.classList.add('drag-placeholder');
@@ -2728,11 +2881,13 @@ const DND={
       return{container:root,siblings:[...root.children].filter(c=>c.classList.contains('region-card'))};
     }
     else if(this.type==='complex'){
-      const rb=document.getElementById('rc_'+this.rid)?.querySelector('.rg-body');
+      const rc=document.getElementById('rc_'+this.rid);
+      const rb=rc?rc.querySelector('.rg-body'):null;
       return{container:rb,siblings:rb?[...rb.children].filter(c=>c.classList.contains('complex-card')):[]};
     }
     else{
-      const cb=document.getElementById('cc_'+this.cid)?.querySelector('.cx-body');
+      const cc=document.getElementById('cc_'+this.cid);
+      const cb=cc?cc.querySelector('.cx-body'):null;
       return{container:cb,siblings:cb?[...cb.children].filter(c=>c.classList.contains('code-row')):[]};
     }
   },
@@ -2753,8 +2908,8 @@ const DND={
   _reorder(){
     let arr;
     if(this.type==='region')arr=data.regions;
-    else if(this.type==='complex')arr=fR(this.rid)?.complexes;
-    else arr=fC(this.rid,this.cid)?.codes;
+    else if(this.type==='complex'){const r=fR(this.rid);arr=r?r.complexes:null;}
+    else{const c=fC(this.rid,this.cid);arr=c?c.codes:null;}
     if(!arr)return;
     const fi=arr.findIndex(x=>x.id===this.id);if(fi===-1)return;
     const[item]=arr.splice(fi,1);
@@ -2769,18 +2924,18 @@ const DND={
     clearTimeout(this._timer);this._timer=null;
     if(this._raf){cancelAnimationFrame(this._raf);this._raf=null;}
     this._scrollDir=0;
-    document.removeEventListener('touchmove',this._onMoveBound,{passive:false});
-    document.removeEventListener('touchend',this._onEndBound);
-    document.removeEventListener('touchcancel',this._onCancelBound);
-    document.removeEventListener('touchmove',this._earlyMove);
-    this._pressHandle?.classList.remove('pressing');
+    if(this._onMoveBound)document.removeEventListener('touchmove',this._onMoveBound,{passive:false});
+    if(this._onEndBound)document.removeEventListener('touchend',this._onEndBound);
+    if(this._onCancelBound)document.removeEventListener('touchcancel',this._onCancelBound);
+    if(this._earlyMove)document.removeEventListener('touchmove',this._earlyMove);
+    if(this._pressHandle)this._pressHandle.classList.remove('pressing');
     if(this.ghost){this.ghost.style.display='none';this.ghost.innerHTML='';}
-    if(this.indicator?.parentNode)this.indicator.parentNode.removeChild(this.indicator);
+    if(this.indicator&&this.indicator.parentNode)this.indicator.parentNode.removeChild(this.indicator);
     if(this.src)this.src.classList.remove('drag-placeholder');
     document.body.classList.remove('dragging');
     this.active=false;this.type=null;this.id=null;this.rid=null;this.cid=null;
     this.src=null;this.ghost=null;this.indicator=null;this.dropBefore=null;
-    this._onMoveBound=null;this._onEndBound=null;this._onCancelBound=null;this._pressHandle=null;
+    this._onMoveBound=null;this._onEndBound=null;this._onCancelBound=null;this._pressHandle=null;this._earlyMove=null;
   }
 };
 
@@ -2793,14 +2948,15 @@ function attachHandles(){
   });
 }
 
+/* ===== 입력 모달 ===== */
 let mCtx={};
 function openModal(type,ctx){
   mCtx={type,...(ctx||{})};
   let title='',fields='';
   if(type==='aR'){title='<span>🏘️</span> 지역 추가';fields=fi('rn','지역명','예: 일원동, 개포동, 도곡동...','');}
-  else if(type==='eR'){const r=fR(mCtx.r);title='<span>✏️</span> 지역 편집';fields=fi('rn','지역명','',r?.name||'');}
+  else if(type==='eR'){const r=fR(mCtx.r);title='<span>✏️</span> 지역 편집';fields=fi('rn','지역명','',r?r.name:'');}
   else if(type==='aC'){title='<span>🏢</span> 단지 추가';fields=fi('cn','단지명','예: 대치현대, 래미하이스턴...','')+fi('ca','주소 (선택)','예: 삼성로64길 5','');}
-  else if(type==='eC'){const cx=fC(mCtx.r,mCtx.c);title='<span>✏️</span> 단지 편집';fields=fi('cn','단지명','',cx?.name||'')+fi('ca','주소','',cx?.addr||'');}
+  else if(type==='eC'){const cx=fC(mCtx.r,mCtx.c);title='<span>✏️</span> 단지 편집';fields=fi('cn','단지명','',cx?cx.name:'')+fi('ca','주소','',cx?cx.addr:'');}
   else if(type==='aK'){
     title='<span>🔐</span> 코드 추가';
     fields=fi('ks','섹션 구분 (선택)','예: 영동대로, 공동현관...','')+
@@ -2809,25 +2965,33 @@ function openModal(type,ctx){
       fi('kv','코드값 ✱','예: ##9077, 종1234...','')+fc('kg','공동 코드 (황금색)');
   } else if(type==='eK'){
     const cd=fK(mCtx.r,mCtx.c,mCtx.k);title='<span>✏️</span> 코드 편집';
-    fields=fi('ks','섹션 구분','',cd?.section||'')+fi('kl','위치 설명','',cd?.label||'')+
-      fi('kb','상세 위치','',cd?.sublabel||'')+fi('kv','코드값 ✱','',cd?.value||'')+fc('kg','공동 코드',cd?.isGlobal||false);
+    fields=fi('ks','섹션 구분','',cd?cd.section:'')+fi('kl','위치 설명','',cd?cd.label:'')+
+      fi('kb','상세 위치','',cd?cd.sublabel:'')+fi('kv','코드값 ✱','',cd?cd.value:'')+fc('kg','공동 코드',cd?cd.isGlobal:false);
   }
   document.getElementById('fmTitle').innerHTML=title;
   document.getElementById('fmFields').innerHTML=fields;
   document.getElementById('formModal').classList.add('active');
   document.body.style.overflow='hidden';
-  setTimeout(()=>document.getElementById('fmFields').querySelector('input[type=text]')?.focus(),200);
+  setTimeout(()=>{
+    const f=document.getElementById('fmFields').querySelector('input[type=text]');
+    if(f)f.focus();
+  },200);
 }
 
-function fi(id,lbl,ph,val){return`<div class="fg"><label class="flbl" for="${id}">${lbl}</label><input class="finp" type="text" id="${id}" placeholder="${ph}" value="${esc(val)}" autocomplete="off"></div>`;}
-function fc(id,lbl,chk=false){return`<div class="fg"><div class="fchk"><input type="checkbox" id="${id}" ${chk?'checked':''}><label for="${id}">🟡 ${lbl}</label></div></div>`;}
+function fi(id,lbl,ph,val){return`<div class="fg"><label class="flbl" for="${id}">${esc(lbl)}</label><input class="finp" type="text" id="${id}" placeholder="${esc(ph)}" value="${esc(val)}" autocomplete="off"></div>`;}
+function fc(id,lbl,chk){return`<div class="fg"><div class="fchk"><input type="checkbox" id="${id}" ${chk?'checked':''}><label for="${id}">🟡 ${esc(lbl)}</label></div></div>`;}
 
 function submitForm(){
   const t=mCtx.type;
-  const v=id=>(document.getElementById(id)?.value||'').trim();
-  const c=id=>document.getElementById(id)?.checked||false;
-  const shake=id=>{const e=document.getElementById(id);if(!e)return;e.style.borderColor='var(--red)';e.style.boxShadow='0 0 0 3px rgba(248,113,113,.15)';setTimeout(()=>{e.style.borderColor='';e.style.boxShadow='';},1500);e.focus();};
-  
+  const v=id=>{const e=document.getElementById(id);return e?e.value.trim():'';};
+  const c=id=>{const e=document.getElementById(id);return e?e.checked:false;};
+  const shake=id=>{
+    const e=document.getElementById(id);if(!e)return;
+    e.style.borderColor='var(--red)';e.style.boxShadow='0 0 0 3px rgba(248,113,113,.15)';
+    setTimeout(()=>{e.style.borderColor='';e.style.boxShadow='';},1500);
+    e.focus();
+  };
+
   if(t==='aR'){const n=v('rn');if(!n)return shake('rn');const id=uid();data.regions.push({id,name:n,complexes:[]});openR.add(id);}
   else if(t==='eR'){const n=v('rn');if(!n)return shake('rn');const r=fR(mCtx.r);if(r)r.name=n;}
   else if(t==='aC'){const n=v('cn'),a=v('ca');if(!n)return shake('cn');const r=fR(mCtx.r);if(r){const id=uid();r.complexes.push({id,name:n,addr:a,codes:[]});openC.add(id);}}
@@ -2837,7 +3001,11 @@ function submitForm(){
   save();closeModal('formModal');render();
 }
 
-function closeModal(id){document.getElementById(id).classList.remove('active');document.body.style.overflow='';}
+function closeModal(id){
+  const el=document.getElementById(id);
+  if(el)el.classList.remove('active');
+  document.body.style.overflow='';
+}
 function ovcl(e,id){if(e.target===document.getElementById(id))closeModal(id);}
 
 function cdR(rid){
@@ -2859,6 +3027,7 @@ function cdK(rid,cid,kid){
   document.getElementById('confirmModal').classList.add('active');document.body.style.overflow='hidden';
 }
 
+/* ===== 텍스트 자동 분류 ===== */
 function onParseRegionChange(){
   const rid=document.getElementById('parseTargetRegion').value;
   const cxSelect=document.getElementById('parseTargetComplex');
@@ -2889,18 +3058,18 @@ function openParseModal() {
     showToast('⚠️ 먼저 지역을 추가해 주세요');
     return;
   }
-  
+
   select.innerHTML = data.regions.map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('');
-  
+
   const validActiveId = Array.from(openR).find(id => fR(id));
   if (validActiveId) {
     select.value = validActiveId;
-  } else if (data.regions.length > 0) {
+  } else {
     select.value = data.regions[0].id;
   }
 
   onParseRegionChange();
-  
+
   document.getElementById('parseInput').value = '';
   document.getElementById('parseModal').classList.add('active');
   document.body.style.overflow = 'hidden';
@@ -2913,7 +3082,7 @@ function parseCodeFromLine(trLine){
   const codeMatch = trLine.match(codeRegex);
   if (codeMatch) {
     codeValue = codeMatch[0].trim();
-    remaining = trLine.replace(codeMatch[0], '').trim();
+    remaining = trLine.split(codeMatch[0]).join(' ').trim();
   } else {
     const words = trLine.split(/\s+/);
     if (words.length > 1) {
@@ -2998,10 +3167,9 @@ function submitParseForm() {
       let labelName = '';
 
       const complexKeywords = /(아파트|단지|현대|래미안|푸르지오|써밋|르엘|하이스턴|아이원|팰리스|타워|빌딩|빌라|맨션|힐스테이트|자이|아이파크|e편한세상|더샵|롯데캐슬|하이캐슬)/;
-      const hasComplex = complexKeywords.test(remaining);
+      const match = remaining.match(complexKeywords);
 
-      if (hasComplex) {
-        const match = remaining.match(complexKeywords);
+      if (match) {
         const idx = remaining.indexOf(match[0]) + match[0].length;
         complexName = remaining.substring(0, idx).trim();
         labelName = remaining.substring(idx).trim().replace(/\s+/g, ' ');
@@ -3012,10 +3180,12 @@ function submitParseForm() {
       }
 
       if (!complexName) complexName = '지정되지 않은 단지';
+      if (!labelName) labelName = '공동 현관';
 
       let complex = region.complexes.find(cx => {
         const target = (cx.name || '').toLowerCase().replace(/\s+/g, '');
         const source = (complexName || '').toLowerCase().replace(/\s+/g, '');
+        if(!target || !source) return false;
         return target === source || source.includes(target) || target.includes(source);
       });
 
@@ -3034,7 +3204,7 @@ function submitParseForm() {
         id: uid(),
         section: '',
         label: labelName,
-        sublabel: '', 
+        sublabel: '',
         value: codeValue,
         isGlobal: isGlobal
       });
@@ -3052,23 +3222,25 @@ function submitParseForm() {
       showToast('⚠️ 분류할 수 있는 텍스트를 찾지 못했습니다.');
     }
   } catch (err) {
-    console.error(err);
     showToast('⚠️ 분류 중 오류가 발생했습니다.');
   }
 }
 
-document.getElementById('parseTargetComplex').addEventListener('change', updateParseHint);
-
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape')['confirmModal','formModal','parseModal','zoomModal'].forEach(id=>{
-    const el=document.getElementById(id);if(el && el.classList.contains('active'))closeModal(id);
-  });
+  if(e.key==='Escape'){
+    ['confirmModal','formModal','parseModal','zoomModal'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el && el.classList.contains('active'))closeModal(id);
+    });
+  }
   if(e.key==='Enter'&&document.getElementById('formModal').classList.contains('active')){
-    if(document.activeElement?.tagName==='INPUT'&&document.activeElement.type!=='checkbox')submitForm();
+    const a=document.activeElement;
+    if(a&&a.tagName==='INPUT'&&a.type!=='checkbox')submitForm();
   }
 });
 
-load();render();
+load();
+render();
 <\/script>
 </body>
 </html>
