@@ -2457,7 +2457,7 @@ function copyZoomValue(val) {
     textArea.select();
     try {
       document.execCommand('copy');
-      showToast('✓ 복사완료: ' + val);
+      showToast('✓ 복사완료!');
     } catch (err) {
       showToast('⚠️ 복사할 수 없습니다');
     }
@@ -2466,13 +2466,99 @@ function copyZoomValue(val) {
 
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(val).then(() => {
-      showToast('✓ 복사완료: ' + val);
+      showToast('✓ 복사완료!');
     }).catch(() => {
       performFallbackCopy(val);
     });
   } else {
     performFallbackCopy(val);
   }
+}
+
+/* 단지 전체 및 구역 전체 공유용 텍스트 생성기 */
+function getComplexCodesText(rid, cid) {
+  const rg = fR(rid);
+  const cx = fC(rid, cid);
+  if (!rg || !cx || !cx.codes.length) return '';
+  
+  let text = `🏢 ${cx.name}\n`;
+  if (cx.addr) text += `📍 ${cx.addr}\n`;
+  text += `━━━━━━━━━━━━━━\n`;
+  
+  let currentSection = '';
+  cx.codes.forEach(cd => {
+    if (cd.section && cd.section !== currentSection) {
+      text += `\n[${cd.section}]\n`;
+      currentSection = cd.section;
+    }
+    let labelLine = `▫️ ${cd.label}`;
+    if (cd.sublabel) labelLine += ` (${cd.sublabel})`;
+    text += `${labelLine}\n🔑 ${cd.value}\n`;
+  });
+  text += `━━━━━━━━━━━━━━`;
+  return text;
+}
+
+function getRegionCodesText(rid) {
+  const rg = fR(rid);
+  if (!rg || !rg.complexes.length) return '';
+  
+  let text = `🏘️ [${rg.name}] 구역 출입코드 목록\n`;
+  text += `━━━━━━━━━━━━━━\n`;
+  
+  rg.complexes.forEach(cx => {
+    if (!cx.codes.length) return;
+    text += `\n🏢 ${cx.name}`;
+    if (cx.addr) text += ` (${cx.addr})`;
+    text += `\n`;
+    
+    let currentSection = '';
+    cx.codes.forEach(cd => {
+      if (cd.section && cd.section !== currentSection) {
+        text += `  [${cd.section}]\n`;
+        currentSection = cd.section;
+      }
+      let labelLine = `  ▫️ ${cd.label}`;
+      if (cd.sublabel) labelLine += ` (${cd.sublabel})`;
+      text += `${labelLine}: ${cd.value}\n`;
+    });
+  });
+  text += `\n━━━━━━━━━━━━━━`;
+  return text;
+}
+
+/* 단지 전체 공유/복사 */
+function shareComplexCodes(rid, cid) {
+  const txt = getComplexCodesText(rid, cid);
+  if (!txt) { showToast('⚠️ 공유할 코드가 없습니다'); return; }
+  if (navigator.share) {
+    navigator.share({ text: txt }).then(() => showToast('✓ 공유 창을 열었습니다')).catch(() => copyComplexCodes(rid, cid));
+  } else {
+    copyComplexCodes(rid, cid);
+  }
+}
+
+function copyComplexCodes(rid, cid) {
+  const txt = getComplexCodesText(rid, cid);
+  if (!txt) { showToast('⚠️ 복사할 코드가 없습니다'); return; }
+  copyZoomValue(txt);
+}
+
+/* 구역 전체 공유/복사 */
+function shareRegionCodes(rid) {
+  const txt = getRegionCodesText(rid);
+  if (!txt) { showToast('⚠️ 공유할 코드가 없습니다'); return; }
+  if (navigator.share) {
+    navigator.share({ text: txt }).then(() => showToast('✓ 공유 창을 열었습니다')).catch(() => copyRegionCodes(rid));
+  } else {
+    copyRegionCodes(rid);
+  }
+}
+
+function copyRegionCodes(rid) {
+  const txt = getRegionCodesText(rid);
+  if (!txt) { showToast('⚠️ 복사할 코드가 없습니다'); return; }
+  copyZoomValue(txt);
 }
 
 function render(){
@@ -2518,6 +2604,16 @@ function render(){
 <span class="chv r">▼</span>
 </div>
 <div class="rg-body">`;
+
+    // [구역 전체 복사/공유 버튼 배치]
+    if (mcx.length > 0) {
+      html += `
+      <div style="display:flex; gap:6px; margin-bottom:10px;">
+        <button class="abt" style="flex:1; height:34px; font-size:12px; background:rgba(245,158,11,.1); border-color:rgba(245,158,11,.22); color:var(--amber); font-weight:700; display:flex; align-items:center; justify-content:center; gap:4px;" onclick="shareRegionCodes('${esc(rg.id)}')">💬 구역전체 공유</button>
+        <button class="abt" style="flex:1; height:34px; font-size:12px; background:var(--s3); font-weight:700; display:flex; align-items:center; justify-content:center; gap:4px;" onclick="copyRegionCodes('${esc(rg.id)}')">📋 구역전체 복사</button>
+      </div>`;
+    }
+
     if(!mcx.length){
       html+=`<div style="text-align:center;padding:20px 0;color:var(--text3);font-size:12px;font-family:var(--mono);">단지가 없습니다 · <span style="color:var(--amber);cursor:pointer;" onclick="openModal('aC',{r:'${esc(rg.id)}'})">＋ 단지 추가</span></div>`;
     } else {
@@ -2539,6 +2635,16 @@ function render(){
 <span class="chv c">▼</span>
 </div>
 <div class="cx-body">`;
+
+        // [단지 전체 복사/공유 버튼 배치]
+        if (cx.codes.length > 0) {
+          html += `
+          <div style="display:flex; gap:6px; margin-bottom:10px;">
+            <button class="asm" style="flex:1; height:32px; font-size:11.5px; background:rgba(96,165,250,.1); border-color:rgba(96,165,250,.25); color:var(--blue); font-weight:700; display:flex; align-items:center; justify-content:center; gap:4px;" onclick="shareComplexCodes('${esc(rg.id)}','${esc(cx.id)}')">💬 단지전체 공유</button>
+            <button class="asm" style="flex:1; height:32px; font-size:11.5px; background:var(--s3); font-weight:700; display:flex; align-items:center; justify-content:center; gap:4px;" onclick="copyComplexCodes('${esc(rg.id)}','${esc(cx.id)}')">📋 단지전체 복사</button>
+          </div>`;
+        }
+
         let ps='__NONE__';
         cx.codes.forEach(cd=>{
           if(cd.section&&cd.section!==ps)html+=`<div class="sec-lbl">${esc(cd.section)}</div>`;
@@ -2984,7 +3090,7 @@ document.addEventListener('keydown',e=>{
 });
 
 load();render();
-<\/script>
+</script>
 </body>
 </html></script>
 </body>
