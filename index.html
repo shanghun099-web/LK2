@@ -230,6 +230,33 @@ input[type="time"].time-hint{
 .wx-cell-danger{background:rgba(220,38,38,0.10);}
 .wx-note{font-size:11px;color:var(--dim);line-height:1.6;margin-bottom:14px;}
 
+.wx-head{border-radius:14px;padding:16px 18px;margin-bottom:14px;border:1.5px solid;}
+.wx-head-lbl{font-size:12px;font-weight:700;letter-spacing:0.5px;margin-bottom:6px;opacity:0.85;}
+.wx-head-big{font-size:25px;font-weight:900;color:#fff;line-height:1.25;letter-spacing:-0.5px;}
+.wx-head-sub{font-size:13px;margin-top:8px;line-height:1.6;opacity:0.9;}
+.wx-head-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;}
+.wx-chip{background:rgba(255,255,255,0.13);font-size:11px;font-weight:700;padding:4px 9px;border-radius:6px;color:#fff;opacity:0.92;}
+.wx-head-heavy{background:linear-gradient(135deg,#3b0d0d,#4a1010);border-color:#6b1d1d;color:#f0a0a0;}
+.wx-head-rain{background:linear-gradient(135deg,#10243f,#13294a);border-color:#1d3a66;color:#8ec1f5;}
+.wx-head-clear{background:linear-gradient(135deg,#0a2620,#0d2e26);border-color:#155244;color:#7fe0cd;}
+.wx-head-none{background:var(--card);border-color:var(--border);color:var(--sub);}
+.wx-head-none .wx-head-big{font-size:16px;font-weight:700;color:var(--sub);}
+
+.wx-bar-wrap{background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:14px 12px 10px;margin-bottom:14px;}
+.wx-bar{position:relative;display:flex;height:26px;border-radius:7px;overflow:hidden;background:var(--card3);}
+.wx-seg{height:100%;}
+.wx-seg-dim{background:var(--card3);}
+.wx-seg-blue{background:var(--blue2);}
+.wx-seg-amber{background:var(--amber2);}
+.wx-seg-red{background:var(--red2);}
+.wx-nowline{position:absolute;top:-3px;bottom:-3px;width:2px;background:#fff;border-radius:2px;}
+.wx-marks{position:relative;height:16px;margin-top:5px;}
+.wx-mark{position:absolute;font-size:10px;color:var(--dim);font-weight:600;white-space:nowrap;}
+.wx-mark-hot{color:#fff;font-weight:800;}
+.wx-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:9px;padding-top:9px;border-top:1px solid var(--border);}
+.wx-legend span{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--sub);font-weight:600;}
+.wx-dot{width:9px;height:9px;border-radius:2px;display:inline-block;}
+
 .sheet-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:120;align-items:flex-end;justify-content:center;}
 .sheet-overlay.show{display:flex;}
 .sheet{background:var(--card);border-top:1px solid var(--border2);border-radius:20px 20px 0 0;padding:24px 20px calc(28px + env(safe-area-inset-bottom));width:100%;max-width:560px;}
@@ -419,8 +446,8 @@ let codeFrameLoaded = false;
 const DEFAULT_TEMPLATES = {
   roster: `{emoji} {date} {title}\n━━━━━━━━━\n{zones}\n━━━━━━━━━\n👥 총 {total}명`,
   dawn: `{emoji} {date} {title}\n━━━━━━━━━\n{zones}\n━━━━━━━━━\n👥 총 {total}명`,
-  wx_heavy: `🚨 [기상 상황 전파]\n⏱️ {time} 기준 · 강남구 기준 실시간 예보\n━━━━━━━━━\n{status_msg}\n(시간당 약 {rain_mm}mm{prob})\n· 예상 지속 시간: 약 {duration}\n━━━━━━━━━\n{tip}\n오늘도 안전운행이 최우선입니다 🙏`,
-  wx_rain: `🌦️ [기상 안내]\n⏱️ {time} 기준 · 강남구 기준 실시간 예보\n━━━━━━━━━\n{status_msg}\n(시간당 약 {rain_mm}mm{prob})\n━━━━━━━━━\n{tip}`,
+  wx_heavy: `🚨 [기상 상황 전파]\n⏱️ {time} 기준 · 강남구 기준 실시간 예보\n━━━━━━━━━\n{status_msg}\n· 강도: {intensity} (시간당 약 {rain_mm}mm{prob})\n· 예상 지속: 약 {duration} ({end_time}경 그침)\n━━━━━━━━━\n{tip}\n오늘도 안전운행이 최우선입니다 🙏`,
+  wx_rain: `🌦️ [기상 안내]\n⏱️ {time} 기준 · 강남구 기준 실시간 예보\n━━━━━━━━━\n{status_msg}\n· 강도: {intensity} (시간당 약 {rain_mm}mm{prob})\n· 예상 지속: 약 {duration} ({end_time}경 그침)\n━━━━━━━━━\n{tip}`,
   wx_clear: `☀️ [기상 안내]\n⏱️ {time} 기준 · 강남구 기준 실시간 예보\n━━━━━━━━━\n앞으로 약 {span_hours}시간 동안 배송 구역에 비 소식은 없습니다.\n━━━━━━━━━\n{tip}`,
   tip_clear: `오늘 기상 상황 양호합니다. 수고 많으시고 안전운행하세요! 👍|비 걱정 없는 날입니다. 컨디션 관리 잘하시고 무리하지 마세요!|맑은 날씨 이어집니다. 수분 섭취 챙기시고 오늘도 화이팅입니다!`,
   tip_light: `부슬비가 이어집니다. 우비는 애매해도 송장 젖을 수 있으니 가림막 미리 챙기세요.|약한 비로 노면이 계속 젖어 있어요. 지하주차장 진입 시 미끄러짐 조심하세요.`,
@@ -469,7 +496,7 @@ function todayISO(){
 function calendarTodayISO(){ return toLocalISO(new Date()); }
 function dowOf(iso){return new Date(iso+'T00:00:00').getDay();}
 function fmtKDate(iso){const d=new Date(iso+'T00:00:00');return `${d.getMonth()+1}월 ${d.getDate()}일(${DAYS[d.getDay()]})`;}
-function fmtHM(d){return d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});}
+function fmtHM(d){return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
 
 /* 저장된 날짜가 업무일 기준 오늘보다 과거면 오늘로 끌어올린다.
    미래 날짜(사용자가 의도적으로 앞당겨 잡은 것)는 건드리지 않는다. */
@@ -978,33 +1005,158 @@ async function fetchWeather(){
   if(wx.queue){wx.queue=false;fetchWeather();}
 }
 
+/* 강수강도 5단계 — 기상청 용어. 헤드라인·타임라인·표·카톡 문구가 모두 이걸 쓴다. */
+const WX_STEPS=[
+  {min:0,    lv:0, name:'-',         head:'비 없음',      color:'dim'},
+  {min:0.2,  lv:1, name:'약한 비',    head:'약한 비',      color:'blue'},
+  {min:1,    lv:1, name:'보통 비',    head:'보통 비',      color:'blue'},
+  {min:4,    lv:2, name:'강한 비',    head:'강한 비',      color:'amber'},
+  {min:10,   lv:2, name:'매우 강한 비',head:'매우 강한 비', color:'red'},
+  {min:20,   lv:3, name:'폭우',       head:'폭우',         color:'red'}
+];
+function wxStep(perH){
+  let s=WX_STEPS[0];
+  for(const x of WX_STEPS){ if(perH>=x.min) s=x; }
+  return s;
+}
 function wxLevel(mm,step){
   const perH=mm*(60/step);
-  if(perH<0.2) return {lv:0,icon:'☀️',label:'강수 없음',perH};
-  if(perH<1)   return {lv:1,icon:'🌦️',label:'약한 비',perH};
-  if(perH<4)   return {lv:1,icon:'🌧️',label:'비',perH};
-  if(perH<10)  return {lv:2,icon:'⚠️',label:'강한 비',perH};
-  return {lv:3,icon:'🚨',label:'폭우',perH};
+  const s=wxStep(perH);
+  return {lv:s.lv,label:s.name,head:s.head,color:s.color,perH};
+}
+
+/* 타임라인 전체를 한 번 훑어 "언제·얼마나·얼마나 오래"를 뽑는다.
+   헤드라인/타임라인바/카톡문구가 모두 이 결과를 공유하므로 서로 어긋나지 않는다. */
+function wxAnalyze(){
+  if(!wx.timeline||!wx.timeline.length) return null;
+  const tl=wx.timeline, now=Date.now();
+  const spanH=Math.round(tl.reduce((s,e)=>s+e.step,0)/60);
+
+  /* 비가 오는 첫 구간 찾기 (약한 비 이상) */
+  const startIdx=tl.findIndex(e=>wxLevel(e.mm,e.step).lv>=1);
+  if(startIdx<0){
+    return {rain:false,spanH:spanH,timeline:tl};
+  }
+
+  /* 그 구간이 끊길 때까지의 지속 시간 */
+  let durMin=0, endIdx=startIdx;
+  for(let i=startIdx;i<tl.length;i++){
+    if(wxLevel(tl[i].mm,tl[i].step).lv>=1){ durMin+=tl[i].step; endIdx=i; }
+    else break;
+  }
+
+  /* 그 구간 안에서 가장 센 지점 = 헤드라인에 쓸 대표 강도 */
+  let peak=tl[startIdx];
+  for(let i=startIdx;i<=endIdx;i++){
+    if(wxLevel(tl[i].mm,tl[i].step).perH > wxLevel(peak.mm,peak.step).perH) peak=tl[i];
+  }
+
+  const first=tl[startIdx];
+  const minsToStart=Math.max(0,Math.round((first.time-now)/60000));
+  const ongoing = minsToStart<=5;              /* 이미 오는 중 */
+  const endTime = tl[endIdx].time + tl[endIdx].step*60000;
+  const minsToEnd=Math.max(0,Math.round((endTime-now)/60000));
+
+  const L=wxLevel(peak.mm,peak.step);
+  return {
+    rain:true, ongoing:ongoing, spanH:spanH, timeline:tl,
+    startIdx:startIdx, endIdx:endIdx,
+    startTime:first.time, endTime:endTime,
+    minsToStart:minsToStart, minsToEnd:minsToEnd, durMin:durMin,
+    level:L, mmPerH:L.perH, prob:(peak.prob!=null?Math.round(peak.prob):null)
+  };
+}
+
+/* 분 → "50분", "1시간30분" */
+function wxDur(m){
+  const h=Math.floor(m/60), r=m%60;
+  if(h>0) return r>0 ? `${h}시간${r}분` : `${h}시간`;
+  return `${r}분`;
+}
+function wxMm(perH){ return perH<10 ? perH.toFixed(1) : String(Math.round(perH)); }
+
+/* ===== A. 헤드라인 카드 ===== */
+function wxHeadlineHtml(){
+  if(wx.err&&!wx.timeline){
+    return `<div class="wx-head wx-head-none"><div class="wx-head-lbl">예보 로드 실패</div><div class="wx-head-big">다시 시도해 주세요</div><div class="wx-head-sub">${esc(wx.err)}</div></div>`;
+  }
+  const a=wxAnalyze();
+  if(!a) return `<div class="wx-head wx-head-none"><div class="wx-head-big"><span class="spinner"></span>예보 확인 중…</div></div>`;
+
+  if(!a.rain){
+    return `<div class="wx-head wx-head-clear">
+      <div class="wx-head-lbl">앞으로 ${a.spanH}시간</div>
+      <div class="wx-head-big">비 소식 없음</div>
+      <div class="wx-head-sub">배송 구역에 강수 예보가 없습니다</div>
+    </div>`;
+  }
+
+  const cls = a.level.lv>=2 ? 'wx-head-heavy' : 'wx-head-rain';
+  const lbl = a.ongoing ? '지금' : `지금부터 ${wxDur(a.minsToStart)} 뒤`;
+  const big = a.ongoing ? `${a.level.head} 내리는 중` : a.level.head;
+  const sub = a.ongoing
+    ? `시간당 약 ${wxMm(a.mmPerH)}mm · ${wxDur(a.minsToEnd)} 더 지속`
+    : `${fmtHM(new Date(a.startTime))} 시작 · 시간당 약 ${wxMm(a.mmPerH)}mm · 약 ${wxDur(a.durMin)} 지속`;
+
+  const chips=[];
+  if(a.prob!=null) chips.push(`강수확률 ${a.prob}%`);
+  chips.push(`${fmtHM(new Date(a.endTime))}경 그침`);
+
+  return `<div class="wx-head ${cls}">
+    <div class="wx-head-lbl">${lbl}</div>
+    <div class="wx-head-big">${esc(big)}</div>
+    <div class="wx-head-sub">${esc(sub)}</div>
+    <div class="wx-head-chips">${chips.map(c=>`<span class="wx-chip">${esc(c)}</span>`).join('')}</div>
+  </div>`;
+}
+
+/* ===== C. 타임라인 바 ===== */
+function wxTimelineHtml(){
+  const a=wxAnalyze();
+  if(!a) return '';
+  const tl=a.timeline, n=tl.length;
+  const w=100/n;
+
+  const segs=tl.map(e=>{
+    const L=wxLevel(e.mm,e.step);
+    return `<div class="wx-seg wx-seg-${L.color}" style="width:${w}%"></div>`;
+  }).join('');
+
+  /* 눈금: 지금 / 비 시작 / 중간 / 끝 */
+  let marks=`<span class="wx-mark" style="left:0">지금</span>`;
+  if(a.rain && !a.ongoing){
+    const pos=(a.startIdx/n)*100 + w/2;
+    marks+=`<span class="wx-mark wx-mark-hot" style="left:${pos}%;transform:translateX(-50%)">${wxDur(a.minsToStart)}</span>`;
+  }
+  marks+=`<span class="wx-mark" style="right:0">${a.spanH}시간</span>`;
+
+  /* 현재 위치 표시선 */
+  const nowLine=`<div class="wx-nowline" style="left:0"></div>`;
+
+  return `<div class="section-head"><div class="section-title">앞으로 <b>${a.spanH}시간</b></div></div>
+  <div class="wx-bar-wrap">
+    <div class="wx-bar">${segs}${nowLine}</div>
+    <div class="wx-marks">${marks}</div>
+    <div class="wx-legend">
+      <span><i class="wx-dot wx-seg-blue"></i>약한·보통 비</span>
+      <span><i class="wx-dot wx-seg-amber"></i>강한 비</span>
+      <span><i class="wx-dot wx-seg-red"></i>매우 강한 비·폭우</span>
+    </div>
+  </div>`;
 }
 
 function checkWxAlert(){
   const strip=document.getElementById('wx-strip');
   if(!strip) return;
-  if(!wx.timeline){strip.classList.remove('show');return;}
-  const now=Date.now();
-  const strong=wx.timeline.find(e=>wxLevel(e.mm,e.step).lv>=2&&(e.time-now)<60*60000);
-  if(strong){
-    const mins=Math.max(0,Math.round((strong.time-now)/60000));
-    strip.textContent=mins<=5
-      ?'🚨 강한 비 진행 중 — 탭하여 레이더 확인'
-      :`🚨 약 ${mins}분 뒤 강한 비구름 진입 예상 — 탭하여 확인`;
-    strip.classList.add('show');
-    if(wx.alerted!==strong.time){
-      wx.alerted=strong.time;
-      if(tab!=='weather')showToast('🚨 강한 비구름 접근 — 날씨 탭을 확인하세요','err');
-    }
-  }else{
-    strip.classList.remove('show');
+  const a=wxAnalyze();
+  if(!a||!a.rain||a.level.lv<2||a.minsToStart>=60){strip.classList.remove('show');return;}
+  strip.textContent = a.ongoing
+    ? `🚨 ${a.level.head} 내리는 중 — 탭하여 확인`
+    : `🚨 약 ${wxDur(a.minsToStart)} 뒤 ${a.level.head} 예상 — 탭하여 확인`;
+  strip.classList.add('show');
+  if(wx.alerted!==a.startTime){
+    wx.alerted=a.startTime;
+    if(tab!=='weather')showToast(`🚨 ${a.level.head} 접근 — 날씨 탭을 확인하세요`,'err');
   }
 }
 
@@ -1058,14 +1210,7 @@ function wxTableHtml(){
   const rowFeel=`<tr><th class="lbl">체감온도</th>${cells(e=>`<td style="color:var(--amber2);font-weight:700">${e.feels!=null?Math.round(e.feels)+'°':'-'}</td>`)}</tr>`;
   const rowMm=`<tr><th class="lbl">강수량<br>(mm)</th>${cells(e=>`<td class="wx-mm${dcls(e)}">${e.mm>=0.05?(e.mm<1?e.mm.toFixed(1):Math.round(e.mm)):'-'}</td>`)}</tr>`;
 
-  const nuriInt=L=>{
-    if(L.lv===0) return '-';
-    if(L.perH<1)  return '약한비';
-    if(L.perH<4)  return '보통비';
-    if(L.perH<10) return '강한비';
-    return '매우강한비';
-  };
-  const rowInt=`<tr><th class="lbl">강수강도</th>${cells(e=>{const L=lvOf(e);return `<td class="wx-int${L.lv}${dcls(e)}">${nuriInt(L)}</td>`;})}</tr>`;
+  const rowInt=`<tr><th class="lbl">강수강도</th>${cells(e=>{const L=lvOf(e);return `<td class="wx-int${L.lv}${dcls(e)}">${esc(L.label)}</td>`;})}</tr>`;
 
   return `<table class="wx-table">${rowTime}${rowIco}${rowTemp}${rowFeel}${rowMm}${rowInt}</table>`;
 }
@@ -1076,6 +1221,10 @@ function updateWeatherDom(){
   const tw=document.getElementById('wx-table-wrap');
   if(!tw){render();return;}
   tw.innerHTML=wxTableHtml();
+  const hd=document.getElementById('wx-head-wrap');
+  if(hd)hd.innerHTML=wxHeadlineHtml();
+  const tlw=document.getElementById('wx-timeline-wrap');
+  if(tlw)tlw.innerHTML=wxTimelineHtml();
   const meta=document.getElementById('wx-meta-txt');
   if(meta)meta.innerHTML=wxMetaHtml();
   const bub=document.getElementById('wx-bubble');
@@ -1090,8 +1239,12 @@ function updateWeatherDom(){
 function renderWeather(){
   const windySrc=`https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&zoom=9&overlay=radar&product=radar&level=surface&lat=${wx.lat.toFixed(4)}&lon=${wx.lon.toFixed(4)}`;
   const shareTxt = customWeatherText !== null ? customWeatherText : wxShareText();
-  const spanH=wx.timeline?Math.round(wx.timeline.reduce((s,e)=>s+e.step,0)/60):6;
+  const a=wxAnalyze();
+  const spanH=a?a.spanH:6;
   return `
+    <div id="wx-head-wrap">${wxHeadlineHtml()}</div>
+    <div id="wx-timeline-wrap">${wxTimelineHtml()}</div>
+
     <div class="wx-meta">
       <div class="wx-meta-txt" id="wx-meta-txt">${wxMetaHtml()}</div>
       <div style="display:flex;gap:6px;flex-shrink:0">
@@ -1129,71 +1282,35 @@ function rainTip(perH){
 }
 
 function wxShareText(){
-  if(!wx.timeline)return '';
+  const a=wxAnalyze();
+  if(!a) return '';
   const now=new Date();
-  const spanH=Math.round(wx.timeline.reduce((s,e)=>s+e.step,0)/60);
-  const mmTxt=L=>L.perH<10?L.perH.toFixed(1):String(Math.round(L.perH));
 
-  const formatTimeDiff = m => {
-    const h = Math.floor(m / 60);
-    const r = m % 60;
-    if (h > 0) {
-      return r > 0 ? `${h}시간${r}분` : `${h}시간`;
-    }
-    return `${r}분`;
+  if(!a.rain){
+    return formatTemplate(getTemplate('wx_clear'), {
+      time: fmtHM(now),
+      span_hours: a.spanH,
+      tip: tipPick('tip_clear')
+    });
+  }
+
+  const statusMsg = a.ongoing
+    ? `현재 배송 구역에 ${a.level.head}가 내리고 있습니다.`
+    : `약 ${wxDur(a.minsToStart)} 뒤(${fmtHM(new Date(a.startTime))}경)부터 배송 구역에 ${a.level.head} 소식이 있습니다.`;
+
+  const dict={
+    time: fmtHM(now),
+    status_msg: statusMsg,
+    intensity: a.level.head,
+    tip: rainTip(a.mmPerH),
+    rain_mm: wxMm(a.mmPerH),
+    prob: a.prob!=null ? ` · 강수확률 ${a.prob}%` : '',
+    duration: wxDur(a.durMin),
+    end_time: fmtHM(new Date(a.endTime))
   };
 
-  const idx=wx.timeline.findIndex(e=>wxLevel(e.mm,e.step).perH>=3);
-  if(idx>=0){
-    const strong=wx.timeline[idx], st=new Date(strong.time);
-    const mins=Math.max(0,Math.round((strong.time-now.getTime())/60000));
-    const L=wxLevel(strong.mm,strong.step);
-    let dur=0;
-    for(let i=idx;i<wx.timeline.length;i++){
-      if(wxLevel(wx.timeline[i].mm,wx.timeline[i].step).lv>=1)dur+=wx.timeline[i].step;else break;
-    }
-    
-    const statusMsg = mins<=5
-      ? `현재 배송 구역에 강한 비가 지나가고 있습니다.`
-      : `약 ${formatTimeDiff(mins)} 뒤(${fmtHM(st)}경)부터 배송 구역에 강한 비 소식이 있습니다.`;
-    
-    const tpl = getTemplate('wx_heavy');
-    return formatTemplate(tpl, {
-      time: fmtHM(now),
-      status_msg: statusMsg,
-      tip: rainTip(L.perH),
-      rain_mm: mmTxt(L),
-      prob: strong.prob!=null?` · 강수확률 ${Math.round(strong.prob)}%`:'',
-      duration: formatTimeDiff(dur)
-    });
-  }
-
-  const rainIdx=wx.timeline.findIndex(e=>wxLevel(e.mm,e.step).lv>=1);
-  if(rainIdx>=0){
-    const r=wx.timeline[rainIdx], st=new Date(r.time);
-    const mins=Math.max(0,Math.round((r.time-now.getTime())/60000));
-    const L=wxLevel(r.mm,r.step);
-    
-    const statusMsg = mins<=5
-      ? `현재 배송 구역에 비가 내리고 있습니다.`
-      : `약 ${formatTimeDiff(mins)} 뒤(${fmtHM(st)}경)부터 비가 시작될 것으로 예상됩니다.`;
-      
-    const tpl = getTemplate('wx_rain');
-    return formatTemplate(tpl, {
-      time: fmtHM(now),
-      status_msg: statusMsg,
-      tip: rainTip(L.perH),
-      rain_mm: L.perH.toFixed(1),
-      prob: r.prob!=null?` · 확률 ${Math.round(r.prob)}%`:''
-    });
-  }
-
-  const tpl = getTemplate('wx_clear');
-  return formatTemplate(tpl, {
-    time: fmtHM(now),
-    span_hours: spanH,
-    tip: tipPick('tip_clear')
-  });
+  /* 강한 비(4mm/h) 이상이면 전파용 양식, 그 아래면 일반 안내 양식 */
+  return formatTemplate(getTemplate(a.level.lv>=2 ? 'wx_heavy' : 'wx_rain'), dict);
 }
 
 function renderVolume(){
@@ -1862,8 +1979,8 @@ function switchSettingsTab(sub){
 const TPL_HINTS = {
   roster: `<b>💡 치환 변수 목록:</b><br><code>{emoji}</code> 이모지, <code>{date}</code> 날짜, <code>{title}</code> 제목, <code>{zones}</code> 구역 명단 리스트, <code>{total}</code> 총 인원수`,
   dawn: `<b>💡 치환 변수 목록:</b><br><code>{emoji}</code> 이모지, <code>{date}</code> 날짜, <code>{title}</code> 제목, <code>{zones}</code> 구역 명단 리스트, <code>{total}</code> 총 인원수`,
-  wx_heavy: `<b>💡 치환 변수 목록:</b><br><code>{time}</code> 갱신 시각, <code>{status_msg}</code> 비구름 진입 상황 안내문, <code>{tip}</code> 강도별 기사 안내멘트, <code>{rain_mm}</code> 강수량, <code>{prob}</code> 확률, <code>{duration}</code> 지속시간`,
-  wx_rain: `<b>💡 치환 변수 목록:</b><br><code>{time}</code> 갱신 시각, <code>{status_msg}</code> 비 시작 상황 안내문, <code>{tip}</code> 강도별 기사 안내멘트, <code>{rain_mm}</code> 강수량, <code>{prob}</code> 확률`,
+  wx_heavy: `<b>💡 치환 변수 목록:</b><br><code>{time}</code> 갱신 시각, <code>{status_msg}</code> 상황 안내문, <code>{intensity}</code> 강수강도(약한 비~폭우), <code>{tip}</code> 기사 안내멘트, <code>{rain_mm}</code> 강수량, <code>{prob}</code> 확률, <code>{duration}</code> 지속시간, <code>{end_time}</code> 그치는 시각`,
+  wx_rain: `<b>💡 치환 변수 목록:</b><br><code>{time}</code> 갱신 시각, <code>{status_msg}</code> 상황 안내문, <code>{intensity}</code> 강수강도(약한 비~폭우), <code>{tip}</code> 기사 안내멘트, <code>{rain_mm}</code> 강수량, <code>{prob}</code> 확률, <code>{duration}</code> 지속시간, <code>{end_time}</code> 그치는 시각`,
   wx_clear: `<b>💡 치환 변수 목록:</b><br><code>{time}</code> 갱신 시각, <code>{span_hours}</code> 예보 유지 범위 시간, <code>{tip}</code> 비 없음 안내멘트`,
   tip_clear: `<b>💡 비 없음 안내멘트</b><br>여러 문장을 <code>|</code>(막대기)로 구분하면 공유할 때마다 그중 하나가 랜덤으로 나옵니다.`,
   tip_light: `<b>💡 약한 비 안내멘트</b><br>여러 문장을 <code>|</code>(막대기)로 구분하면 공유할 때마다 그중 하나가 랜덤으로 나옵니다.`,
