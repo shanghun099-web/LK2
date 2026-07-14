@@ -1569,14 +1569,14 @@ let inboundStore = load('disp-inbound', {
     delete inboundStore.phone;
   }
   ['trunk','rabbit'].forEach(k=>{
-    let rst=inboundStore[k];
-    if(!rst||typeof rst!=='object'||Array.isArray(rst)){
-      rst=inboundStore[k]={phone:(k==='trunk'?'1036535848':''),date:todayISO(),cars:[{time:''}]};
+    let st=inboundStore[k];
+    if(!st||typeof st!=='object'||Array.isArray(st)){
+      st=inboundStore[k]={phone:(k==='trunk'?'1036535848':''),date:todayISO(),cars:[{time:''}]};
     }
-    if(rst.phone===undefined) rst.phone = (k==='trunk'?'1036535848':'');
-    if(typeof rst.date!=='string'||!rst.date) rst.date=todayISO();
-    if(!Array.isArray(rst.cars)||!rst.cars.length) rst.cars=[{time:''}];
-    rst.cars=rst.cars.map(c=>{
+    if(st.phone===undefined) st.phone = (k==='trunk'?'1036535848':'');
+    if(typeof st.date!=='string'||!st.date) st.date=todayISO();
+    if(!Array.isArray(st.cars)||!st.cars.length) st.cars=[{time:''}];
+    st.cars=st.cars.map(c=>{
       if(!c||typeof c!=='object') c={time:''};
       if(c.people && c.names===undefined){ c.names = Array.isArray(c.people)?c.people.join(', '):String(c.people); delete c.people; }
       if(c.names===undefined) c.names='';
@@ -1596,7 +1596,7 @@ function inbCur(){ return inboundStore[inboundStore.set]; }
 
 function inbLabel(idx){
   if(inboundStore.set==='trunk') return `${idx+1}호차`;
-  return idx===0 ? '딜리래빗1' : (idx===1 ? '딜리래빗 새벽' : `딜리래빗${idx+1}`);
+  return idx===0 ? '딜리래빗' : (idx===1 ? '딜리래빗 새벽' : `딜리래빗${idx+1}`);
 }
 
 function switchInbSet(s){
