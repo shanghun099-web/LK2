@@ -134,7 +134,7 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
 .cal-day-num.sun{color:#f08a8a;}
 .cal-day-num.sat{color:#7ab0f0;}
 .cal-day-chips{display:flex;flex-direction:column;gap:3px;margin-top:4px;}
-.cal-chip{font-size:9.5px;font-weight:800;border-radius:4px;padding:2px 4px;line-height:1.2;text-align:center;}
+.cal-chip{font-size:9.5px;font-weight:800;border-radius:4px;padding:2px 4px;line-height:1.2;text-align:center;white-space:nowrap;}
 
 .sch-ind-card{background:linear-gradient(135deg,#132742,#0f1f33);border:1.5px solid #1e426d;border-radius:14px;padding:14px;margin-bottom:12px;}
 .sch-ind-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
@@ -1788,15 +1788,21 @@ function renderSchedule() {
       if (curFilter === 'ALL') {
         let dWork = 0;
         scheduleStore.dayWorkers.forEach(w => { if (getWorkerStatus(w, dayISOStr) === 'WORK') dWork++; });
+        let dOff = scheduleStore.dayWorkers.length - dWork;
+
         let dwWork = 0;
         scheduleStore.dawnWorkers.forEach(w => { if (getWorkerStatus(w, dayISOStr) === 'WORK') dwWork++; });
+        let dwOff = scheduleStore.dawnWorkers.length - dwWork;
+
+        const dOffHtml = dOff > 0 ? `<span style="color:#f87171;font-weight:900;">${dOff}</span>` : `<span style="opacity:0.6;">0</span>`;
+        const dwOffHtml = dwOff > 0 ? `<span style="color:#f87171;font-weight:900;">${dwOff}</span>` : `<span style="opacity:0.6;">0</span>`;
 
         calCells += `
           <div class="cal-day ${isToday?'is-today':''} ${isSelected?'selected':''}" onclick="scheduleStore.selectedDate='${dayISOStr}';customScheduleText=null;saveSchedule();render();">
             <div class="cal-day-num ${dowClass}">${day}</div>
             <div class="cal-day-chips">
-              <div class="cal-chip" style="background:rgba(59,130,246,0.18);color:var(--blue3)">☀️ ${dWork}/${scheduleStore.dayWorkers.length}</div>
-              <div class="cal-chip" style="background:rgba(168,85,247,0.18);color:var(--purple2)">🌅 ${dwWork}/${scheduleStore.dawnWorkers.length}</div>
+              ${scheduleStore.dayWorkers.length > 0 ? `<div class="cal-chip" style="background:rgba(59,130,246,0.18);color:var(--blue3)">☀️ ${dWork}/${dOffHtml}</div>` : ''}
+              ${scheduleStore.dawnWorkers.length > 0 ? `<div class="cal-chip" style="background:rgba(168,85,247,0.18);color:var(--purple2)">🌅 ${dwWork}/${dwOffHtml}</div>` : ''}
             </div>
           </div>
         `;
@@ -1852,9 +1858,16 @@ function renderSchedule() {
       `;
     }
 
+    const legendHintHtml = curFilter === 'ALL' ? `
+      <div style="font-size:11px; color:var(--sub); font-weight:700; margin-bottom:8px; text-align:center; background:var(--card2); padding:6px 10px; border-radius:8px; border:1px solid var(--border);">
+        💡 달력 숫자 표기: <b>☀️ 주간 [근무/휴무]</b> · <b>🌅 새벽 [근무/휴무]</b> <span style="color:#f87171">(휴무 발생 시 빨간색 표시)</span>
+      </div>
+    ` : '';
+
     mainBodyHtml = `
       ${filterSelectHtml}
       ${indCardHtml}
+      ${legendHintHtml}
       <div class="cal-grid">
         <div class="cal-head sun">일</div>
         <div class="cal-head">월</div>
@@ -3396,9 +3409,6 @@ document.addEventListener('keydown',e=>{
 
 load();
 render();
-<\/script>
-</body>
-</html>
 </script>
 </body>
 </html>
