@@ -2450,39 +2450,146 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 
 .topbar{flex-shrink:0;padding:12px 16px 0;}
 .header{display:flex;align-items:center;gap:10px;padding-bottom:12px;border-bottom:1px solid var(--border);}
-.hicon{width:32px;height:32px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.hicon{width:32px;height:32px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;box-shadow:0 2px 12px rgba(245,158,11,.25);}
 .hinfo{flex:1;}
 .hinfo h1{font-size:13px;font-weight:700;color:var(--text);letter-spacing:.07em;text-transform:uppercase;}
 .hinfo p{font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:1px;}
 .header-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;}
-.add-rgn-btn{display:flex;align-items:center;gap:4px;padding:8px 13px;background:linear-gradient(135deg,var(--amber),#d97706);color:#0a0a0e;font-weight:700;font-size:12px;font-family:var(--sans);border:none;border-radius:9px;cursor:pointer;}
+.add-rgn-btn{display:flex;align-items:center;gap:4px;padding:8px 13px;background:linear-gradient(135deg,var(--amber),#d97706);color:#0a0a0e;font-weight:700;font-size:12px;font-family:var(--sans);border:none;border-radius:9px;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.add-rgn-btn:active{opacity:.8;}
+.backup-btn{width:34px;height:34px;background:var(--s3);border:1px solid var(--border2);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;flex-shrink:0;transition:border-color .2s,background .2s;}
+.backup-btn:active{background:var(--border2);}
 
 .swrap{position:relative;padding:10px 16px 8px;flex-shrink:0;}
-.swrap input{width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:10px;padding:10px 16px 10px 40px;color:var(--text);font-size:14px;font-family:var(--sans);outline:none;}
+.swrap input{width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:10px;padding:10px 16px 10px 40px;color:var(--text);font-size:14px;font-family:var(--sans);outline:none;transition:border-color .2s,box-shadow .2s;}
+.swrap input:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(245,158,11,.1);}
+.swrap input::placeholder{color:var(--text3);}
 .si{position:absolute;left:29px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:14px;pointer-events:none;}
 
-.cscroll{flex:1;overflow-y:scroll;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:4px 16px 50px;}
+.cscroll{flex:1;overflow-y:scroll;overflow-x:hidden;-webkit-overflow-scrolling:touch;scroll-snap-type:y proximity;padding:4px 16px 50px;}
+.cscroll::-webkit-scrollbar{width:3px;}
+.cscroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+body.dragging .cscroll{scroll-snap-type:none; user-select: none; -webkit-user-select: none;}
 
-.region-card{margin-bottom:14px;border-radius:16px;overflow:hidden;border:1px solid var(--border);}
-.rg-hdr{display:flex;align-items:center;background:var(--s1);min-height:60px;padding:0 12px;}
-.rg-clickable{display:flex;align-items:center;gap:10px;flex:1;cursor:pointer;}
+.dh{
+  align-self:stretch;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;touch-action:none;-webkit-tap-highlight-color:transparent;user-select:none;
+  cursor:grab;color:var(--text3);font-size:17px;letter-spacing:-.5px;transition:color .15s,background .15s;
+}
+.dh.rh{width:36px;border-right:1px solid var(--border);}
+.dh.ch{width:30px;border-right:1px solid var(--border);}
+.dh.kh{width:28px;}
+.dh.pressing{color:var(--amber);background:rgba(245,158,11,.1);}
+.cscroll.searching .dh{opacity:0;pointer-events:none;}
+
+.drop-line{height:3px;background:linear-gradient(90deg,transparent,var(--amber) 15%,var(--amber) 85%,transparent);border-radius:3px;margin:2px 0;pointer-events:none;flex-shrink:0;}
+
+.empty-state{text-align:center;padding:60px 20px 20px;}
+.empty-state .eico{font-size:40px;margin-bottom:14px;}
+.empty-state p{color:var(--text3);font-size:13px;line-height:1.8;}
+.empty-state strong{color:var(--amber);}
+.no-results{text-align:center;padding:50px 20px;color:var(--text3);font-size:12px;font-family:var(--mono);}
+
+.region-card{scroll-snap-align:start;margin-bottom:14px;border-radius:16px;overflow:hidden;border:1px solid var(--border);transition:border-color .2s,box-shadow .15s;}
+.region-card.open{border-color:var(--border3);box-shadow:0 4px 24px rgba(0,0,0,.5);}
+.region-card.drag-placeholder{opacity:.2;pointer-events:none;}
+.rg-hdr{display:flex;align-items:center;background:var(--s1);min-height:60px;user-select:none;}
+.rg-bar{width:4px;align-self:stretch;flex-shrink:0;background:linear-gradient(180deg,var(--amber),var(--amber-dim));opacity:.6;transition:opacity .2s;}
+.region-card.open .rg-bar{opacity:1;}
+.rg-clickable{display:flex;align-items:center;gap:10px;flex:1;padding:12px 10px 12px 14px;min-width:0;cursor:pointer;}
+.rg-ico{width:36px;height:36px;border-radius:10px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.25);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+.region-card.open .rg-ico{background:rgba(245,158,11,.2);}
 .rg-name{font-size:15px;font-weight:700;color:var(--text);}
+.rg-meta{font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:2px;}
+.rg-acts{display:flex;align-items:center;gap:4px;padding:0 10px 0 0;flex-shrink:0;}
+.abt{width:32px;height:32px;border:1px solid var(--border2);border-radius:8px;background:var(--s3);color:var(--text2);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.abt:active{transform:scale(.9);}
+.abt.add{color:var(--amber);border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.08);}
+.abt.del{color:var(--red);border-color:rgba(248,113,113,.3);background:rgba(248,113,113,.06);}
+.chv{color:var(--text3);font-size:11px;transition:transform .25s;margin-left:2px;flex-shrink:0;}
+.region-card.open .chv.r{transform:rotate(180deg);color:var(--amber);}
 .rg-body{display:none;background:var(--bg);padding:8px 10px 10px;}
 .region-card.open .rg-body{display:block;}
 
-.complex-card{border-radius:12px;border:1px solid var(--border);margin-bottom:8px;overflow:hidden;}
-.cx-hdr{display:flex;align-items:center;background:var(--s2);min-height:50px;padding:0 10px;}
-.cx-clickable{display:flex;align-items:center;gap:9px;flex:1;cursor:pointer;}
-.cx-name{font-size:15px;font-weight:700;color:var(--text);}
+.bulk-bar{display:flex;gap:6px;margin-bottom:10px;}
+.bulk-btn{flex:1;height:34px;border-radius:8px;border:1px solid var(--border2);background:var(--s3);color:var(--text2);font-size:12px;font-weight:700;font-family:var(--sans);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;}
+.bulk-btn:active{transform:scale(.97);}
+.bulk-btn.amber{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.22);color:var(--amber);}
+.bulk-bar.sm .bulk-btn{height:32px;font-size:11.5px;}
+.bulk-btn.blue{background:rgba(96,165,250,.1);border-color:rgba(96,165,250,.25);color:var(--blue);}
+
+.complex-card{border-radius:12px;border:1px solid var(--border);margin-bottom:8px;overflow:hidden;transition:border-color .2s;}
+.complex-card.open{border-color:var(--border2);box-shadow:0 2px 14px rgba(0,0,0,.4);}
+.complex-card.drag-placeholder{opacity:.2;pointer-events:none;}
+.cx-hdr{display:flex;align-items:center;background:var(--s2);min-height:50px;user-select:none;}
+.cx-bar{width:3px;align-self:stretch;flex-shrink:0;background:linear-gradient(180deg,var(--blue),var(--blue-dim));opacity:.5;transition:opacity .2s;}
+.complex-card.open .cx-bar{opacity:1;}
+.cx-clickable{display:flex;align-items:center;gap:9px;flex:1;padding:10px 8px 10px 12px;min-width:0;cursor:pointer;}
+.cx-ico{width:30px;height:30px;border-radius:8px;background:rgba(96,165,250,.1);border:1px solid rgba(96,165,250,.2);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.complex-card.open .cx-ico{background:rgba(96,165,250,.18);}
+.cx-col{flex:1;min-width:0;}
+.cx-name{font-size:15px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cx-addr{font-size:10px;color:var(--text2);font-family:var(--mono);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cx-acts{display:flex;align-items:center;gap:3px;padding:0 8px 0 0;}
+.asm{width:28px;height:28px;border:1px solid var(--border2);border-radius:7px;background:var(--s3);color:var(--text2);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.asm:active{transform:scale(.88);}
+.asm.add{color:var(--blue);border-color:rgba(96,165,250,.3);background:rgba(96,165,250,.08);}
+.asm.del{color:var(--red);border-color:rgba(248,113,113,.3);background:rgba(248,113,113,.06);}
+.chv.c{color:var(--text3);font-size:10px;transition:transform .2s;}
+.complex-card.open .chv.c{transform:rotate(180deg);color:var(--blue);}
 .cx-body{display:none;background:var(--s1);padding:8px 10px 10px;}
 .complex-card.open .cx-body{display:block;}
 
-.code-row{display:flex;align-items:center;background:var(--s2);border:1px solid var(--border);border-radius:10px;margin-bottom:5px;padding:10px;}
-.code-lbl{font-size:14px;color:var(--text);font-weight:500;}
-.code-val{font-family:var(--mono);font-size:16px;font-weight:700;color:var(--green2);}
+.sec-lbl{font-size:12px;font-weight:700;color:var(--amber);letter-spacing:.13em;text-transform:uppercase;font-family:var(--mono);padding:8px 4px 5px;display:flex;align-items:center;gap:5px;}
+.sec-lbl::before{content:'\25B8';font-size:9px;}
 
-.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--s3);border:1px solid var(--green);color:var(--green);padding:10px 20px;border-radius:50px;font-size:12px;font-family:var(--mono);opacity:0;pointer-events:none;transition:opacity .2s;}
-.toast.show{opacity:1;}
+.code-row{display:flex;align-items:center;background:var(--s2);border:1px solid var(--border);border-radius:10px;margin-bottom:5px;position:relative;overflow:hidden;}
+.code-row.global{background:rgba(245,158,11,.05);border-color:rgba(245,158,11,.18);}
+.code-row.drag-placeholder{opacity:.2;pointer-events:none;}
+.code-main{flex:1;min-width:0;cursor:pointer;padding:12px 10px;}
+.code-lbl{font-size:15px;color:var(--text);font-weight:500;line-height:1.4;}
+.code-sub{font-size:11px;color:var(--blue);font-weight:600;display:block;margin-bottom:2px;}
+.code-val{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--green2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.03em;margin-top:2px;}
+.code-row.global .code-val{color:var(--amber2);}
+.code-acts{display:flex;gap:3px;padding:0 8px 0 0;flex-shrink:0;}
+.add-row-btn{width:100%;padding:9px;border:1px dashed var(--border2);border-radius:9px;background:transparent;color:var(--text3);font-size:12px;font-family:var(--sans);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:border-color .15s,color .15s;margin-top:4px;}
+.add-row-btn.amber-btn{border-color:rgba(245,158,11,.22);color:rgba(245,158,11,.5);}
+.add-row-btn:active{border-color:var(--amber);color:var(--amber);}
+
+.movl{position:fixed;inset:0;background:rgba(5,5,10,.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .2s;}
+.movl.active{opacity:1;pointer-events:all;}
+.mbox{width:100%;max-width:420px;background:var(--s2);border:1px solid var(--border3);border-radius:18px;padding:24px 20px 20px;box-shadow:0 20px 60px rgba(0,0,0,.7);transform:scale(.93) translateY(16px);transition:transform .25s cubic-bezier(.34,1.56,.64,1);max-height:90vh;overflow-y:auto;}
+.movl.active .mbox{transform:scale(1) translateY(0);}
+.mtitle{font-size:15px;font-weight:700;color:var(--text);margin-bottom:18px;display:flex;align-items:center;gap:8px;}
+.fg{margin-bottom:14px;}
+.flbl{font-size:10px;font-weight:700;color:var(--text2);letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px;display:block;font-family:var(--mono);}
+.finp{width:100%;background:var(--s3);border:1px solid var(--border2);border-radius:9px;padding:11px 13px;color:var(--text);font-size:14px;font-family:var(--sans);outline:none;transition:border-color .2s,box-shadow .2s;}
+.finp:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(245,158,11,.1);}
+.finp::placeholder{color:var(--text3);}
+.fhint{font-size:10px;color:var(--text3);font-family:var(--mono);margin-top:4px;}
+.fchk{display:flex;align-items:center;gap:10px;padding:11px 13px;background:var(--s3);border:1px solid var(--border2);border-radius:9px;cursor:pointer;}
+.fchk input[type=checkbox]{width:16px;height:16px;accent-color:var(--amber);}
+.fchk label{font-size:13px;color:var(--text2);cursor:pointer;}
+.macts{display:flex;gap:8px;margin-top:20px;}
+.bpri{flex:1;padding:13px;background:linear-gradient(135deg,var(--amber),#d97706);color:#0a0a0e;font-weight:700;font-size:14px;font-family:var(--sans);border:none;border-radius:11px;cursor:pointer;}
+.bpri:active{opacity:.85;}
+.bsec{padding:13px 18px;background:var(--s3);color:var(--text2);font-weight:600;font-size:13px;font-family:var(--sans);border:1px solid var(--border2);border-radius:11px;cursor:pointer;}
+.bsec:active{background:var(--border2);}
+.cbox{width:100%;max-width:320px;background:var(--s2);border:1px solid var(--border3);border-radius:18px;padding:26px 22px 20px;box-shadow:0 20px 60px rgba(0,0,0,.7);transform:scale(.93);transition:transform .25s cubic-bezier(.34,1.56,.64,1);}
+.movl.active .cbox{transform:scale(1);}
+.cico{font-size:34px;text-align:center;margin-bottom:12px;}
+.cmsg{font-size:14px;color:var(--text);text-align:center;line-height:1.65;margin-bottom:20px;}
+.cmsg strong{color:var(--red);}
+.cacts{display:flex;gap:8px;}
+.bdng{flex:1;padding:13px;background:linear-gradient(135deg,var(--red),#dc2626);color:#fff;font-weight:700;font-size:14px;font-family:var(--sans);border:none;border-radius:11px;cursor:pointer;}
+.bdng:active{opacity:.85;}
+.bk-close{width:100%;padding:11px;background:transparent;border:1px solid var(--border2);border-radius:11px;color:var(--text3);font-size:13px;font-family:var(--sans);cursor:pointer;margin-top:8px;}
+.bk-close:active{background:var(--border2);}
+
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--s3);border:1px solid var(--green);color:var(--green);padding:10px 20px;border-radius:50px;font-size:12px;font-family:var(--mono);font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:600;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+#drag-ghost{position:fixed;z-index:400;pointer-events:none;border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,.75),0 0 0 1.5px rgba(245,158,11,.5);transform:scale(1.03) rotate(.5deg);opacity:.9;display:none;}
 </style>
 </head>
 <body>
@@ -2492,40 +2599,802 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
       <div class="hicon">🔑</div>
       <div class="hinfo">
         <h1>출입코드 노트</h1>
+        <p>⠿ 꾹 누르기 = 순서변경</p>
+      </div>
+      <div class="header-actions">
+        <button class="backup-btn" onclick="openParseModal()" title="텍스트 자동 추가">🪄</button>
+        <button class="add-rgn-btn" onclick="openModal('aR')">＋ 지역 추가</button>
       </div>
     </div>
   </div>
   <div class="swrap">
     <span class="si">🔍</span>
-    <input type="text" id="searchInput" placeholder="검색..." oninput="render()">
+    <input type="text" id="searchInput" placeholder="지역·단지·주소·코드 검색..." autocomplete="off" autocorrect="off" spellcheck="false" oninput="handleSearch(this.value)">
   </div>
   <div class="cscroll" id="contentRoot"></div>
 </div>
+
+<div class="movl" id="formModal" onclick="ovcl(event,'formModal')">
+  <div class="mbox" onclick="event.stopPropagation()">
+    <div class="mtitle" id="fmTitle"></div>
+    <div id="fmFields"></div>
+    <div class="macts">
+      <button class="bsec" onclick="closeModal('formModal')">취소</button>
+      <button class="bpri" onclick="submitForm()">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="movl" id="confirmModal" onclick="ovcl(event,'confirmModal')">
+  <div class="cbox" onclick="event.stopPropagation()">
+    <div class="cico">🗑️</div>
+    <div class="cmsg" id="confMsg"></div>
+    <div class="cacts">
+      <button class="bsec" onclick="closeModal('confirmModal')">취소</button>
+      <button class="bdng" id="confOkBtn">삭제</button>
+    </div>
+  </div>
+</div>
+
+<div class="movl" id="parseModal" onclick="ovcl(event,'parseModal')">
+  <div class="mbox" onclick="event.stopPropagation()">
+    <div class="mtitle"><span>🪄</span> 텍스트 자동 분류 추가</div>
+    <div class="fg">
+      <label class="flbl" for="parseTargetRegion">대상 지역 선택</label>
+      <select class="finp" id="parseTargetRegion" style="background: var(--s3); color: var(--text); font-weight: 500;" onchange="onParseRegionChange()"></select>
+    </div>
+    <div class="fg">
+      <label class="flbl" for="parseTargetComplex">대상 단지 선택</label>
+      <select class="finp" id="parseTargetComplex" style="background: var(--s3); color: var(--text); font-weight: 500;" onchange="updateParseHint()"></select>
+      <div class="fhint" id="parseComplexHint">＊ 자동 분류: 텍스트에서 단지명을 추출해 단지를 만들거나 매칭합니다.</div>
+    </div>
+    <div class="fg">
+      <label class="flbl" for="parseInput">미정리 텍스트 입력</label>
+      <textarea class="finp" id="parseInput" rows="6" style="height: auto; resize: vertical; font-family: var(--sans); line-height: 1.5;" placeholder="예시 입력:&#10;일원동 3길 14 공동현관 ##1234&#10;대치현대 101동 공동현관 ##9077&#10;(줄바꿈으로 여러 개 동시 입력 가능)"></textarea>
+    </div>
+    <div class="macts">
+      <button class="bsec" onclick="closeModal('parseModal')">취소</button>
+      <button class="bpri" onclick="submitParseForm()">분류 및 추가</button>
+    </div>
+  </div>
+</div>
+
+<div class="movl" id="zoomModal" onclick="ovcl(event,'zoomModal')">
+  <div class="mbox" onclick="event.stopPropagation()">
+    <div class="mtitle"><span>🔍</span> 코드 크게 보기</div>
+    <div id="zoomModalContent"></div>
+    <button class="bk-close" onclick="closeModal('zoomModal')" style="width: 100%; margin-top: 12px;">닫기</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
+<div id="drag-ghost"></div>
 
 <script>
-const DFLT={regions:[{id:'rg1',name:'대치동',complexes:[{id:'cx1',name:'대치현대',addr:'삼성로64길 5',codes:[{id:'k001',label:'공동 현관',value:'##9077'}]}]}]};
-let data=DFLT;
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  if(!t)return;
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t=setTimeout(()=>t.classList.remove('show'),2400);
+}
+
+const DFLT={regions:[{id:'rg1',name:'대치동',complexes:[
+  {id:'cx1',name:'대치현대',addr:'삼성로64길 5',codes:[
+    {id:'k001',section:'',label:'공동 현관',sublabel:'',value:'##9077',isGlobal:true},
+    {id:'k002',section:'',label:'공동 현관 (101동·105동)',sublabel:'',value:'##2580',isGlobal:true}]},
+  {id:'cx2',name:'세영팔레스A',addr:'영동대로65길 57',codes:[
+    {id:'k010',section:'🔐 열경 1657',label:'101동 1005호',sublabel:'',value:'열경1657',isGlobal:false},
+    {id:'k011',section:'',label:'101동 1102호',sublabel:'',value:'열경1657',isGlobal:false},
+    {id:'k012',section:'',label:'101동 1203호',sublabel:'',value:'열경1657',isGlobal:false}]}
+]}]};
+
+let data={regions:[]};
+let openR=new Set(),openC=new Set(),q='';
+
+function save(){try{localStorage.setItem('acn5',JSON.stringify(data));}catch(e){}}
+
+function sanitizeData(d){
+  if(!d||typeof d!=='object'||Array.isArray(d)||!Array.isArray(d.regions)) return JSON.parse(JSON.stringify(DFLT));
+  d.regions=d.regions.filter(r=>r&&typeof r==='object').map(r=>{
+    if(!r.id) r.id=uid();
+    if(typeof r.name!=='string') r.name=String(r.name||'이름 없는 지역');
+    if(!Array.isArray(r.complexes)) r.complexes=[];
+    r.complexes=r.complexes.filter(c=>c&&typeof c==='object').map(c=>{
+      if(!c.id) c.id=uid();
+      if(typeof c.name!=='string') c.name=String(c.name||'이름 없는 단지');
+      if(typeof c.addr!=='string') c.addr='';
+      if(!Array.isArray(c.codes)) c.codes=[];
+      c.codes=c.codes.filter(k=>k&&typeof k==='object').map(k=>{
+        if(!k.id) k.id=uid();
+        if(typeof k.section!=='string') k.section='';
+        if(typeof k.label!=='string') k.label=String(k.label||'');
+        if(typeof k.sublabel!=='string') k.sublabel='';
+        if(typeof k.value!=='string') k.value=String(k.value||'');
+        k.isGlobal=!!k.isGlobal;
+        return k;
+      });
+      return c;
+    });
+    return r;
+  });
+  return d;
+}
+
+function load(){
+  try{
+    const r=localStorage.getItem('acn5');
+    data=sanitizeData(r?JSON.parse(r):JSON.parse(JSON.stringify(DFLT)));
+  }catch(e){
+    data=JSON.parse(JSON.stringify(DFLT));
+  }
+}
+
+function fR(id){return data.regions.find(x=>x.id===id);}
+function fC(rid,cid){const r=fR(rid);return r?r.complexes.find(x=>x.id===cid):undefined;}
+function fK(rid,cid,kid){const c=fC(rid,cid);return c?c.codes.find(x=>x.id===kid):undefined;}
+
+function openZoomModal(rid, cid, kid) {
+  const cd = fK(rid, cid, kid);
+  if (!cd) return;
+  const rg = fR(rid);
+  const cx = fC(rid, cid);
+
+  const box = document.getElementById('zoomModalContent');
+  box.innerHTML = `
+    <div style="text-align:center; padding:10px 0;">
+      <div style="font-size:11px; color:var(--text3); font-family:var(--mono); margin-bottom:4px; letter-spacing:.05em;">
+        ${esc(rg?rg.name:'')} › ${esc(cx?cx.name:'')}
+      </div>
+      <div style="font-size:18px; font-weight:700; color:var(--text); margin-bottom:6px;">
+        ${esc(cd.label)}
+      </div>
+      ${cd.sublabel ? `<div style="font-size:12px; color:var(--blue); margin-bottom:12px; font-weight:500;">${esc(cd.sublabel)}</div>` : ''}
+      <div style="background:var(--s3); border:1px solid var(--border3); border-radius:14px; padding:28px 16px; margin:18px 0;">
+        <div id="zoomValue" style="font-family:var(--mono); font-size:34px; font-weight:700; color:var(--green2); word-break:break-all; letter-spacing:.05em;">
+          ${esc(cd.value)}
+        </div>
+      </div>
+      <button class="bpri" id="zoomCopyBtn" style="width:100%; margin-top:10px; display:flex; align-items:center; justify-content:center; gap:8px;">
+        📋 코드 복사하기
+      </button>
+    </div>
+  `;
+  const btn = document.getElementById('zoomCopyBtn');
+  if(btn) btn.onclick = () => copyZoomValue(cd.value);
+
+  document.getElementById('zoomModal').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function copyZoomValue(val) {
+  if (!val || val === '코드 확인 필요') return;
+  window.parent.postMessage({ type: 'copy', text: val }, '*');
+}
+
+function getComplexCodesText(rid, cid) {
+  const cx = fC(rid, cid);
+  if (!cx || !cx.codes.length) return '';
+
+  let text = `🏢 ${cx.name}\n`;
+  if (cx.addr) text += `📍 ${cx.addr}\n`;
+  text += `━━━━━━━━━━━━━━\n`;
+
+  let currentSection = '';
+  cx.codes.forEach(cd => {
+    if (cd.section && cd.section !== currentSection) {
+      text += `\n[${cd.section}]\n`;
+      currentSection = cd.section;
+    }
+    let labelLine = `▫️ ${cd.label}`;
+    if (cd.sublabel) labelLine += ` (${cd.sublabel})`;
+    text += `${labelLine}\n🔑 ${cd.value}\n`;
+  });
+  text += `━━━━━━━━━━━━━━`;
+  return text;
+}
+
+function getRegionCodesText(rid) {
+  const rg = fR(rid);
+  if (!rg || !rg.complexes.length) return '';
+
+  let text = `🏘️ [${rg.name}] 구역 출입코드 목록\n`;
+  text += `━━━━━━━━━━━━━━\n`;
+
+  let any = false;
+  rg.complexes.forEach(cx => {
+    if (!cx.codes.length) return;
+    any = true;
+    text += `\n🏢 ${cx.name}`;
+    if (cx.addr) text += ` (${cx.addr})`;
+    text += `\n`;
+
+    let currentSection = '';
+    cx.codes.forEach(cd => {
+      if (cd.section && cd.section !== currentSection) {
+        text += `  [${cd.section}]\n`;
+        currentSection = cd.section;
+      }
+      let labelLine = `  ▫️ ${cd.label}`;
+      if (cd.sublabel) labelLine += ` (${cd.sublabel})`;
+      text += `${labelLine}: ${cd.value}\n`;
+    });
+  });
+  if (!any) return '';
+  text += `\n━━━━━━━━━━━━━━`;
+  return text;
+}
+
+function shareComplexCodes(rid, cid) {
+  const txt = getComplexCodesText(rid, cid);
+  if (!txt) { showToast('⚠️ 공유할 코드가 없습니다'); return; }
+  window.parent.postMessage({ type: 'share', text: txt }, '*');
+}
+function copyComplexCodes(rid, cid) {
+  const txt = getComplexCodesText(rid, cid);
+  if (!txt) { showToast('⚠️ 복사할 코드가 없습니다'); return; }
+  window.parent.postMessage({ type: 'copy', text: txt }, '*');
+}
+function shareRegionCodes(rid) {
+  const txt = getRegionCodesText(rid);
+  if (!txt) { showToast('⚠️ 공유할 코드가 없습니다'); return; }
+  window.parent.postMessage({ type: 'share', text: txt }, '*');
+}
+function copyRegionCodes(rid) {
+  const txt = getRegionCodesText(rid);
+  if (!txt) { showToast('⚠️ 복사할 코드가 없습니다'); return; }
+  window.parent.postMessage({ type: 'copy', text: txt }, '*');
+}
 
 function render(){
   const root=document.getElementById('contentRoot');
-  const q=document.getElementById('searchInput').value.toLowerCase();
-  let html='';
+  if(!data.regions.length){
+    root.innerHTML=`<div class="empty-state"><div class="eico">🗺️</div><p>지역이 없습니다.<br>상단 <strong>＋ 지역 추가</strong> 버튼으로<br>새 지역을 만들어 보세요.</p></div>`;
+    return;
+  }
+  let html='',vis=0;
   data.regions.forEach(rg=>{
-    html+=`<div class="region-card open"><div class="rg-hdr"><div class="rg-clickable"><div class="rg-name">${rg.name}</div></div></div><div class="rg-body">`;
-    rg.complexes.forEach(cx=>{
-      html+=`<div class="complex-card open"><div class="cx-hdr"><div class="cx-clickable"><div class="cx-name">${cx.name}</div></div></div><div class="cx-body">`;
-      cx.codes.forEach(cd=>{
-        if(!q || cd.label.toLowerCase().includes(q) || cd.value.toLowerCase().includes(q)){
-          html+=`<div class="code-row"><div><div class="code-lbl">${cd.label}</div><div class="code-val">${cd.value}</div></div></div>`;
-        }
+    let mcx=[];
+    if(!q){mcx=rg.complexes;}
+    else{
+      const rm=rg.name.toLowerCase().includes(q);
+      rg.complexes.forEach(cx=>{
+        const cm=cx.name.toLowerCase().includes(q)||cx.addr.toLowerCase().includes(q);
+        const mk=cx.codes.filter(cd=>
+          cd.label.toLowerCase().includes(q)||
+          cd.value.toLowerCase().includes(q)||
+          cd.sublabel.toLowerCase().includes(q)||
+          (cd.section && cd.section.toLowerCase().includes(q))
+        );
+        if(rm||cm||mk.length) mcx.push({...cx,codes:(rm||cm)?cx.codes:mk});
       });
-      html+=`</div></div>`;
-    });
+    }
+    if(q&&!mcx.length)return;
+    vis++;
+    const ro=openR.has(rg.id)||!!q;
+    const kc=mcx.reduce((a,c)=>a+c.codes.length,0);
+    html+=`<div class="region-card${ro?' open':''}" id="rc_${esc(rg.id)}" data-id="${esc(rg.id)}">
+<div class="rg-hdr">
+<div class="dh rh" data-type="region" data-id="${esc(rg.id)}">⠿</div>
+<div class="rg-bar"></div>
+<div class="rg-clickable" onclick="tR('${esc(rg.id)}')">
+<div class="rg-ico">🏘️</div>
+<div><div class="rg-name">${esc(rg.name)}</div><div class="rg-meta">${mcx.length}개 단지 · ${kc}개 코드</div></div>
+</div>
+<div class="rg-acts">
+<button class="abt add" onclick="openModal('aC',{r:'${esc(rg.id)}'})">＋</button>
+<button class="abt" onclick="openModal('eR',{r:'${esc(rg.id)}'})">✏️</button>
+<button class="abt del" onclick="cdR('${esc(rg.id)}')">🗑</button>
+</div>
+<span class="chv r">▼</span>
+</div>
+<div class="rg-body">`;
+
+    if(kc>0){
+      html+=`<div class="bulk-bar">
+<button class="bulk-btn amber" onclick="shareRegionCodes('${esc(rg.id)}')">💬 구역전체 공유</button>
+<button class="bulk-btn" onclick="copyRegionCodes('${esc(rg.id)}')">📋 구역전체 복사</button>
+</div>`;
+    }
+
+    if(!mcx.length){
+      html+=`<div style="text-align:center;padding:20px 0;color:var(--text3);font-size:12px;font-family:var(--mono);">단지가 없습니다 · <span style="color:var(--amber);cursor:pointer;" onclick="openModal('aC',{r:'${esc(rg.id)}'})">＋ 단지 추가</span></div>`;
+    } else {
+      mcx.forEach(cx=>{
+        const co=openC.has(cx.id)||!!q;
+        html+=`<div class="complex-card${co?' open':''}" id="cc_${esc(cx.id)}" data-id="${esc(cx.id)}" data-rid="${esc(rg.id)}">
+<div class="cx-hdr">
+<div class="dh ch" data-type="complex" data-id="${esc(cx.id)}" data-rid="${esc(rg.id)}">⠿</div>
+<div class="cx-bar"></div>
+<div class="cx-clickable" onclick="tC('${esc(cx.id)}')">
+<div class="cx-ico">🏢</div>
+<div class="cx-col"><div class="cx-name">${esc(cx.name)}</div><div class="cx-addr">${esc(cx.addr||'')}</div></div>
+</div>
+<div class="cx-acts">
+<button class="asm add" onclick="openModal('aK',{r:'${esc(rg.id)}',c:'${esc(cx.id)}'})">＋</button>
+<button class="asm" onclick="openModal('eC',{r:'${esc(rg.id)}',c:'${esc(cx.id)}'})">✏️</button>
+<button class="asm del" onclick="cdC('${esc(rg.id)}','${esc(cx.id)}')">🗑</button>
+</div>
+<span class="chv c">▼</span>
+</div>
+<div class="cx-body">`;
+
+        if(cx.codes.length>0){
+          html+=`<div class="bulk-bar sm">
+<button class="bulk-btn blue" onclick="shareComplexCodes('${esc(rg.id)}','${esc(cx.id)}')">💬 단지전체 공유</button>
+<button class="bulk-btn" onclick="copyComplexCodes('${esc(rg.id)}','${esc(cx.id)}')">📋 단지전체 복사</button>
+</div>`;
+        }
+
+        let ps='__NONE__';
+        cx.codes.forEach(cd=>{
+          if(cd.section&&cd.section!==ps)html+=`<div class="sec-lbl">${esc(cd.section)}</div>`;
+          ps=cd.section||ps;
+          html+=`<div class="code-row${cd.isGlobal?' global':''}" id="kd_${esc(cd.id)}" data-id="${esc(cd.id)}" data-rid="${esc(rg.id)}" data-cid="${esc(cx.id)}">
+<div class="dh kh" data-type="code" data-id="${esc(cd.id)}" data-rid="${esc(rg.id)}" data-cid="${esc(cx.id)}">⠿</div>
+<div class="code-main" onclick="openZoomModal('${esc(rg.id)}','${esc(cx.id)}','${esc(cd.id)}')">
+${cd.sublabel?`<span class="code-sub">${esc(cd.sublabel)}</span>`:''}
+<div class="code-lbl">${esc(cd.label)}</div>
+<div class="code-val">${esc(cd.value)}</div>
+</div>
+<div class="code-acts">
+<button class="asm" onclick="openModal('eK',{r:'${esc(rg.id)}',c:'${esc(cx.id)}',k:'${esc(cd.id)}'})">✏️</button>
+<button class="asm del" onclick="cdK('${esc(rg.id)}','${esc(cx.id)}','${esc(cd.id)}')">🗑</button>
+</div>
+</div>`;
+        });
+        html+=`<button class="add-row-btn" onclick="openModal('aK',{r:'${esc(rg.id)}',c:'${esc(cx.id)}'})">＋ 코드 추가</button></div></div>`;
+      });
+      html+=`<button class="add-row-btn amber-btn" onclick="openModal('aC',{r:'${esc(rg.id)}'})">＋ 단지 추가</button>`;
+    }
     html+=`</div></div>`;
   });
+  if(q&&!vis)html=`<div class="no-results">🔍 "${esc(q)}" 검색 결과 없음</div>`;
   root.innerHTML=html;
+  attachHandles();
 }
+
+function tR(id){openR.has(id)?openR.delete(id):openR.add(id);render();}
+function tC(id){openC.has(id)?openC.delete(id):openC.add(id);render();}
+function handleSearch(v){
+  q=String(v||'').toLowerCase().trim();
+  document.getElementById('contentRoot').classList.toggle('searching',!!q);
+  render();
+}
+
+const DND={
+  active:false,type:null,id:null,rid:null,cid:null,
+  src:null,ghost:null,indicator:null,dropBefore:null,offY:0,
+  _timer:null,_startY:0,_startX:0,_scrollDir:0,_raf:null,
+  _onMoveBound:null,_onEndBound:null,_onCancelBound:null,_earlyMove:null,_pressHandle:null,
+
+  begin(e,type,id,rid,cid){
+    if(this.active)return;
+    const t=e.touches[0];
+    this.type=type;this.id=id;this.rid=rid;this.cid=cid;
+    this._startY=t.clientY;this._startX=t.clientX;
+    let el=e.currentTarget;
+    while(el){if(el.classList.contains('region-card')||el.classList.contains('complex-card')||el.classList.contains('code-row'))break;el=el.parentElement;}
+    if(!el){return;}
+    this.src=el;
+    e.currentTarget.classList.add('pressing');this._pressHandle=e.currentTarget;
+    this._earlyMove=(ev)=>{
+      const dy=Math.abs(ev.touches[0].clientY-this._startY);
+      const dx=Math.abs(ev.touches[0].clientX-this._startX);
+      if(dy>8||dx>8){
+        clearTimeout(this._timer);this._timer=null;
+        if(this._pressHandle)this._pressHandle.classList.remove('pressing');
+        document.removeEventListener('touchmove',this._earlyMove);
+      }
+    };
+    document.addEventListener('touchmove',this._earlyMove,{passive:true});
+    this._timer=setTimeout(()=>{
+      document.removeEventListener('touchmove',this._earlyMove);
+      this._activate(t);
+    },420);
+  },
+
+  _activate(touch){
+    if(!this.src){return;}
+    this.active=true;if(navigator.vibrate)navigator.vibrate(30);
+    if(this._pressHandle)this._pressHandle.classList.remove('pressing');
+    const rect=this.src.getBoundingClientRect();this.offY=touch.clientY-rect.top;
+    const ghost=document.getElementById('drag-ghost');
+    const clone=this.src.cloneNode(true);
+    clone.querySelectorAll('.rg-body,.cx-body,.add-row-btn,.bulk-bar').forEach(b=>b.remove());
+    clone.style.cssText='width:100%;';ghost.innerHTML='';ghost.appendChild(clone);
+    ghost.style.cssText=`display:block;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;`;
+    this.ghost=ghost;this.src.classList.add('drag-placeholder');
+    this.indicator=document.createElement('div');this.indicator.className='drop-line';
+    document.body.classList.add('dragging');
+    this._onMoveBound=(e)=>this._onMove(e);this._onEndBound=()=>this._onEnd();this._onCancelBound=()=>this._onCancel();
+    document.addEventListener('touchmove',this._onMoveBound,{passive:false});
+    document.addEventListener('touchend',this._onEndBound,{passive:true});
+    document.addEventListener('touchcancel',this._onCancelBound,{passive:true});
+  },
+
+  _onMove(e){
+    if(e.cancelable) e.preventDefault();
+    const t=e.touches[0];const cy=t.clientY;
+    this.ghost.style.top=(cy-this.offY)+'px';
+    const sc=document.getElementById('contentRoot');const sr=sc.getBoundingClientRect();const zone=90;
+    if(cy<sr.top+zone)this._scrollDir=-1;else if(cy>sr.bottom-zone)this._scrollDir=1;else this._scrollDir=0;
+    this._runScroll(sc);this._findDrop(cy);
+  },
+
+  _runScroll(sc){
+    if(this._scrollDir===0){if(this._raf){cancelAnimationFrame(this._raf);this._raf=null;}return;}
+    if(this._raf)return;
+    const step=()=>{sc.scrollTop+=this._scrollDir*6;this._raf=this._scrollDir!==0?requestAnimationFrame(step):null;};
+    this._raf=requestAnimationFrame(step);
+  },
+
+  _getSiblings(){
+    if(this.type==='region'){
+      const root=document.getElementById('contentRoot');
+      return{container:root,siblings:[...root.children].filter(c=>c.classList.contains('region-card'))};
+    }
+    else if(this.type==='complex'){
+      const rc=document.getElementById('rc_'+this.rid);
+      const rb=rc?rc.querySelector('.rg-body'):null;
+      return{container:rb,siblings:rb?[...rb.children].filter(c=>c.classList.contains('complex-card')):[]};
+    }
+    else{
+      const cc=document.getElementById('cc_'+this.cid);
+      const cb=cc?cc.querySelector('.cx-body'):null;
+      return{container:cb,siblings:cb?[...cb.children].filter(c=>c.classList.contains('code-row')):[]};
+    }
+  },
+
+  _findDrop(cy){
+    const{container,siblings}=this._getSiblings();if(!container)return;
+    if(this.indicator.parentNode)this.indicator.parentNode.removeChild(this.indicator);
+    let insertBefore=null;
+    for(const sib of siblings){if(sib===this.src)continue;const r=sib.getBoundingClientRect();if(cy<r.top+r.height/2){insertBefore=sib;break;}}
+    this.dropBefore=insertBefore;
+    if(insertBefore){container.insertBefore(this.indicator,insertBefore);}
+    else{const btn=container.querySelector('.add-row-btn');btn?container.insertBefore(this.indicator,btn):container.appendChild(this.indicator);}
+  },
+
+  _onEnd(){this._reorder();this._cleanup();save();render();},
+  _onCancel(){this._cleanup();render();},
+
+  _reorder(){
+    let arr;
+    if(this.type==='region')arr=data.regions;
+    else if(this.type==='complex'){const r=fR(this.rid);arr=r?r.complexes:null;}
+    else{const c=fC(this.rid,this.cid);arr=c?c.codes:null;}
+    if(!arr)return;
+    const fi=arr.findIndex(x=>x.id===this.id);if(fi===-1)return;
+    const[item]=arr.splice(fi,1);
+    if(this.dropBefore && this.dropBefore.dataset && this.dropBefore.dataset.id){
+      const ti=arr.findIndex(x=>x.id===this.dropBefore.dataset.id);
+      arr.splice(ti!==-1?ti:arr.length,0,item);
+    }
+    else arr.push(item);
+  },
+
+  _cleanup(){
+    clearTimeout(this._timer);this._timer=null;
+    if(this._raf){cancelAnimationFrame(this._raf);this._raf=null;}
+    this._scrollDir=0;
+    if(this._onMoveBound)document.removeEventListener('touchmove',this._onMoveBound,{passive:false});
+    if(this._onEndBound)document.removeEventListener('touchend',this._onEndBound);
+    if(this._onCancelBound)document.removeEventListener('touchcancel',this._onCancelBound);
+    if(this._earlyMove)document.removeEventListener('touchmove',this._earlyMove);
+    if(this._pressHandle)this._pressHandle.classList.remove('pressing');
+    if(this.ghost){this.ghost.style.display='none';this.ghost.innerHTML='';}
+    if(this.indicator&&this.indicator.parentNode)this.indicator.parentNode.removeChild(this.indicator);
+    if(this.src)this.src.classList.remove('drag-placeholder');
+    document.body.classList.remove('dragging');
+    this.active=false;this.type=null;this.id=null;this.rid=null;this.cid=null;
+    this.src=null;this.ghost=null;this.indicator=null;this.dropBefore=null;
+    this._onMoveBound=null;this._onEndBound=null;this._onCancelBound=null;this._pressHandle=null;this._earlyMove=null;
+  }
+};
+
+function attachHandles(){
+  document.querySelectorAll('.dh').forEach(el=>{
+    el.addEventListener('touchstart',e=>{
+      const d=el.dataset;
+      DND.begin(e,d.type,d.id,d.rid||null,d.cid||null);
+    },{passive:true});
+  });
+}
+
+let mCtx={};
+function openModal(type,ctx){
+  mCtx={type,...(ctx||{})};
+  let title='',fields='';
+  if(type==='aR'){title='<span>🏘️</span> 지역 추가';fields=fi('rn','지역명','예: 일원동, 개포동, 도곡동...','');}
+  else if(type==='eR'){const r=fR(mCtx.r);title='<span>✏️</span> 지역 편집';fields=fi('rn','지역명','',r?r.name:'');}
+  else if(type==='aC'){title='<span>🏢</span> 단지 추가';fields=fi('cn','단지명','예: 대치현대, 래미하이스턴...','')+fi('ca','주소 (선택)','예: 삼성로64길 5','');}
+  else if(type==='eC'){const cx=fC(mCtx.r,mCtx.c);title='<span>✏️</span> 단지 편집';fields=fi('cn','단지명','',cx?cx.name:'')+fi('ca','주소','',cx?cx.addr:'');}
+  else if(type==='aK'){
+    title='<span>🔐</span> 코드 추가';
+    fields=fi('ks','섹션 구분 (선택)','예: 영동대로, 공동현관...','')+
+      `<div class="fhint" style="margin-top:-10px;margin-bottom:12px;">코드 위에 소제목을 붙일 때 사용</div>`+
+      fi('kl','위치 설명','예: 101동 1~3라인','')+fi('kb','상세 위치 (선택)','예: 열쇠603→엔터→1003','')+
+      fi('kv','코드값 ✱','예: ##9077, 종1234...','')+fc('kg','공동 코드 (황금색)');
+  } else if(type==='eK'){
+    const cd=fK(mCtx.r,mCtx.c,mCtx.k);title='<span>✏️</span> 코드 편집';
+    fields=fi('ks','섹션 구분','',cd?cd.section:'')+fi('kl','위치 설명','',cd?cd.label:'')+
+      fi('kb','상세 위치','',cd?cd.sublabel:'')+fi('kv','코드값 ✱','',cd?cd.value:'')+fc('kg','공동 코드',cd?cd.isGlobal:false);
+  }
+  document.getElementById('fmTitle').innerHTML=title;
+  document.getElementById('fmFields').innerHTML=fields;
+  document.getElementById('formModal').classList.add('active');
+  document.body.style.overflow='hidden';
+  setTimeout(()=>{
+    const f=document.getElementById('fmFields').querySelector('input[type=text]');
+    if(f)f.focus();
+  },200);
+}
+
+function fi(id,lbl,ph,val){return`<div class="fg"><label class="flbl" for="${id}">${esc(lbl)}</label><input class="finp" type="text" id="${id}" placeholder="${esc(ph)}" value="${esc(val)}" autocomplete="off"></div>`;}
+function fc(id,lbl,chk){return`<div class="fg"><div class="fchk"><input type="checkbox" id="${id}" ${chk?'checked':''}><label for="${id}">🟡 ${esc(lbl)}</label></div></div>`;}
+
+function submitForm(){
+  const t=mCtx.type;
+  const v=id=>{const e=document.getElementById(id);return e?e.value.trim():'';};
+  const c=id=>{const e=document.getElementById(id);return e?e.checked:false;};
+  const shake=id=>{
+    const e=document.getElementById(id);if(!e)return;
+    e.style.borderColor='var(--red)';e.style.boxShadow='0 0 0 3px rgba(248,113,113,.15)';
+    setTimeout(()=>{e.style.borderColor='';e.style.boxShadow='';},1500);
+    e.focus();
+  };
+
+  if(t==='aR'){const n=v('rn');if(!n)return shake('rn');const id=uid();data.regions.push({id,name:n,complexes:[]});openR.add(id);}
+  else if(t==='eR'){const n=v('rn');if(!n)return shake('rn');const r=fR(mCtx.r);if(r)r.name=n;}
+  else if(t==='aC'){const n=v('cn'),a=v('ca');if(!n)return shake('cn');const r=fR(mCtx.r);if(r){const id=uid();r.complexes.push({id,name:n,addr:a,codes:[]});openC.add(id);}}
+  else if(t==='eC'){const n=v('cn'),a=v('ca');if(!n)return shake('cn');const cx=fC(mCtx.r,mCtx.c);if(cx){cx.name=n;cx.addr=a;}}
+  else if(t==='aK'){const val=v('kv');if(!val)return shake('kv');const cx=fC(mCtx.r,mCtx.c);if(cx)cx.codes.push({id:uid(),section:v('ks'),label:v('kl'),sublabel:v('kb'),value:val,isGlobal:c('kg')});}
+  else if(t==='eK'){const val=v('kv');if(!val)return shake('kv');const cd=fK(mCtx.r,mCtx.c,mCtx.k);if(cd){cd.section=v('ks');cd.label=v('kl');cd.sublabel=v('kb');cd.value=val;cd.isGlobal=c('kg');}}
+  save();closeModal('formModal');render();
+}
+
+function closeModal(id){
+  const el=document.getElementById(id);
+  if(el)el.classList.remove('active');
+  document.body.style.overflow='';
+}
+function ovcl(e,id){if(e.target===document.getElementById(id))closeModal(id);}
+
+function cdR(rid){
+  const r=fR(rid);if(!r)return;
+  document.getElementById('confMsg').innerHTML=`<strong>${esc(r.name)}</strong> 지역과 모든 단지·코드를 삭제합니다.`;
+  document.getElementById('confOkBtn').onclick=()=>{data.regions=data.regions.filter(x=>x.id!==rid);openR.delete(rid);save();closeModal('confirmModal');render();};
+  document.getElementById('confirmModal').classList.add('active');document.body.style.overflow='hidden';
+}
+function cdC(rid,cid){
+  const cx=fC(rid,cid);if(!cx)return;
+  document.getElementById('confMsg').innerHTML=`<strong>${esc(cx.name)}</strong> 단지와 모든 코드를 삭제합니다.`;
+  document.getElementById('confOkBtn').onclick=()=>{const r=fR(rid);if(r)r.complexes=r.complexes.filter(x=>x.id!==cid);openC.delete(cid);save();closeModal('confirmModal');render();};
+  document.getElementById('confirmModal').classList.add('active');document.body.style.overflow='hidden';
+}
+function cdK(rid,cid,kid){
+  const cd=fK(rid,cid,kid);if(!cd)return;
+  document.getElementById('confMsg').innerHTML=`코드 <strong>${esc(cd.value)}</strong> 를 삭제합니다.`;
+  document.getElementById('confOkBtn').onclick=()=>{const cx=fC(rid,cid);if(cx)cx.codes=cx.codes.filter(x=>x.id!==kid);save();closeModal('confirmModal');render();};
+  document.getElementById('confirmModal').classList.add('active');document.body.style.overflow='hidden';
+}
+
+function onParseRegionChange(){
+  const rid=document.getElementById('parseTargetRegion').value;
+  const cxSelect=document.getElementById('parseTargetComplex');
+  const region=fR(rid);
+  let opts='<option value="__AUTO__">🪄 자동 분류 (단지 자동 생성/매칭)</option>';
+  if(region && region.complexes.length){
+    opts+=region.complexes.map(cx=>`<option value="${esc(cx.id)}">${esc(cx.name)}</option>`).join('');
+  }
+  cxSelect.innerHTML=opts;
+  cxSelect.value='__AUTO__';
+  updateParseHint();
+}
+
+function updateParseHint(){
+  const cxVal=document.getElementById('parseTargetComplex').value;
+  const hint=document.getElementById('parseComplexHint');
+  if(cxVal==='__AUTO__'){
+    hint.textContent='＊ 자동 분류: 텍스트에서 단지명을 추출해 단지를 만들거나 매칭합니다.';
+  } else {
+    hint.textContent='＊ 단지 지정: 모든 줄을 이 단지 안의 코드로 바로 추가합니다.';
+  }
+}
+
+function openParseModal() {
+  const select = document.getElementById('parseTargetRegion');
+  if (!select) return;
+  if (!data.regions || !data.regions.length) {
+    showToast('⚠️ 먼저 지역을 추가해 주세요');
+    return;
+  }
+
+  select.innerHTML = data.regions.map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('');
+
+  const validActiveId = Array.from(openR).find(id => fR(id));
+  if (validActiveId) {
+    select.value = validActiveId;
+  } else {
+    select.value = data.regions[0].id;
+  }
+
+  onParseRegionChange();
+
+  document.getElementById('parseInput').value = '';
+  document.getElementById('parseModal').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function parseCodeFromLine(trLine){
+  let codeValue='';
+  let remaining=trLine;
+  const codeRegex = /((?:##|#|\*|종\s|열경|경열|열쇠|경비|공동\s)[0-9#*→➔\s\/~()\-–—]+|[0-9]{3,4}#[0-9]{4,6}#?|[0-9]{4,6}[#*])/i;
+  const codeMatch = trLine.match(codeRegex);
+  if (codeMatch) {
+    codeValue = codeMatch[0].trim();
+    remaining = trLine.split(codeMatch[0]).join(' ').trim();
+  } else {
+    const words = trLine.split(/\s+/);
+    if (words.length > 1) {
+      const lastWord = words[words.length - 1];
+      if (/[0-9]/.test(lastWord) && !lastWord.endsWith('동') && !lastWord.endsWith('호')) {
+        codeValue = lastWord;
+        remaining = trLine.substring(0, trLine.lastIndexOf(lastWord)).trim();
+      }
+    }
+  }
+  if (!codeValue) codeValue = '코드 확인 필요';
+  return { codeValue, remaining };
+}
+
+function submitParseForm() {
+  try {
+    const selectEl = document.getElementById('parseTargetRegion');
+    if (!selectEl) return;
+    const rid = selectEl.value;
+    const cidSel = document.getElementById('parseTargetComplex').value;
+    const text = document.getElementById('parseInput').value.trim();
+    if (!text) {
+      showToast('⚠️ 텍스트를 입력해 주세요');
+      return;
+    }
+
+    const region = fR(rid);
+    if (!region) {
+      showToast('⚠️ 대상 지역이 올바르지 않습니다.');
+      return;
+    }
+
+    const lines = text.split('\n');
+    let addedCount = 0;
+
+    if (cidSel && cidSel !== '__AUTO__') {
+      const targetCx = fC(rid, cidSel);
+      if (!targetCx) {
+        showToast('⚠️ 대상 단지가 올바르지 않습니다.');
+        return;
+      }
+      if (!targetCx.codes) targetCx.codes = [];
+
+      lines.forEach(line => {
+        const trLine = line.trim();
+        if (!trLine) return;
+        const { codeValue, remaining } = parseCodeFromLine(trLine);
+        let labelName = remaining.replace(/\s+/g, ' ').trim();
+        if (!labelName) labelName = '공동 현관';
+        const isGlobal = /공동|전체|공통|정문/.test(labelName) || /##/.test(codeValue);
+        targetCx.codes.push({
+          id: uid(),
+          section: '',
+          label: labelName,
+          sublabel: '',
+          value: codeValue,
+          isGlobal: isGlobal
+        });
+        addedCount++;
+      });
+
+      if (addedCount > 0) {
+        save();
+        closeModal('parseModal');
+        openR.add(rid);
+        openC.add(cidSel);
+        render();
+        showToast(`✓ ${targetCx.name}에 ${addedCount}개 코드 추가`);
+      } else {
+        showToast('⚠️ 분류할 수 있는 텍스트를 찾지 못했습니다.');
+      }
+      return;
+    }
+
+    lines.forEach(line => {
+      const trLine = line.trim();
+      if (!trLine) return;
+
+      const { codeValue, remaining } = parseCodeFromLine(trLine);
+
+      let complexName = '';
+      let labelName = '';
+
+      const complexKeywords = /(아파트|단지|현대|래미안|푸르지오|써밋|르엘|하이스턴|아이원|팰리스|타워|빌딩|빌라|맨션|힐스테이트|자이|아이파크|e편한세상|더샵|롯데캐슬|하이캐슬)/;
+      const match = remaining.match(complexKeywords);
+
+      if (match) {
+        const idx = remaining.indexOf(match[0]) + match[0].length;
+        complexName = remaining.substring(0, idx).trim();
+        labelName = remaining.substring(idx).trim().replace(/\s+/g, ' ');
+        if (!labelName) labelName = '공동 현관';
+      } else {
+        complexName = '개별 주소 코드';
+        labelName = remaining.replace(/\s+/g, ' ');
+      }
+
+      if (!complexName) complexName = '지정되지 않은 단지';
+      if (!labelName) labelName = '공동 현관';
+
+      let complex = region.complexes.find(cx => {
+        const target = (cx.name || '').toLowerCase().replace(/\s+/g, '');
+        const source = (complexName || '').toLowerCase().replace(/\s+/g, '');
+        if(!target || !source) return false;
+        return target === source || source.includes(target) || target.includes(source);
+      });
+
+      if (!complex) {
+        const cxId = uid();
+        complex = { id: cxId, name: complexName, addr: '', codes: [] };
+        region.complexes.push(complex);
+        openC.add(cxId);
+      }
+
+      if (!complex.codes) complex.codes = [];
+
+      const isGlobal = /공동|전체|공통|정문/.test(labelName) || /##/.test(codeValue);
+
+      complex.codes.push({
+        id: uid(),
+        section: '',
+        label: labelName,
+        sublabel: '',
+        value: codeValue,
+        isGlobal: isGlobal
+      });
+
+      addedCount++;
+    });
+
+    if (addedCount > 0) {
+      save();
+      closeModal('parseModal');
+      openR.add(rid);
+      render();
+      showToast(`✓ ${addedCount}개 항목 분류 완료`);
+    } else {
+      showToast('⚠️ 분류할 수 있는 텍스트를 찾지 못했습니다.');
+    }
+  } catch (err) {
+    showToast('⚠️ 분류 중 오류가 발생했습니다.');
+  }
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    ['confirmModal','formModal','parseModal','zoomModal'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el && el.classList.contains('active'))closeModal(id);
+    });
+  }
+  if(e.key==='Enter'&&document.getElementById('formModal').classList.contains('active')){
+    const a=document.activeElement;
+    if(a&&a.tagName==='INPUT'&&a.type!=='checkbox')submitForm();
+  }
+});
+
+load();
 render();
 <\/script>
 </body>
