@@ -685,7 +685,25 @@ function sanitizeSchedule() {
   }
   if (!Array.isArray(scheduleStore.dawnWorkers)) scheduleStore.dawnWorkers = [];
   if (!scheduleStore.statusMap || typeof scheduleStore.statusMap !== 'object') scheduleStore.statusMap = {};
-  
+
+  // 구버전 단일 키(이름_날짜)를 DAY_/DAWN_ 양쪽으로 복제 후 정리
+  if (!scheduleStore.statusKeyMigrated) {
+    const oldMap = scheduleStore.statusMap;
+    const newMap = {};
+    for (const key in oldMap) {
+      if (/^(DAY|DAWN)_/.test(key)) { newMap[key] = oldMap[key]; continue; }
+      const m = key.match(/^(.+)_(\d{4}-\d{2}-\d{2})$/);
+      if (m) {
+        newMap[`DAY_${m[1]}_${m[2]}`] = oldMap[key];
+        newMap[`DAWN_${m[1]}_${m[2]}`] = oldMap[key];
+      } else {
+        newMap[key] = oldMap[key];
+      }
+    }
+    scheduleStore.statusMap = newMap;
+    scheduleStore.statusKeyMigrated = true;
+  }
+
   if (scheduleStore.dayWorkers.length === 0 && scheduleStore.dawnWorkers.length === 0) {
     const daySet = new Set();
     DEFAULT_ZONES.forEach(z => z.people.forEach(p => p && daySet.add(p.trim())));
@@ -703,17 +721,21 @@ const STATUS_TYPES = {
   OFF:  { key: 'OFF',  label: '휴무', emoji: '🔴', badgeClass: 'st-off' }
 };
 
-function getWorkerStatus(worker, iso) {
-  const k = `${worker}_${iso}`;
+function statusKey(shift, worker, iso) {
+  return `${shift === 'dawn' ? 'DAWN' : 'DAY'}_${worker}_${iso}`;
+}
+
+function getWorkerStatus(worker, iso, shift) {
+  const k = statusKey(shift || 'day', worker, iso);
   return scheduleStore.statusMap[k] || 'WORK';
 }
 
-function toggleWorkerStatus(worker, iso) {
+function toggleWorkerStatus(worker, iso, shift) {
   customScheduleText = null;
-  const k = `${worker}_${iso}`;
-  const curr = getWorkerStatus(worker, iso);
+  const k = statusKey(shift || 'day', worker, iso);
+  const curr = getWorkerStatus(worker, iso, shift);
   const next = (curr === 'WORK') ? 'OFF' : 'WORK';
-  
+
   if (next === 'WORK') {
     delete scheduleStore.statusMap[k];
   } else {
@@ -753,7 +775,16 @@ function addScheduleWorker(type, name) {
 function delScheduleWorker(type, idx) {
   customScheduleText = null;
   const targetArr = (type === 'dawn') ? scheduleStore.dawnWorkers : scheduleStore.dayWorkers;
+  const removed = targetArr[idx];
   targetArr.splice(idx, 1);
+
+  // 해당 반의 휴무 기록 정리
+  if (removed) {
+    const prefix = (type === 'dawn') ? `DAWN_${removed}_` : `DAY_${removed}_`;
+    Object.keys(scheduleStore.statusMap).forEach(k => {
+      if (k.startsWith(prefix)) delete scheduleStore.statusMap[k];
+    });
+  }
   saveSchedule();
   render();
 }
@@ -794,13 +825,13 @@ function setMonthlyWorkerFilter(val) {
   render();
 }
 
-function getWorkerMonthlyStats(worker, year, month) {
+function getWorkerMonthlyStats(worker, year, month, shift) {
   const lastDay = new Date(year, month + 1, 0).getDate();
   const offDays = [];
   const workDays = [];
   for (let day = 1; day <= lastDay; day++) {
     const iso = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    const st = getWorkerStatus(worker, iso);
+    const st = getWorkerStatus(worker, iso, shift || 'day');
     if (st === 'OFF') offDays.push({ day, iso });
     else workDays.push({ day, iso });
   }
@@ -1546,13 +1577,13 @@ function scheduleText() {
   const selDate = scheduleStore.selectedDate;
   const dayWork = [], dayOff = [];
   scheduleStore.dayWorkers.forEach(w => {
-    if (getWorkerStatus(w, selDate) === 'WORK') dayWork.push(w);
+    if (getWorkerStatus(w, selDate, 'day') === 'WORK') dayWork.push(w);
     else dayOff.push(w);
   });
 
   const dawnWork = [], dawnOff = [];
   scheduleStore.dawnWorkers.forEach(w => {
-    if (getWorkerStatus(w, selDate) === 'WORK') dawnWork.push(w);
+    if (getWorkerStatus(w, selDate, 'dawn') === 'WORK') dawnWork.push(w);
     else dawnOff.push(w);
   });
 
@@ -1608,12 +1639,12 @@ function renderSchedule() {
 
   let dayWork = 0, dayOff = 0;
   scheduleStore.dayWorkers.forEach(w => {
-    if (getWorkerStatus(w, selDate) === 'WORK') dayWork++; else dayOff++;
+    if (getWorkerStatus(w, selDate, 'day') === 'WORK') dayWork++; else dayOff++;
   });
 
   let dawnWork = 0, dawnOff = 0;
   scheduleStore.dawnWorkers.forEach(w => {
-    if (getWorkerStatus(w, selDate) === 'WORK') dawnWork++; else dawnOff++;
+    if (getWorkerStatus(w, selDate, 'dawn') === 'WORK') dawnWork++; else dawnOff++;
   });
 
   const statsHtml = `
@@ -1662,11 +1693,11 @@ function renderSchedule() {
       }
       return workersArr.map((w, wi) => {
         const cells = weekDays.map(iso => {
-          const stKey = getWorkerStatus(w, iso);
+          const stKey = getWorkerStatus(w, iso, shiftType);
           const stObj = STATUS_TYPES[stKey] || STATUS_TYPES.WORK;
           return `
             <td>
-              <span class="st-badge ${stObj.badgeClass}" onclick="toggleWorkerStatus('${esc(w)}', '${iso}')">
+              <span class="st-badge ${stObj.badgeClass}" onclick="toggleWorkerStatus('${esc(w)}', '${iso}', '${shiftType}')">
                 ${stObj.emoji} ${stObj.label}
               </span>
             </td>
@@ -1745,7 +1776,7 @@ function renderSchedule() {
     let indCardHtml = '';
     if (curFilter !== 'ALL') {
       const isDawn = scheduleStore.dawnWorkers.includes(curFilter);
-      const st = getWorkerMonthlyStats(curFilter, year, month);
+      const st = getWorkerMonthlyStats(curFilter, year, month, isDawn ? 'dawn' : 'day');
       const workRate = Math.round((st.workCount / st.totalDays) * 100);
       const offTextList = st.offDays.length 
         ? st.offDays.map(o => `${month+1}/${o.day}(${DAYS[dowOf(o.iso)]})`).join(', ')
@@ -1787,11 +1818,11 @@ function renderSchedule() {
 
       if (curFilter === 'ALL') {
         let dWork = 0;
-        scheduleStore.dayWorkers.forEach(w => { if (getWorkerStatus(w, dayISOStr) === 'WORK') dWork++; });
+        scheduleStore.dayWorkers.forEach(w => { if (getWorkerStatus(w, dayISOStr, 'day') === 'WORK') dWork++; });
         let dOff = scheduleStore.dayWorkers.length - dWork;
 
         let dwWork = 0;
-        scheduleStore.dawnWorkers.forEach(w => { if (getWorkerStatus(w, dayISOStr) === 'WORK') dwWork++; });
+        scheduleStore.dawnWorkers.forEach(w => { if (getWorkerStatus(w, dayISOStr, 'dawn') === 'WORK') dwWork++; });
         let dwOff = scheduleStore.dawnWorkers.length - dwWork;
 
         const dOffHtml = dOff > 0 ? `<span style="color:#f87171;font-weight:900;">${dOff}</span>` : `<span style="opacity:0.6;">0</span>`;
@@ -1808,11 +1839,12 @@ function renderSchedule() {
         `;
       } else {
         // Individual Worker Filter Active
-        const indStatus = getWorkerStatus(curFilter, dayISOStr);
+        const indShift = scheduleStore.dawnWorkers.includes(curFilter) ? 'dawn' : 'day';
+        const indStatus = getWorkerStatus(curFilter, dayISOStr, indShift);
         const stObj = STATUS_TYPES[indStatus] || STATUS_TYPES.WORK;
 
         calCells += `
-          <div class="cal-day ${isToday?'is-today':''} ${isSelected?'selected':''}" onclick="toggleWorkerStatus('${esc(curFilter)}', '${dayISOStr}')">
+          <div class="cal-day ${isToday?'is-today':''} ${isSelected?'selected':''}" onclick="toggleWorkerStatus('${esc(curFilter)}', '${dayISOStr}', '${indShift}')">
             <div class="cal-day-num ${dowClass}">${day}</div>
             <div style="margin-top:auto; padding-top:4px;">
               <span class="st-badge ${stObj.badgeClass}" style="font-size:10px; padding:3px 2px; width:100%; border-radius:5px;">
@@ -1829,7 +1861,7 @@ function renderSchedule() {
       const renderMonthlyWorkerSummary = (workers, title, isDawn) => {
         if (!workers.length) return '';
         const rows = workers.map(w => {
-          const st = getWorkerMonthlyStats(w, year, month);
+          const st = getWorkerMonthlyStats(w, year, month, isDawn ? 'dawn' : 'day');
           return `
             <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--card2);border-radius:8px;font-size:12.5px;cursor:pointer;" onclick="setMonthlyWorkerFilter('${esc(w)}')">
               <span style="font-weight:800;">${esc(w)}</span>
