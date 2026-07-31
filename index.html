@@ -136,6 +136,13 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
 .cal-day-chips{display:flex;flex-direction:column;gap:3px;margin-top:4px;}
 .cal-chip{font-size:9.5px;font-weight:800;border-radius:4px;padding:2px 4px;line-height:1.2;text-align:center;}
 
+.sch-ind-card{background:linear-gradient(135deg,#132742,#0f1f33);border:1.5px solid #1e426d;border-radius:14px;padding:14px;margin-bottom:12px;}
+.sch-ind-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.sch-ind-name{font-size:16px;font-weight:900;color:var(--blue3);}
+.sch-ind-shift{font-size:11px;font-weight:800;padding:3px 8px;border-radius:6px;background:rgba(255,255,255,0.1);color:#fff;}
+.sch-ind-stats{display:flex;gap:12px;font-size:13px;font-weight:800;}
+.sch-ind-offlist{font-size:11.5px;color:var(--sub);margin-top:8px;line-height:1.5;background:rgba(0,0,0,0.25);padding:8px 10px;border-radius:8px;}
+
 .btn-add-zone{width:100%;padding:13px;border:1.5px dashed var(--border2);border-radius:13px;background:transparent;color:var(--sub);font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:14px;transition:all 0.15s;}
 .btn-add-zone:active{background:var(--card);border-color:var(--blue2);color:var(--blue3);}
 
@@ -656,6 +663,7 @@ let scheduleStore = load('disp-schedule', null);
 if (!scheduleStore || typeof scheduleStore !== 'object') {
   scheduleStore = {
     viewMode: 'weekly',
+    monthlyWorkerFilter: 'ALL',
     selectedDate: todayISO(),
     dayWorkers: [],
     dawnWorkers: [],
@@ -665,9 +673,10 @@ if (!scheduleStore || typeof scheduleStore !== 'object') {
 
 function sanitizeSchedule() {
   if (!scheduleStore || typeof scheduleStore !== 'object') {
-    scheduleStore = { viewMode: 'weekly', selectedDate: todayISO(), dayWorkers: [], dawnWorkers: [], statusMap: {} };
+    scheduleStore = { viewMode: 'weekly', monthlyWorkerFilter: 'ALL', selectedDate: todayISO(), dayWorkers: [], dawnWorkers: [], statusMap: {} };
   }
   scheduleStore.viewMode = (scheduleStore.viewMode === 'monthly') ? 'monthly' : 'weekly';
+  scheduleStore.monthlyWorkerFilter = scheduleStore.monthlyWorkerFilter || 'ALL';
   scheduleStore.selectedDate = rollDate(scheduleStore.selectedDate);
   
   if (!Array.isArray(scheduleStore.dayWorkers)) {
@@ -777,6 +786,31 @@ function shiftMonth(delta) {
   customScheduleText = null;
   saveSchedule();
   render();
+}
+
+function setMonthlyWorkerFilter(val) {
+  scheduleStore.monthlyWorkerFilter = val;
+  saveSchedule();
+  render();
+}
+
+function getWorkerMonthlyStats(worker, year, month) {
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  const offDays = [];
+  const workDays = [];
+  for (let day = 1; day <= lastDay; day++) {
+    const iso = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const st = getWorkerStatus(worker, iso);
+    if (st === 'OFF') offDays.push({ day, iso });
+    else workDays.push({ day, iso });
+  }
+  return {
+    totalDays: lastDay,
+    workCount: workDays.length,
+    offCount: offDays.length,
+    offDays: offDays,
+    workDays: workDays
+  };
 }
 
 let lastWorkDay = todayISO();
@@ -1544,6 +1578,7 @@ function renderSchedule() {
   const isWeekly = scheduleStore.viewMode === 'weekly';
   const selDate = scheduleStore.selectedDate;
   const weekDays = getWeekDays(selDate);
+  const curFilter = scheduleStore.monthlyWorkerFilter || 'ALL';
   
   const modeSwitcherHtml = `
     <div class="set-tabs">
@@ -1680,6 +1715,7 @@ function renderSchedule() {
       </div>
     `;
   } else {
+    /* Monthly View */
     const curObj = new Date(selDate + 'T00:00:00');
     const year = curObj.getFullYear();
     const month = curObj.getMonth();
@@ -1691,8 +1727,49 @@ function renderSchedule() {
     const totalDays = lastDay.getDate();
     const todayStr = todayISO();
 
-    let calCells = '';
+    // Worker Filter options
+    const dayOpts = scheduleStore.dayWorkers.map(w => `<option value="${esc(w)}" ${curFilter===w?'selected':''}>☀️ ${esc(w)} (주간반)</option>`).join('');
+    const dawnOpts = scheduleStore.dawnWorkers.map(w => `<option value="${esc(w)}" ${curFilter===w?'selected':''}>🌅 ${esc(w)} (새벽반)</option>`).join('');
     
+    const filterSelectHtml = `
+      <div style="margin-bottom:12px;">
+        <label class="field-label">👤 월간 개인별 현황 조회 및 스케줄 지정</label>
+        <select class="inp" onchange="setMonthlyWorkerFilter(this.value)">
+          <option value="ALL" ${curFilter==='ALL'?'selected':''}>👥 전체 근무자 월간 달력 보기</option>
+          <optgroup label="☀️ 주간반 명단">${dayOpts}</optgroup>
+          <optgroup label="🌅 새벽반 명단">${dawnOpts}</optgroup>
+        </select>
+      </div>
+    `;
+
+    let indCardHtml = '';
+    if (curFilter !== 'ALL') {
+      const isDawn = scheduleStore.dawnWorkers.includes(curFilter);
+      const st = getWorkerMonthlyStats(curFilter, year, month);
+      const workRate = Math.round((st.workCount / st.totalDays) * 100);
+      const offTextList = st.offDays.length 
+        ? st.offDays.map(o => `${month+1}/${o.day}(${DAYS[dowOf(o.iso)]})`).join(', ')
+        : '이번 달 지정된 휴무일이 없습니다.';
+
+      indCardHtml = `
+        <div class="sch-ind-card">
+          <div class="sch-ind-top">
+            <div class="sch-ind-name">👤 ${esc(curFilter)}</div>
+            <span class="sch-ind-shift" style="background:${isDawn?'rgba(168,85,247,0.25)':'rgba(59,130,246,0.25)'}">${isDawn?'🌅 새벽반':'☀️ 주간반'}</span>
+          </div>
+          <div class="sch-ind-stats">
+            <span style="color:#4ade80">🟢 근무 ${st.workCount}일</span>
+            <span style="color:#f87171">🔴 휴무 ${st.offCount}일</span>
+            <span style="color:var(--blue3)">📊 근무율 ${workRate}%</span>
+          </div>
+          <div class="sch-ind-offlist">
+            <b>🔴 ${month+1}월 휴무 지정일 (${st.offCount}일):</b><br>${offTextList}
+          </div>
+        </div>
+      `;
+    }
+
+    let calCells = '';
     for (let p = 0; p < startDow; p++) {
       calCells += `<div class="cal-day other-month"><span class="cal-day-num">-</span></div>`;
     }
@@ -1701,17 +1778,6 @@ function renderSchedule() {
       const dayISOStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
       const dObj = new Date(dayISOStr + 'T00:00:00');
       const dow = dObj.getDay();
-      
-      let dWork = 0;
-      scheduleStore.dayWorkers.forEach(w => {
-        if (getWorkerStatus(w, dayISOStr) === 'WORK') dWork++;
-      });
-
-      let dwWork = 0;
-      scheduleStore.dawnWorkers.forEach(w => {
-        if (getWorkerStatus(w, dayISOStr) === 'WORK') dwWork++;
-      });
-
       const isToday = dayISOStr === todayStr;
       const isSelected = dayISOStr === selDate;
 
@@ -1719,18 +1785,76 @@ function renderSchedule() {
       if (dow === 0) dowClass = 'sun';
       else if (dow === 6) dowClass = 'sat';
 
-      calCells += `
-        <div class="cal-day ${isToday?'is-today':''} ${isSelected?'selected':''}" onclick="scheduleStore.selectedDate='${dayISOStr}';customScheduleText=null;saveSchedule();render();">
-          <div class="cal-day-num ${dowClass}">${day}</div>
-          <div class="cal-day-chips">
-            <div class="cal-chip" style="background:rgba(59,130,246,0.18);color:var(--blue3)">☀️ ${dWork}/${scheduleStore.dayWorkers.length}</div>
-            <div class="cal-chip" style="background:rgba(168,85,247,0.18);color:var(--purple2)">🌅 ${dwWork}/${scheduleStore.dawnWorkers.length}</div>
+      if (curFilter === 'ALL') {
+        let dWork = 0;
+        scheduleStore.dayWorkers.forEach(w => { if (getWorkerStatus(w, dayISOStr) === 'WORK') dWork++; });
+        let dwWork = 0;
+        scheduleStore.dawnWorkers.forEach(w => { if (getWorkerStatus(w, dayISOStr) === 'WORK') dwWork++; });
+
+        calCells += `
+          <div class="cal-day ${isToday?'is-today':''} ${isSelected?'selected':''}" onclick="scheduleStore.selectedDate='${dayISOStr}';customScheduleText=null;saveSchedule();render();">
+            <div class="cal-day-num ${dowClass}">${day}</div>
+            <div class="cal-day-chips">
+              <div class="cal-chip" style="background:rgba(59,130,246,0.18);color:var(--blue3)">☀️ ${dWork}/${scheduleStore.dayWorkers.length}</div>
+              <div class="cal-chip" style="background:rgba(168,85,247,0.18);color:var(--purple2)">🌅 ${dwWork}/${scheduleStore.dawnWorkers.length}</div>
+            </div>
           </div>
+        `;
+      } else {
+        // Individual Worker Filter Active
+        const indStatus = getWorkerStatus(curFilter, dayISOStr);
+        const stObj = STATUS_TYPES[indStatus] || STATUS_TYPES.WORK;
+
+        calCells += `
+          <div class="cal-day ${isToday?'is-today':''} ${isSelected?'selected':''}" onclick="toggleWorkerStatus('${esc(curFilter)}', '${dayISOStr}')">
+            <div class="cal-day-num ${dowClass}">${day}</div>
+            <div style="margin-top:auto; padding-top:4px;">
+              <span class="st-badge ${stObj.badgeClass}" style="font-size:10px; padding:3px 2px; width:100%; border-radius:5px;">
+                ${stObj.emoji} ${stObj.label}
+              </span>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    let allWorkersMonthlyListHtml = '';
+    if (curFilter === 'ALL') {
+      const renderMonthlyWorkerSummary = (workers, title, isDawn) => {
+        if (!workers.length) return '';
+        const rows = workers.map(w => {
+          const st = getWorkerMonthlyStats(w, year, month);
+          return `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--card2);border-radius:8px;font-size:12.5px;cursor:pointer;" onclick="setMonthlyWorkerFilter('${esc(w)}')">
+              <span style="font-weight:800;">${esc(w)}</span>
+              <div style="display:flex;gap:10px;font-weight:800;font-size:12px;">
+                <span style="color:#4ade80">🟢 ${st.workCount}일</span>
+                <span style="color:#f87171">🔴 ${st.offCount}일</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+        return `
+          <div style="margin-top:10px;">
+            <div class="section-title" style="margin-bottom:6px;color:${isDawn?'var(--purple2)':'var(--blue3)'}">${title}</div>
+            <div style="display:flex;flex-direction:column;gap:5px;">${rows}</div>
+          </div>
+        `;
+      };
+
+      allWorkersMonthlyListHtml = `
+        <div class="zone" style="margin-top:14px;">
+          <div class="section-title" style="margin-bottom:4px;">📊 ${month+1}월 근무자별 누적 출근/휴무 요약</div>
+          <div style="font-size:11px;color:var(--dim);margin-bottom:8px;">근무자를 터치하면 개인별 월간 달력으로 바로 전환됩니다.</div>
+          ${renderMonthlyWorkerSummary(scheduleStore.dayWorkers, '☀️ 주간반 근무자', false)}
+          ${renderMonthlyWorkerSummary(scheduleStore.dawnWorkers, '🌅 새벽반 근무자', true)}
         </div>
       `;
     }
 
     mainBodyHtml = `
+      ${filterSelectHtml}
+      ${indCardHtml}
       <div class="cal-grid">
         <div class="cal-head sun">일</div>
         <div class="cal-head">월</div>
@@ -1741,6 +1865,7 @@ function renderSchedule() {
         <div class="cal-head sat">토</div>
         ${calCells}
       </div>
+      ${allWorkersMonthlyListHtml}
     `;
   }
 
