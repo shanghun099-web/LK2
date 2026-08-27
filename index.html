@@ -424,7 +424,6 @@ body.tab-dragging .tabs{overflow-x:hidden;}
     <button class="tab" id="tab-volume" onclick="switchTab('volume')">📦 물량</button>
     <button class="tab" id="tab-schedule" onclick="switchTab('schedule')">📅 근무/휴무</button>
        <button class="tab" id="tab-inbound" onclick="switchTab('inbound')">🚚 입고</button>
-    <button class="tab" id="tab-mention" onclick="switchTab('mention')">📣 호출</button>
     <button class="tab" id="tab-code" onclick="switchTab('code')">🔑 출입코드</button>
   </div>
 
@@ -551,9 +550,8 @@ body.tab-dragging .tabs{overflow-x:hidden;}
 const DAYS=['일','월','화','수','목','금','토'];
 const DOW_FULL=['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
 let tab='roster';
-const TAB_TITLES={roster:'출근명단 정리',dawn:'새벽반 명단',weather:'실시간 기상 감시 (강남구)',volume:'물량 정리',schedule:'근무/휴무 현황',inbound:'간선 도착 · 입고',mention:'단톡 호출 도우미',code:'출입코드 노트'};
-const ALL_TABS=['roster','dawn','weather','volume','schedule','inbound','mention','code'];
-
+const TAB_TITLES={roster:'출근명단 정리',dawn:'새벽반 명단',weather:'실시간 기상 감시 (강남구)',volume:'물량 정리',schedule:'근무/휴무 현황',inbound:'간선 도착 · 입고',code:'출입코드 노트'};
+const ALL_TABS=['roster','dawn','weather','volume','schedule','inbound','code'];
 let customRosterText = null;
 let customWeatherText = null;
 let customVolumeText = null;
@@ -1152,7 +1150,6 @@ function switchTab(t){
   customVolumeText = null;
   customScheduleText = null;
   customInboundText = null;
-  customMentionText = null;
   applyDayRollover(false);
   tab=t;
   ALL_TABS.forEach(x=>{
@@ -2586,202 +2583,6 @@ function inboundText(){
 }
 
 function getApiKey(){return localStorage.getItem('gemini-key')||'';}
-/* ===== 📣 단톡 호출 도우미 ===== */
-let customMentionText = null;
-let mentionPaste = { pool:[], picked:-1 };
-
-let mentionStore = load('disp-mention', null);
-if(!mentionStore || typeof mentionStore!=='object' || Array.isArray(mentionStore)) mentionStore={};
-if(!mentionStore.nicks || typeof mentionStore.nicks!=='object') mentionStore.nicks={};
-if(typeof mentionStore.msg!=='string') mentionStore.msg='소분완료 입니다~!';
-if(!Array.isArray(mentionStore.done)) mentionStore.done=[];
-if(!Array.isArray(mentionStore.off)) mentionStore.off=[];
-
-function saveMention(){ localStorage.setItem('disp-mention', JSON.stringify(mentionStore)); }
-function normKey(s){ return String(s||'').replace(/\s+/g,'').toLowerCase(); }
-
-function mentionMembers(){
-  const out=[];
-  const push=n=>{ n=String(n||'').trim(); if(n && out.indexOf(n)<0) out.push(n); };
-  rosters.main.work.zones.forEach(z=>z.people.forEach(push));
-  rosters.dawn.work.zones.forEach(z=>z.people.forEach(push));
-  return out;
-}
-function selectedMembers(){ return mentionMembers().filter(n=>mentionStore.off.indexOf(n)<0); }
-function getNick(n){ return mentionStore.nicks[n] || ''; }
-function setNick(n,v){ customMentionText=null; const s=String(v||'').trim(); if(s) mentionStore.nicks[n]=s; else delete mentionStore.nicks[n]; saveMention(); render(); }
-function toggleMentionSel(n){ customMentionText=null; const i=mentionStore.off.indexOf(n); if(i>=0) mentionStore.off.splice(i,1); else mentionStore.off.push(n); saveMention(); render(); }
-function toggleMentionDone(n){ const i=mentionStore.done.indexOf(n); if(i>=0) mentionStore.done.splice(i,1); else mentionStore.done.push(n); saveMention(); render(); }
-function callMember(n){ copyText(getNick(n)||n); if(mentionStore.done.indexOf(n)<0){ mentionStore.done.push(n); saveMention(); render(); } }
-function resetMentionDone(){ mentionStore.done=[]; saveMention(); render(); showToast('↩️ 호출 진행을 초기화했어요'); }
-function selectAllMention(on){ customMentionText=null; mentionStore.off = on ? [] : mentionMembers().slice(); saveMention(); render(); }
-function mentionText(){
-  const list=selectedMembers();
-  if(!list.length) return '';
-  return `${mentionStore.msg||''}\n${list.map(n=>'@'+(getNick(n)||n)).join(' ')}`.trim();
-}
-
-function parseMemberPaste(raw){
-  const txt=String(raw||'').trim();
-  const pairs=[], nicks=[];
-  if(!txt) return {pairs,nicks};
-  const pushNick=s=>{
-    s=String(s||'').replace(/\s+/g,' ').trim().replace(/^[·•\-\d.\)]+\s*/,'');
-    if(s && nicks.indexOf(s)<0) nicks.push(s);
-  };
-  txt.split(/\r?\n/).forEach(line=>{
-    const s=line.trim();
-    if(!s) return;
-    const m=s.match(/^([^=:>→]{1,24}?)\s*(?:=|:|→|->|>>?)\s*(.+)$/);
-    if(m && m[2].trim() && s.indexOf('@')!==0){
-      pairs.push({ name:m[1].trim().replace(/^@/,''), nick:m[2].trim().replace(/^@/,'') });
-      return;
-    }
-    if(s.indexOf('@')>=0){
-      s.split('@').forEach((chunk,i)=>{ if(i>0) pushNick(chunk); });
-      return;
-    }
-    pushNick(s);
-  });
-  return {pairs,nicks};
-}
-
-function applyMemberPaste(overwrite){
-  const ta=document.getElementById('mention-paste-ta');
-  const r=parseMemberPaste(ta?ta.value:'');
-  if(!r.pairs.length && !r.nicks.length){ showToast('인식된 내용이 없어요','err'); return; }
-  const members=mentionMembers();
-  const canWrite=n=> overwrite || !getNick(n);
-  let matched=0; const left=[];
-
-  r.pairs.forEach(p=>{
-    const k=normKey(p.name);
-    const hit = members.find(m=>normKey(m)===k) || members.find(m=>k.indexOf(normKey(m))>=0);
-    if(hit && canWrite(hit)){ mentionStore.nicks[hit]=p.nick; matched++; }
-    else if(!hit) left.push(p.nick);
-  });
-  r.nicks.forEach(nk=>{
-    const k=normKey(nk);
-    let hit = members.find(m=>normKey(m)===k);
-    if(!hit) hit = members.find(m=>m.length>=2 && k.indexOf(normKey(m))>=0);
-    if(hit && canWrite(hit)){ mentionStore.nicks[hit]=nk; matched++; }
-    else if(!hit) left.push(nk);
-  });
-
-  mentionPaste.pool = left.filter((v,i,a)=>a.indexOf(v)===i);
-  mentionPaste.picked = -1;
-  customMentionText = null;
-  saveMention(); render();
-  showToast(`✅ ${matched}명 연결 · 미매칭 ${mentionPaste.pool.length}건`);
-}
-
-function pickPoolNick(i){ mentionPaste.picked = (mentionPaste.picked===i ? -1 : i); render(); }
-function assignPickedTo(name){
-  const i=mentionPaste.picked;
-  if(i<0 || !mentionPaste.pool[i]){ showToast('먼저 위에서 닉네임을 고르세요','err'); return; }
-  mentionStore.nicks[name]=mentionPaste.pool[i];
-  mentionPaste.pool.splice(i,1); mentionPaste.picked=-1;
-  customMentionText=null; saveMention(); render();
-}
-function clearPastePool(){ mentionPaste={pool:[],picked:-1}; render(); }
-function clearAllNicks(){ mentionStore.nicks={}; customMentionText=null; saveMention(); render(); showToast('🗑 닉네임을 모두 비웠어요'); }
-
-function renderMention(){
-  const all=mentionMembers();
-  const sel=selectedMembers();
-  const doneCnt=sel.filter(n=>mentionStore.done.indexOf(n)>=0).length;
-
-  if(!all.length){
-    return `<div class="tpl-banner"><span class="tpl-banner-icon">📣</span><span class="tpl-banner-txt">먼저 <b>출근명단</b> 또는 <b>새벽반</b> 탭에 인원을 넣어주세요. 그 명단이 호출 대상이 됩니다.</span></div>`;
-  }
-
-  const chips=all.map(n=>{
-    const on=mentionStore.off.indexOf(n)<0;
-    return `<span class="chip" style="${on?'':'opacity:.38;'}" onclick="toggleMentionSel('${esc(n)}')">${on?'✅':'⬜'} ${esc(n)}</span>`;
-  }).join('');
-
-  const rows=sel.map(n=>{
-    const done=mentionStore.done.indexOf(n)>=0;
-    return `<div class="qty-row" style="grid-template-columns:58px 1fr 60px 34px;">
-      <div style="font-size:13px;font-weight:800;color:${done?'var(--dim)':'var(--text)'};${done?'text-decoration:line-through;':''}">${esc(n)}</div>
-      <input class="inp" style="padding:10px;font-size:14px;" value="${esc(getNick(n))}" placeholder="카톡 닉네임" onchange="setNick('${esc(n)}',this.value)">
-      <button class="mini-btn" style="padding:10px 0;${done?'':'border-color:#155244;color:var(--teal3);'}" onclick="callMember('${esc(n)}')">${done?'재복사':'복사'}</button>
-      <button class="qty-del" style="width:34px;" onclick="toggleMentionDone('${esc(n)}')">${done?'✅':'⬜'}</button>
-    </div>`;
-  }).join('');
-
-  const preview = customMentionText!==null ? customMentionText : mentionText();
-
-  return `
-  <div class="tpl-banner">
-    <span class="tpl-banner-icon">📣</span>
-    <span class="tpl-banner-txt">카톡 멘션은 <b>붙여넣기로는 알림이 가지 않습니다.</b> 입력창에 <b>@</b> 를 친 뒤 복사한 닉네임을 붙여넣으면 자동완성이 바로 좁혀집니다.</span>
-  </div>
-
-  <div class="field">
-    <label class="field-label">💬 보낼 문구</label>
-    <input class="inp" value="${esc(mentionStore.msg)}" placeholder="소분완료 입니다~!" onchange="customMentionText=null;mentionStore.msg=this.value;saveMention();render()">
-  </div>
-
-  <details class="paste-box">
-    <summary>🪄 카톡 멤버 목록 붙여넣어 닉네임 한 번에 채우기</summary>
-    <div class="paste-inner">
-      <div class="paste-hint">
-        <b>①</b> 단톡방의 <code>@멘션 메시지</code>를 통째로 붙여넣기<br>
-        <b>②</b> 멤버 이름을 한 줄에 하나씩<br>
-        <b>③</b> <code>박은아 = (주) 맘스 박은아</code> 처럼 직접 지정<br>
-        실명이 닉네임 안에 들어있으면 자동 연결되고, 못 찾은 건 아래에서 손으로 이어주면 됩니다.
-      </div>
-      <textarea class="paste-ta" id="mention-paste-ta" placeholder="@권수범 @Kim Kuong B @골프어트렉션 @(주) 맘스 박은아 @박준휘 …"></textarea>
-      <div class="paste-btns">
-        <button class="mini-btn" style="border-color:#155244;color:var(--teal3)" onclick="applyMemberPaste(false)">빈 칸만 채우기</button>
-        <button class="mini-btn" style="border-color:#1d3a66;color:var(--blue3)" onclick="applyMemberPaste(true)">전부 덮어쓰기</button>
-      </div>
-      <button class="mini-btn danger" style="width:100%;margin-top:8px" onclick="clearAllNicks()">닉네임 전체 초기화</button>
-    </div>
-  </details>
-
-  ${mentionPaste.pool.length ? `
-  <div class="zone" style="border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.04)">
-    <div class="section-title" style="margin-bottom:8px;color:var(--amber2)">🔗 미매칭 <b>${mentionPaste.pool.length}</b>건 · 닉네임 → 근무자 순서로 탭</div>
-    <div class="chips">${mentionPaste.pool.map((nk,i)=>`<span class="chip" style="${mentionPaste.picked===i?'background:var(--amber);color:#191919;border-color:var(--amber);':''}" onclick="pickPoolNick(${i})">${esc(nk)}</span>`).join('')}</div>
-    <div style="height:12px"></div>
-    <div class="section-title" style="margin-bottom:8px">👤 닉네임 미지정 근무자</div>
-    <div class="chips">${all.filter(n=>!getNick(n)).map(n=>`<span class="chip" onclick="assignPickedTo('${esc(n)}')">${esc(n)}</span>`).join('') || '<span style="font-size:12px;color:var(--dim)">모두 지정되었습니다</span>'}</div>
-    <button class="mini-btn" style="width:100%;margin-top:12px" onclick="clearPastePool()">닫기</button>
-  </div>` : ''}
-
-  <div class="section-head"><div class="section-title">호출 대상 <b>${sel.length}</b>명 / 전체 ${all.length}명</div></div>
-  <div class="zone"><div class="chips">${chips}</div></div>
-  <div class="mini-btns">
-    <button class="mini-btn" onclick="selectAllMention(true)">전체 선택</button>
-    <button class="mini-btn" onclick="selectAllMention(false)">전체 해제</button>
-    <button class="mini-btn" onclick="resetMentionDone()">진행 초기화</button>
-  </div>
-
-  <div class="qty-total-bar">
-    <span class="qty-total-lbl">📣 호출 진행</span>
-    <span class="qty-total-val">${doneCnt}<small>/${sel.length}</small></span>
-  </div>
-
-  <div class="section-head"><div class="section-title">👤 이름 → <b>카톡 닉네임</b> · 복사를 누르면 체크됩니다</div></div>
-  ${rows}
-
-  <div class="preview-wrap">
-    <div class="preview-label">전체 문구 (참고용 · 실제 멘션 아님)</div>
-    <textarea class="kakao-bubble${preview?'':' empty'}" oninput="customMentionText=this.value; autoResizePreviews();" placeholder="호출 대상을 선택하면 여기에 문구가 만들어집니다.">${esc(preview)}</textarea>
-    <div class="actions">
-      <button class="btn btn-share" onclick="shareText(customMentionText!==null?customMentionText:mentionText())">💬 공유하기</button>
-      <button class="btn btn-copy" onclick="copyText(customMentionText!==null?customMentionText:mentionText())">📋 복사</button>
-    </div>
-  </div>
-
-  <div class="wx-note" style="margin-top:12px;line-height:1.6;">
-    💡 전원 대상이면 카톡 입력창에 <b>@</b> → <b>전체</b> 한 번이 가장 빠릅니다.<br>
-    💡 메시지를 길게 눌러 <b>공지 등록</b>하면 멘션 없이도 상단 배너로 남습니다.
-  </div>
-  <div style="height:20px"></div>`;
-}
 const DEFAULT_MODEL='gemini-3.5-flash';
 const VALID_MODELS=['gemini-3.5-flash','gemini-3.1-flash-lite','gemini-2.5-flash'];
 function getModel(){
@@ -2888,7 +2689,7 @@ function saveSettings(){
   showToast('⚙️ 설정 및 공유 양식이 기기에 저장되었습니다.');
 }
 
-const BK_KEYS=['disp-roster-tpl','disp-dawn-tpl','disp-schedule','disp-inbound','disp-mention','disp-roster-wide','disp-tab-order','acn5'];
+const BK_KEYS=['disp-roster-tpl','disp-dawn-tpl','disp-schedule','disp-inbound','disp-roster-wide','disp-tab-order','acn5'];
 let pendingImport=null;
 
 function openBackup(){document.getElementById('backup-sheet').classList.add('show');}
@@ -3166,7 +2967,6 @@ function render(){
   else if(tab==='weather') c.innerHTML=renderWeather();
   else if(tab==='schedule') c.innerHTML=renderSchedule();
     else if(tab==='inbound') c.innerHTML=renderInbound();
-  else if(tab==='mention') c.innerHTML=renderMention();
   else c.innerHTML=renderRoster();
 
   setTimeout(autoResizePreviews, 10);
