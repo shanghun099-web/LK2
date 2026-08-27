@@ -722,7 +722,8 @@ function sanitizeSchedule() {
   if (!scheduleStore || typeof scheduleStore !== 'object') {
     scheduleStore = { viewMode: 'weekly', monthlyWorkerFilter: 'ALL', selectedDate: todayISO(), dayWorkers: [], dawnWorkers: [], statusMap: {} };
   }
-    if(['today','weekly','monthly'].indexOf(scheduleStore.viewMode) < 0) scheduleStore.viewMode = 'today';
+    if(scheduleStore.viewMode === 'today') scheduleStore.viewMode = 'weekly';
+  if(['weekly','monthly','personal'].indexOf(scheduleStore.viewMode) < 0) scheduleStore.viewMode = 'weekly';  
   scheduleStore.monthlyWorkerFilter = scheduleStore.monthlyWorkerFilter || 'ALL';
   if(!scheduleStore.fixedOff || typeof scheduleStore.fixedOff !== 'object' || Array.isArray(scheduleStore.fixedOff)) scheduleStore.fixedOff = {};
   scheduleStore.selectedDate = rollDate(scheduleStore.selectedDate);
@@ -1868,36 +1869,50 @@ function scheduleText() {
     total_off: dayOff.length + dawnOff.length
   });
 }
+function openPersonal(w){
+  scheduleStore.monthlyWorkerFilter = w;
+  scheduleStore.viewMode = 'personal';
+  customScheduleText = null;
+  saveSchedule(); render();
+}
+
+function offNamesOn(iso){
+  const out = [];
+  scheduleStore.dayWorkers.forEach(w => { if (getWorkerStatus(w, iso, 'day') === 'OFF') out.push(w); });
+  scheduleStore.dawnWorkers.forEach(w => { if (getWorkerStatus(w, iso, 'dawn') === 'OFF') out.push(w); });
+  return out;
+}
+
 function renderSchedule() {
-  const mode = scheduleStore.viewMode;
+  const mode = scheduleStore.viewMode;          // weekly | monthly | personal
+  const isCal = (mode === 'monthly' || mode === 'personal');
   const selDate = scheduleStore.selectedDate;
   const todayStr = todayISO();
   const weekDays = getWeekDays(selDate);
   const curFilter = scheduleStore.monthlyWorkerFilter || 'ALL';
-  const isMonthly = (mode === 'monthly');
 
   /* ---- 뷰 전환 ---- */
   const modeSw = `
     <div class="set-tabs">
-      <button class="set-tab ${mode==='today'?'active':''}" onclick="setSchView('today')">📅 오늘</button>
       <button class="set-tab ${mode==='weekly'?'active':''}" onclick="setSchView('weekly')">📆 주간</button>
-      <button class="set-tab ${isMonthly?'active':''}" onclick="setSchView('monthly')">👤 개인</button>
+      <button class="set-tab ${mode==='monthly'?'active':''}" onclick="setSchView('monthly')">🗓️ 월간</button>
+      <button class="set-tab ${mode==='personal'?'active':''}" onclick="setSchView('personal')">👤 개인</button>
     </div>`;
 
-  const navTitle = isMonthly
+  const navTitle = isCal
     ? (() => { const d = new Date(selDate + 'T00:00:00'); return `${d.getFullYear()}년 ${d.getMonth()+1}월`; })()
     : (() => { const a = new Date(weekDays[0]+'T00:00:00'), b = new Date(weekDays[6]+'T00:00:00');
                return `${a.getMonth()+1}.${a.getDate()} ~ ${b.getMonth()+1}.${b.getDate()}`; })();
 
   const navBar = `
     <div class="sch-nav-bar">
-      <button class="sch-nav-btn" onclick="${isMonthly?'shiftMonth(-1)':'shiftWeek(-1)'}">◀</button>
+      <button class="sch-nav-btn" onclick="${isCal?'shiftMonth(-1)':'shiftWeek(-1)'}">◀</button>
       <span class="sch-nav-title">${navTitle}</span>
       <button class="sch-nav-btn" onclick="scheduleStore.selectedDate=todayISO();customScheduleText=null;saveSchedule();render();">오늘</button>
-      <button class="sch-nav-btn" onclick="${isMonthly?'shiftMonth(1)':'shiftWeek(1)'}">▶</button>
+      <button class="sch-nav-btn" onclick="${isCal?'shiftMonth(1)':'shiftWeek(1)'}">▶</button>
     </div>`;
 
-  /* ---- 날짜 스트립 ---- */
+  /* ---- 날짜 스트립 (주간 전용) ---- */
   const dayStrip = weekDays.map(iso => {
     const d = new Date(iso + 'T00:00:00'), dw = d.getDay();
     const off = offCountOn(iso);
@@ -1909,11 +1924,11 @@ function renderSchedule() {
     return `<div class="${cls.join(' ')}" onclick="scheduleStore.selectedDate='${iso}';customScheduleText=null;saveSchedule();render();">
       <div class="dp-d">${DAYS[dw]}</div>
       <div class="dp-n">${d.getDate()}</div>
-      <div class="dp-o" style="color:${off?'#f87171':'var(--dim)'}">${off?('🔴'+off):'·'}</div>
+      <div class="dp-o" style="color:${off?'#f87171':'var(--dim)'}">${off?('휴 '+off):'·'}</div>
     </div>`;
   }).join('');
 
-  /* ---- 요약 카드 ---- */
+  /* ---- 선택일 요약 ---- */
   let dayWork=0, dayOff=0, dawnWork=0, dawnOff=0;
   scheduleStore.dayWorkers.forEach(w => { getWorkerStatus(w,selDate,'day')==='WORK' ? dayWork++ : dayOff++; });
   scheduleStore.dawnWorkers.forEach(w => { getWorkerStatus(w,selDate,'dawn')==='WORK' ? dawnWork++ : dawnOff++; });
@@ -1923,23 +1938,21 @@ function renderSchedule() {
       <div class="sch-stat-card" style="border-color:rgba(59,130,246,0.3)">
         <div class="sch-stat-title">☀️ 주간반 (${scheduleStore.dayWorkers.length}명)</div>
         <div class="sch-stat-body">
-          <span class="sch-stat-pill" style="color:#4ade80">🟢 ${dayWork}</span>
-          <span class="sch-stat-pill" style="color:#f87171">🔴 ${dayOff}</span>
+          <span class="sch-stat-pill" style="color:#4ade80">근무 🟢 ${dayWork}</span>
+          <span class="sch-stat-pill" style="color:#f87171">휴무 🔴 ${dayOff}</span>
         </div>
       </div>
       <div class="sch-stat-card" style="border-color:rgba(168,85,247,0.3)">
         <div class="sch-stat-title">🌅 새벽반 (${scheduleStore.dawnWorkers.length}명)</div>
         <div class="sch-stat-body">
-          <span class="sch-stat-pill" style="color:#4ade80">🟢 ${dawnWork}</span>
-          <span class="sch-stat-pill" style="color:#f87171">🔴 ${dawnOff}</span>
+          <span class="sch-stat-pill" style="color:#4ade80">근무 🟢 ${dawnWork}</span>
+          <span class="sch-stat-pill" style="color:#f87171">휴무 🔴 ${dawnOff}</span>
         </div>
       </div>
     </div>`;
 
-  let body = '';
-
-  /* ================= 📅 오늘 뷰 ================= */
-  if (mode === 'today') {
+  /* ---- 선택일 근무자 토글 리스트 (월간 뷰에서 사용) ---- */
+  const dayToggleList = () => {
     const rowsFor = (arr, shift) => arr.length
       ? arr.map(w => {
           const off = getWorkerStatus(w, selDate, shift) === 'OFF';
@@ -1947,21 +1960,30 @@ function renderSchedule() {
           return `<div class="sch-row2 ${off?'off':''}" onclick="toggleWorkerStatus('${esc(w)}','${selDate}','${shift}')">
             <span class="r-name">${esc(w)}</span>
             ${fix?'<span class="r-fix">🔒 고정</span>':''}
-            <span class="r-st ${off?'st-off':'st-work'}">${off?'🔴 휴무':'🟢 근무'}</span>
+            <span class="r-st ${off?'st-off':'st-work'}">${off?'휴무 🔴':'근무 🟢'}</span>
           </div>`;
         }).join('')
       : `<div style="padding:14px;color:var(--dim);text-align:center;font-size:12.5px">등록된 근무자가 없습니다.</div>`;
-
-    body = `
-      <div class="section-head"><div class="section-title">💡 이름을 <b>한 번 탭</b>하면 근무 ⇄ 휴무가 바뀝니다.</div></div>
+    return `
+      <div class="section-head"><div class="section-title">💡 이름 줄을 <b>탭</b>하면 근무 ⇄ 휴무가 바뀝니다.</div></div>
       <div class="section-title" style="margin:10px 2px 8px;color:var(--blue3)">☀️ 주간반</div>
       ${rowsFor(scheduleStore.dayWorkers, 'day')}
       <div class="section-title" style="margin:16px 2px 8px;color:var(--purple2)">🌅 새벽반</div>
       ${rowsFor(scheduleStore.dawnWorkers, 'dawn')}`;
-  }
+  };
 
-  /* ================= 📆 주간 뷰 ================= */
-  else if (mode === 'weekly') {
+  /* ---- 달력 골격 ---- */
+  const calFrame = (cells) => `
+    <div class="cal-grid" style="margin-top:12px;">
+      <div class="cal-head sun">일</div><div class="cal-head">월</div><div class="cal-head">화</div>
+      <div class="cal-head">수</div><div class="cal-head">목</div><div class="cal-head">금</div><div class="cal-head sat">토</div>
+      ${cells}
+    </div>`;
+
+  let body = '';
+
+  /* ================= 📆 주간 ================= */
+  if (mode === 'weekly') {
     const thCols = weekDays.map(iso => {
       const d = new Date(iso + 'T00:00:00'), dw = d.getDay();
       const style = dw===0 ? 'color:#f08a8a' : (dw===6 ? 'color:#7ab0f0' : '');
@@ -1974,7 +1996,7 @@ function renderSchedule() {
 
     const gridRows = (arr, shift) => arr.length
       ? arr.map(w => `<tr>
-          <td class="worker-cell">${esc(w)}</td>
+          <td class="worker-cell" style="cursor:pointer" onclick="openPersonal('${esc(w)}')">${esc(w)}</td>
           ${weekDays.map(iso => {
             const off = getWorkerStatus(w, iso, shift) === 'OFF';
             const fix = isFixedOffDay(w, iso, shift);
@@ -1985,7 +2007,7 @@ function renderSchedule() {
       : `<tr><td colspan="8" style="padding:14px;color:var(--dim);text-align:center">등록된 근무자가 없습니다.</td></tr>`;
 
     body = `
-      <div class="section-head"><div class="section-title">💡 점선 테두리 = <b>고정 휴무 요일</b> · 탭하면 그날만 예외 처리됩니다.</div></div>
+      <div class="section-head"><div class="section-title">💡 <b>이름</b> 탭 = 개인 화면 · <b>점선</b> = 고정 휴무 요일</div></div>
       <div class="sch-table-wrap">
         <table class="sch-table compact">
           <thead><tr><th class="worker-cell">☀️ 주간</th>${thCols}</tr></thead>
@@ -1993,13 +2015,54 @@ function renderSchedule() {
           <thead><tr><th class="worker-cell" style="color:var(--amber2)">🌅 새벽</th>${thCols}</tr></thead>
           <tbody>${gridRows(scheduleStore.dawnWorkers, 'dawn')}</tbody>
         </table>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:10px;font-size:11.5px;font-weight:700;">
+        <span style="color:#4ade80">근무 🟢</span>
+        <span style="color:#f87171">휴무 🔴</span>
+        <span style="color:var(--dim)">🔒 점선 = 고정휴무</span>
       </div>`;
   }
 
-  /* ================= 👤 개인 뷰 ================= */
+  /* ================= 🗓️ 월간 ================= */
+  else if (mode === 'monthly') {
+    const d0 = new Date(selDate + 'T00:00:00');
+    const year = d0.getFullYear(), month = d0.getMonth();
+    const startDow = new Date(year, month, 1).getDay();
+    const totalDays = new Date(year, month + 1, 0).getDate();
+
+    let cells = '';
+    for (let p = 0; p < startDow; p++) cells += `<div class="cal-day other-month"><span class="cal-day-num">·</span></div>`;
+
+    for (let day = 1; day <= totalDays; day++) {
+      const iso = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      const dw = dowOf(iso);
+      const names = offNamesOn(iso);
+      let chips = '';
+      if (names.length === 0) {
+        chips = `<div class="cal-chip" style="background:rgba(34,197,94,.12);color:#4ade80">전원근무</div>`;
+      } else if (names.length <= 2) {
+        chips = names.map(n => `<div class="cal-chip" style="background:rgba(239,68,68,.18);color:#f87171">${esc(n)}</div>`).join('');
+      } else {
+        chips = `<div class="cal-chip" style="background:rgba(239,68,68,.18);color:#f87171">휴무 ${names.length}명</div>`;
+      }
+      cells += `<div class="cal-day ${iso===todayStr?'is-today':''} ${iso===selDate?'selected':''}"
+        onclick="scheduleStore.selectedDate='${iso}';customScheduleText=null;saveSchedule();render();">
+        <div class="cal-day-num ${dw===0?'sun':(dw===6?'sat':'')}">${day}</div>
+        <div class="cal-day-chips">${chips}</div>
+      </div>`;
+    }
+
+    body = `
+      <div class="section-head"><div class="section-title">🗓️ 날짜를 탭하면 <b>아래에서 휴무를 지정</b>할 수 있습니다.</div></div>
+      ${calFrame(cells)}
+      <div style="height:8px"></div>
+      ${dayToggleList()}`;
+  }
+
+  /* ================= 👤 개인 ================= */
   else {
-    const dObj = new Date(selDate + 'T00:00:00');
-    const year = dObj.getFullYear(), month = dObj.getMonth();
+    const d0 = new Date(selDate + 'T00:00:00');
+    const year = d0.getFullYear(), month = d0.getMonth();
     const startDow = new Date(year, month, 1).getDay();
     const totalDays = new Date(year, month + 1, 0).getDate();
 
@@ -2010,26 +2073,13 @@ function renderSchedule() {
       <div style="margin-bottom:12px;">
         <label class="field-label">👤 근무자 선택</label>
         <select class="inp" onchange="setMonthlyWorkerFilter(this.value)">
-          <option value="ALL" ${curFilter==='ALL'?'selected':''}>👥 전체 보기</option>
+          <option value="ALL" ${curFilter==='ALL'?'selected':''}>👥 전체 누적 요약</option>
           <optgroup label="☀️ 주간반">${dayOpts}</optgroup>
           <optgroup label="🌅 새벽반">${dawnOpts}</optgroup>
         </select>
       </div>`;
 
-    let indHtml = '', calCells = '';
-    for (let p = 0; p < startDow; p++) calCells += `<div class="cal-day other-month"><span class="cal-day-num">·</span></div>`;
-
     if (curFilter === 'ALL') {
-      for (let day = 1; day <= totalDays; day++) {
-        const iso = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-        const dw = dowOf(iso);
-        const off = offCountOn(iso);
-        calCells += `<div class="cal-day ${iso===todayStr?'is-today':''} ${iso===selDate?'selected':''}"
-          onclick="scheduleStore.selectedDate='${iso}';customScheduleText=null;saveSchedule();render();">
-          <div class="cal-day-num ${dw===0?'sun':(dw===6?'sat':'')}">${day}</div>
-          <div class="cal-day-chips">${off?`<div class="cal-chip" style="background:rgba(239,68,68,.18);color:#f87171">🔴 ${off}</div>`:''}</div>
-        </div>`;
-      }
       const summary = (arr, title, isDawn) => arr.length ? `
         <div style="margin-top:10px;">
           <div class="section-title" style="margin-bottom:6px;color:${isDawn?'var(--purple2)':'var(--blue3)'}">${title}</div>
@@ -2037,38 +2087,57 @@ function renderSchedule() {
           ${arr.map(w => {
             const st = getWorkerMonthlyStats(w, year, month, isDawn?'dawn':'day');
             const fx = fixedOffLabel(w, isDawn?'dawn':'day');
-            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 11px;background:var(--card2);border-radius:8px;font-size:12.5px;cursor:pointer;" onclick="setMonthlyWorkerFilter('${esc(w)}')">
+            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 11px;background:var(--card2);border-radius:8px;font-size:12.5px;cursor:pointer;" onclick="openPersonal('${esc(w)}')">
               <span style="font-weight:800">${esc(w)}${fx?`<span style="color:var(--dim);font-weight:600;font-size:10.5px"> 🔒${fx}</span>`:''}</span>
               <div style="display:flex;gap:10px;font-weight:800">
-                <span style="color:#4ade80">🟢 ${st.workCount}</span>
-                <span style="color:#f87171">🔴 ${st.offCount}</span>
+                <span style="color:#4ade80">근무 ${st.workCount}</span>
+                <span style="color:#f87171">휴무 ${st.offCount}</span>
               </div>
             </div>`;
           }).join('')}
           </div>
         </div>` : '';
-      indHtml = `<div class="zone" style="margin-top:14px;">
-        <div class="section-title" style="margin-bottom:8px;">📊 ${month+1}월 누적 요약 · 탭하면 개인 달력</div>
-        ${summary(scheduleStore.dayWorkers,'☀️ 주간반',false)}
-        ${summary(scheduleStore.dawnWorkers,'🌅 새벽반',true)}
-      </div>`;
+      body = `
+        ${filterHtml}
+        <div class="zone">
+          <div class="section-title" style="margin-bottom:8px;">📊 ${month+1}월 누적 · 탭하면 개인 달력</div>
+          ${summary(scheduleStore.dayWorkers,'☀️ 주간반',false)}
+          ${summary(scheduleStore.dawnWorkers,'🌅 새벽반',true)}
+        </div>`;
     } else {
       const shift = scheduleStore.dawnWorkers.includes(curFilter) ? 'dawn' : 'day';
       const st = getWorkerMonthlyStats(curFilter, year, month, shift);
       const fxSet = getFixedOff(curFilter, shift);
 
-      indHtml = `
+      let cells = '';
+      for (let p = 0; p < startDow; p++) cells += `<div class="cal-day other-month"><span class="cal-day-num">·</span></div>`;
+      for (let day = 1; day <= totalDays; day++) {
+        const iso = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+        const dw = dowOf(iso);
+        const off = getWorkerStatus(curFilter, iso, shift) === 'OFF';
+        const fix = isFixedOffDay(curFilter, iso, shift);
+        cells += `<div class="cal-day ${iso===todayStr?'is-today':''} ${iso===selDate?'selected':''}"
+          onclick="toggleWorkerStatus('${esc(curFilter)}','${iso}','${shift}')">
+          <div class="cal-day-num ${dw===0?'sun':(dw===6?'sat':'')}">${day}</div>
+          <div style="margin-top:auto;padding-top:4px;">
+            <div class="grid-cell ${off?'gc-off':'gc-work'} ${fix?'gc-fix':''}" style="height:24px;font-size:10.5px;font-weight:800;">${off?'휴무':'근무'}</div>
+          </div>
+        </div>`;
+      }
+
+      body = `
+        ${filterHtml}
         <div class="sch-ind-card">
           <div class="sch-ind-top">
             <div class="sch-ind-name">👤 ${esc(curFilter)}</div>
             <span class="sch-ind-shift" style="background:${shift==='dawn'?'rgba(168,85,247,.25)':'rgba(59,130,246,.25)'}">${shift==='dawn'?'🌅 새벽반':'☀️ 주간반'}</span>
           </div>
           <div class="sch-ind-stats">
-            <span style="color:#4ade80">🟢 ${st.workCount}일</span>
-            <span style="color:#f87171">🔴 ${st.offCount}일</span>
+            <span style="color:#4ade80">근무 ${st.workCount}일</span>
+            <span style="color:#f87171">휴무 ${st.offCount}일</span>
             <span style="color:var(--blue3)">📊 ${Math.round((st.workCount/st.totalDays)*100)}%</span>
           </div>
-          <div class="sch-ind-offlist"><b>🔒 고정 휴무 요일</b> — 탭해서 켜고 끄면 해당 요일이 자동 휴무 처리됩니다.
+          <div class="sch-ind-offlist"><b>🔒 고정 휴무 요일</b> — 켜면 해당 요일이 매주 자동 휴무 처리됩니다.
             <div class="fx-grid">
               ${DAYS.map((d,i)=>`<button class="fx-btn ${fxSet.indexOf(i)>=0?'on':''}" onclick="toggleFixedOff('${esc(curFilter)}','${shift}',${i})">${d}</button>`).join('')}
             </div>
@@ -2077,31 +2146,10 @@ function renderSchedule() {
             <b>${month+1}월 휴무일 (${st.offCount}일):</b><br>
             ${st.offDays.length ? st.offDays.map(o=>`${month+1}/${o.day}(${DAYS[dowOf(o.iso)]})`).join(', ') : '지정된 휴무일이 없습니다.'}
           </div>
-        </div>`;
-
-      for (let day = 1; day <= totalDays; day++) {
-        const iso = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-        const dw = dowOf(iso);
-        const off = getWorkerStatus(curFilter, iso, shift) === 'OFF';
-        const fix = isFixedOffDay(curFilter, iso, shift);
-        calCells += `<div class="cal-day ${iso===todayStr?'is-today':''} ${iso===selDate?'selected':''}"
-          onclick="toggleWorkerStatus('${esc(curFilter)}','${iso}','${shift}')">
-          <div class="cal-day-num ${dw===0?'sun':(dw===6?'sat':'')}">${day}</div>
-          <div style="margin-top:auto;padding-top:4px;">
-            <div class="grid-cell ${off?'gc-off':'gc-work'} ${fix?'gc-fix':''}" style="height:22px;font-size:12px;">${off?'🔴':'🟢'}</div>
-          </div>
-        </div>`;
-      }
+        </div>
+        <div class="section-head"><div class="section-title">🗓️ 날짜를 탭하면 <b>근무 ⇄ 휴무</b>가 바뀝니다.</div></div>
+        ${calFrame(cells)}`;
     }
-
-    body = `
-      ${filterHtml}
-      ${indHtml}
-      <div class="cal-grid" style="margin-top:12px;">
-        <div class="cal-head sun">일</div><div class="cal-head">월</div><div class="cal-head">화</div>
-        <div class="cal-head">수</div><div class="cal-head">목</div><div class="cal-head">금</div><div class="cal-head sat">토</div>
-        ${calCells}
-      </div>`;
   }
 
   /* ---- 공유 미리보기 ---- */
@@ -2116,7 +2164,7 @@ function renderSchedule() {
       </div>
     </div>`;
 
-  /* ---- 명단 관리 (접이식) ---- */
+  /* ---- 명단 관리 ---- */
   const mgmtHtml = `
     <details class="paste-box" style="margin-top:14px;">
       <summary>👥 근무자 명단 관리</summary>
@@ -2143,7 +2191,7 @@ function renderSchedule() {
   return `
     ${modeSw}
     ${navBar}
-    ${isMonthly ? '' : `<div class="day-strip">${dayStrip}</div>`}
+    ${mode==='weekly' ? `<div class="day-strip">${dayStrip}</div>` : ''}
     <div class="section-head"><div class="section-title">📅 <b>${fmtKDate(selDate)}</b> 현황</div></div>
     ${statsHtml}
     ${body}
