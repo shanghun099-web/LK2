@@ -1748,8 +1748,9 @@ function renderRoster(){
         <input class="zone-emoji" value="${esc(z.emoji||'📍')}" maxlength="2" onchange="setZone(${zi},'emoji',this.value)">
         <input class="zone-name" value="${esc(z.name)}" placeholder="구역명" onchange="setZone(${zi},'name',this.value)">
         <button class="zone-del" title="백업 지정" style="${z.isBackup?'background:rgba(245,158,11,.18);color:var(--amber2)':''}" onclick="toggleZoneBackup(${zi})">🆘</button>
-        <button class="zone-del" onclick="delZone(${zi})">🗑</button>
-      </div> 
+               <button class="zone-del" onclick="delZone(${zi})">🗑</button>
+      </div>
+      ${(()=>{const w=lineWidth(zoneLineText(z,getCompactMode()));return w>KAKAO_LINE_LIMIT?`<div style="font-size:10.5px;color:var(--amber2);font-weight:700;margin:-4px 0 8px 2px;">⚠️ 폭 ${w} · 카톡에서 줄바꿈될 수 있어요 (한계 ${KAKAO_LINE_LIMIT})</div>`:''})()} 
       <div class="chips">
         ${z.people.map((p,pi)=>`<span class="chip">${esc(p)}<button class="chip-x" onclick="delPerson(${zi},${pi})">✕</button></span>`).join('')}
         <span class="chip-add"><input placeholder="+ 이름" onkeydown="if(event.key==='Enter'){addPerson(${zi},this.value);this.value='';}" onblur="if(this.value.trim()){addPerson(${zi},this.value);this.value='';}"></span>
@@ -1765,10 +1766,14 @@ function renderRoster(){
       <div class="field" style="margin:0"><label class="field-label">📅 날짜</label><input type="date" class="inp" value="${R.work.date}" onchange="cur().work.date=this.value;customRosterText=null;render()"></div>
       <div class="field" style="margin:0"><label class="field-label">📋 제목</label><input class="inp" value="${esc(R.work.title)}" placeholder="${esc(R.defTitle)}" onchange="cur().work.title=this.value;customRosterText=null;render()"></div>
     </div>
-       <div class="opt-row">
-      <div><div class="opt-text">구역명 줄바꿈 표시</div><div class="opt-sub">인원 많은 구역을 2줄로 나눠 카톡에서 잘 보이게 합니다</div></div>
-      <label class="switch"><input type="checkbox" ${getWideMode()?'checked':''} onchange="setWideMode(this.checked)"><span class="slider"></span></label>
+        <div class="opt-row">
+      <div><div class="opt-text">이름 간격 좁게</div><div class="opt-sub">쉼표 공백을 없애 한 줄에 더 많이 담습니다 (권장)</div></div>
+      <label class="switch"><input type="checkbox" ${getCompactMode()?'checked':''} onchange="setCompactMode(this.checked)"><span class="slider"></span></label>
     </div>
+    <div class="opt-row">
+      <div><div class="opt-text">구역명 줄바꿈 표시</div><div class="opt-sub">그래도 넘치면 켜세요 · 모든 구역을 2줄로 나눕니다</div></div>
+      <label class="switch"><input type="checkbox" ${getWideMode()?'checked':''} onchange="setWideMode(this.checked)"><span class="slider"></span></label>
+    </div>   
     <div class="section-head">
       <div class="section-title">구역 <b>${R.work.zones.filter(z=>!z.isBackup).length}</b>개 · 근무 <b>${R.work.zones.filter(z=>!z.isBackup).reduce((s,z)=>s+z.people.length,0)}</b>명 · 🆘 백업 <b>${R.work.zones.filter(z=>z.isBackup).reduce((s,z)=>s+z.people.length,0)}</b>명</div>
     </div>
@@ -1797,17 +1802,17 @@ function rosterText(){
   const active=R.work.zones.filter(z=>z.name.trim()&&z.people.length);
   if(!active.length) return '';
 
-  const wide=getWideMode();
+    const wide=getWideMode();
+  const compact=getCompactMode();
   const line=z=> wide
-    ? `${z.emoji||'📍'} ${z.name}\n　 ${z.people.join(', ')}`
-    : `${z.emoji||'📍'} ${z.name} · ${z.people.join(', ')}`;
+    ? `${z.emoji||'📍'} ${z.name}\n　 ${z.people.join(compact?'·':', ')}`
+    : zoneLineText(z, compact);
 
   const norm=active.filter(z=>!z.isBackup);
   const back=active.filter(z=>z.isBackup);
 
   const zonesStr=norm.map(line).join('\n');
-  const backupStr=back.map(z=>`${z.emoji||'🆘'} ${z.name} · ${z.people.join(', ')}`).join('\n');
-  const workTotal=norm.reduce((s,z)=>s+z.people.length,0);
+  const backupStr=back.map(z=>zoneLineText({...z, emoji: z.emoji||'🆘'}, compact)).join('\n');
   const backTotal=back.reduce((s,z)=>s+z.people.length,0);
 
   const tplKey = tab==='dawn'?'dawn':'roster';
@@ -1836,9 +1841,29 @@ function toggleZoneBackup(zi){
   else if(z.emoji==='🆘'){ z.emoji='📍'; }
   render();
 }
-
 function getWideMode(){ return localStorage.getItem('disp-roster-wide')==='1'; }
 function setWideMode(v){ localStorage.setItem('disp-roster-wide', v?'1':'0'); customRosterText=null; render(); }
+
+function getCompactMode(){ return localStorage.getItem('disp-roster-compact')==='1'; }
+function setCompactMode(v){ localStorage.setItem('disp-roster-compact', v?'1':'0'); customRosterText=null; render(); }
+
+/* 카톡 한 줄에 들어가는 대략적 폭 (한글 2 · 영문/기호 1 · 이모지 2) */
+const KAKAO_LINE_LIMIT = 40;
+function lineWidth(s){
+  let w = 0;
+  for (const ch of String(s || '')) {
+    const cp = ch.codePointAt(0);
+    w += (cp > 0x1100 && cp < 0xD7FF) || (cp >= 0x4E00 && cp <= 0x9FFF) || cp > 0x1F000 ? 2 : 1;
+  }
+  return w;
+}
+function zoneLineText(z, compact){
+  const emoji = z.emoji || '📍';
+  return compact
+    ? `${emoji} ${z.name} ${z.people.join('·')}`
+    : `${emoji} ${z.name} · ${z.people.join(', ')}`;
+}
+
 function addPerson(zi,v){const n=v.trim();if(!n)return;customRosterText=null;cur().work.zones[zi].people.push(n);render();}
 function delPerson(zi,pi){customRosterText=null;cur().work.zones[zi].people.splice(pi,1);render();}
 
