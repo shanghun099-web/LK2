@@ -1813,8 +1813,8 @@ function rosterText(){
 
   const zonesStr=norm.map(line).join('\n');
   const backupStr=back.map(z=>zoneLineText({...z, emoji: z.emoji||'🆘'}, compact)).join('\n');
+  const workTotal=norm.reduce((s,z)=>s+z.people.length,0);
   const backTotal=back.reduce((s,z)=>s+z.people.length,0);
-
   const tplKey = tab==='dawn'?'dawn':'roster';
   return tidyLines(formatTemplate(getTemplate(tplKey), {
     emoji: R.emoji,
