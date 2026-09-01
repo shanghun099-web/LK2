@@ -1770,10 +1770,19 @@ function renderRoster(){
       <div><div class="opt-text">이름 간격 좁게</div><div class="opt-sub">쉼표 공백을 없애 한 줄에 더 많이 담습니다 (권장)</div></div>
       <label class="switch"><input type="checkbox" ${getCompactMode()?'checked':''} onchange="setCompactMode(this.checked)"><span class="slider"></span></label>
     </div>
-    <div class="opt-row">
+      <div class="opt-row">
       <div><div class="opt-text">구역명 줄바꿈 표시</div><div class="opt-sub">그래도 넘치면 켜세요 · 모든 구역을 2줄로 나눕니다</div></div>
       <label class="switch"><input type="checkbox" ${getWideMode()?'checked':''} onchange="setWideMode(this.checked)"><span class="slider"></span></label>
-    </div>   
+    </div>
+    <div class="opt-row" style="display:block">
+      <div style="margin-bottom:9px">
+        <div class="opt-text">구역 · 이름 구분 방식</div>
+        <div class="opt-sub">카톡에서 구역명과 명단이 한눈에 나뉘게 합니다</div>
+      </div>
+      <div class="paste-mode" style="margin-bottom:0">
+        ${Object.keys(ZONE_SEPS).map(k=>`<button class="paste-mode-btn ${k===getZoneSep()?'active':''}" style="padding:9px 2px;font-size:11.5px" onclick="setZoneSep('${k}')">${esc(ZONE_SEPS[k].label)}</button>`).join('')}
+      </div>
+    </div>
     <div class="section-head">
       <div class="section-title">구역 <b>${R.work.zones.filter(z=>!z.isBackup).length}</b>개 · 근무 <b>${R.work.zones.filter(z=>!z.isBackup).reduce((s,z)=>s+z.people.length,0)}</b>명 · 🆘 백업 <b>${R.work.zones.filter(z=>z.isBackup).reduce((s,z)=>s+z.people.length,0)}</b>명</div>
     </div>
@@ -1857,11 +1866,21 @@ function lineWidth(s){
   }
   return w;
 }
+const ZONE_SEPS = {
+  colon:   { label:'도곡: 이름',  fn:(e,n)=>`${e} ${n}:` },
+  bar:     { label:'도곡 | 이름', fn:(e,n)=>`${e} ${n} |` },
+  bracket: { label:'[도곡] 이름', fn:(e,n)=>`${e} [${n}]` },
+  dot:     { label:'도곡 · 이름', fn:(e,n)=>`${e} ${n} ·` }
+};
+function getZoneSep(){ const v=localStorage.getItem('disp-roster-sep'); return ZONE_SEPS[v]?v:'colon'; }
+function setZoneSep(v){ localStorage.setItem('disp-roster-sep', v); customRosterText=null; render(); }
+
 function zoneLineText(z, compact){
   const emoji = z.emoji || '📍';
-  return compact
-    ? `${emoji} ${z.name} ${z.people.join('·')}`
-    : `${emoji} ${z.name} · ${z.people.join(', ')}`;
+  const sep = getZoneSep();
+  const head = ZONE_SEPS[sep].fn(emoji, z.name);
+  const nameSep = compact ? (sep==='dot' ? ' ' : '·') : ', ';
+  return `${head} ${z.people.join(nameSep)}`;
 }
 
 function addPerson(zi,v){const n=v.trim();if(!n)return;customRosterText=null;cur().work.zones[zi].people.push(n);render();}
@@ -2714,7 +2733,7 @@ function saveSettings(){
   showToast('⚙️ 설정 및 공유 양식이 기기에 저장되었습니다.');
 }
 
-const BK_KEYS=['disp-roster-tpl','disp-dawn-tpl','disp-schedule','disp-inbound','disp-roster-wide','disp-tab-order','acn5'];
+const BK_KEYS=['disp-roster-tpl','disp-dawn-tpl','disp-schedule','disp-inbound','disp-roster-wide','disp-roster-compact','disp-roster-sep','disp-tab-order','acn5'];
 let pendingImport=null;
 
 function openBackup(){document.getElementById('backup-sheet').classList.add('show');}
