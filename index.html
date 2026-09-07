@@ -1750,7 +1750,7 @@ function renderRoster(){
         <button class="zone-del" title="백업 지정" style="${z.isBackup?'background:rgba(245,158,11,.18);color:var(--amber2)':''}" onclick="toggleZoneBackup(${zi})">🆘</button>
                <button class="zone-del" onclick="delZone(${zi})">🗑</button>
       </div>
-      ${(()=>{const w=lineWidth(zoneLineText(z,getCompactMode()));return w>KAKAO_LINE_LIMIT?`<div style="font-size:10.5px;color:var(--amber2);font-weight:700;margin:-4px 0 8px 2px;">⚠️ 폭 ${w} · 카톡에서 줄바꿈될 수 있어요 (한계 ${KAKAO_LINE_LIMIT})</div>`:''})()} 
+           ${(()=>{return zoneLineText(z,getCompactMode()).indexOf('\n')>=0?`<div style="font-size:10.5px;color:var(--blue3);font-weight:700;margin:-4px 0 8px 2px;">↩️ 인원이 많아 카톡에서 2줄로 나눠 보냅니다</div>`:''})()}
       <div class="chips">
         ${z.people.map((p,pi)=>`<span class="chip">${esc(p)}<button class="chip-x" onclick="delPerson(${zi},${pi})">✕</button></span>`).join('')}
         <span class="chip-add"><input placeholder="+ 이름" onkeydown="if(event.key==='Enter'){addPerson(${zi},this.value);this.value='';}" onblur="if(this.value.trim()){addPerson(${zi},this.value);this.value='';}"></span>
@@ -1769,10 +1769,6 @@ function renderRoster(){
         <div class="opt-row">
       <div><div class="opt-text">이름 간격 좁게</div><div class="opt-sub">쉼표 공백을 없애 한 줄에 더 많이 담습니다 (권장)</div></div>
       <label class="switch"><input type="checkbox" ${getCompactMode()?'checked':''} onchange="setCompactMode(this.checked)"><span class="slider"></span></label>
-    </div>
-      <div class="opt-row">
-      <div><div class="opt-text">구역명 줄바꿈 표시</div><div class="opt-sub">그래도 넘치면 켜세요 · 모든 구역을 2줄로 나눕니다</div></div>
-      <label class="switch"><input type="checkbox" ${getWideMode()?'checked':''} onchange="setWideMode(this.checked)"><span class="slider"></span></label>
     </div>
     <div class="opt-row" style="display:block">
       <div style="margin-bottom:9px">
@@ -1811,11 +1807,8 @@ function rosterText(){
   const active=R.work.zones.filter(z=>z.name.trim()&&z.people.length);
   if(!active.length) return '';
 
-    const wide=getWideMode();
   const compact=getCompactMode();
-  const line=z=> wide
-    ? `${z.emoji||'📍'} ${z.name}\n　 ${z.people.join(compact?'·':', ')}`
-    : zoneLineText(z, compact);
+  const line=z=> zoneLineText(z, compact);
 
   const norm=active.filter(z=>!z.isBackup);
   const back=active.filter(z=>z.isBackup);
@@ -1850,14 +1843,11 @@ function toggleZoneBackup(zi){
   else if(z.emoji==='🆘'){ z.emoji='📍'; }
   render();
 }
-function getWideMode(){ return localStorage.getItem('disp-roster-wide')==='1'; }
-function setWideMode(v){ localStorage.setItem('disp-roster-wide', v?'1':'0'); customRosterText=null; render(); }
-
 function getCompactMode(){ return localStorage.getItem('disp-roster-compact')==='1'; }
 function setCompactMode(v){ localStorage.setItem('disp-roster-compact', v?'1':'0'); customRosterText=null; render(); }
 
 /* 카톡 한 줄에 들어가는 대략적 폭 (한글 2 · 영문/기호 1 · 이모지 2) */
-const KAKAO_LINE_LIMIT = 40;
+const KAKAO_LINE_LIMIT = 38;
 function lineWidth(s){
   let w = 0;
   for (const ch of String(s || '')) {
@@ -1867,20 +1857,37 @@ function lineWidth(s){
   return w;
 }
 const ZONE_SEPS = {
-  colon:   { label:'도곡: 이름',  fn:(e,n)=>`${e} ${n}:` },
-  bar:     { label:'도곡 | 이름', fn:(e,n)=>`${e} ${n} |` },
-  bracket: { label:'[도곡] 이름', fn:(e,n)=>`${e} [${n}]` },
-  dot:     { label:'도곡 · 이름', fn:(e,n)=>`${e} ${n} ·` }
+  pin:  { label:'📍 핀',   emoji:'📍' },
+  blue: { label:'🔹 도트', emoji:'🔹' },
+  flag: { label:'🚩 깃발', emoji:'🚩' }
 };
-function getZoneSep(){ const v=localStorage.getItem('disp-roster-sep'); return ZONE_SEPS[v]?v:'colon'; }
+const ZONE_EMOJIS = Object.keys(ZONE_SEPS).map(k=>ZONE_SEPS[k].emoji);
+function getZoneSep(){ const v=localStorage.getItem('disp-roster-sep'); return ZONE_SEPS[v]?v:'pin'; }
 function setZoneSep(v){ localStorage.setItem('disp-roster-sep', v); customRosterText=null; render(); }
 
 function zoneLineText(z, compact){
-  const emoji = z.emoji || '📍';
-  const sep = getZoneSep();
-  const head = ZONE_SEPS[sep].fn(emoji, z.name);
-  const nameSep = compact ? (sep==='dot' ? ' ' : '·') : ', ';
-  return `${head} ${z.people.join(nameSep)}`;
+  const st = ZONE_SEPS[getZoneSep()] || ZONE_SEPS.pin;
+  const custom = (z.emoji && ZONE_EMOJIS.indexOf(z.emoji) < 0) ? z.emoji : '';
+  const emoji = z.isBackup ? (z.emoji || '🆘') : (custom || st.emoji);
+  const head = `${emoji} ${z.name}:`;
+  const nameSep = compact ? '·' : ', ';
+  const one = `${head} ${z.people.join(nameSep)}`;
+  if (lineWidth(one) <= KAKAO_LINE_LIMIT) return one;
+
+  const lines = [head.replace(/[:|·]\s*$/, '').trim()];
+  let cur = '';
+  z.people.forEach(p => {
+    const pre = lines.length === 1 ? '└ ' : '　 ';
+    const next = cur ? cur + nameSep + p : p;
+    if (cur && lineWidth(pre + next) > KAKAO_LINE_LIMIT) {
+      lines.push(pre + cur);
+      cur = p;
+    } else {
+      cur = next;
+    }
+  });
+  if (cur) lines.push((lines.length === 1 ? '└ ' : '　 ') + cur);
+  return lines.join('\n');
 }
 
 function addPerson(zi,v){const n=v.trim();if(!n)return;customRosterText=null;cur().work.zones[zi].people.push(n);render();}
