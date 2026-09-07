@@ -441,7 +441,7 @@ body.tab-dragging .tabs{overflow-x:hidden;}
   <div class="sheet" style="max-height: 85vh; overflow-y: auto;">
     <div class="sheet-title">⚙️ 설정 및 문구 양식</div>
     <div class="sheet-sub">API 설정 및 카톡 공유 기본 문구를 기호에 맞춰 영구 저장해 두세요.</div>
-    
+
     <div class="sheet-tabs">
       <button class="sheet-tab active" id="sheet-tab-gen" onclick="switchSettingsTab('gen')">⚙️ 일반 설정</button>
       <button class="sheet-tab" id="sheet-tab-tpl" onclick="switchSettingsTab('tpl')">📝 기본 문구 편집</button>
@@ -450,15 +450,20 @@ body.tab-dragging .tabs{overflow-x:hidden;}
     <div id="set-panel-gen">
       <label class="field-label">Gemini API 키</label>
       <input class="inp" id="set-apikey" type="password" placeholder="AIza..." autocomplete="off">
-      <div class="sheet-hint">키는 이 기기에만 저장되고 외부로 전송되지 않습니다. <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--blue3)">발급받기 →</a></div>
+      <div class="sheet-hint">키는 이 기기에만 저장되고 외부로 전송되지 않습니다. 📦 물량 탭도 이 키를 함께 씁니다. <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--blue3)">발급받기 →</a></div>
       <div style="height:14px"></div>
-      <label class="field-label">인식 모델</label>
-      <select class="inp" id="set-model">
-        <option value="gemini-3.5-flash">Gemini 3.5 Flash (권장 · 무료 티어)</option>
-        <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite (가볍고 빠름)</option>
-        <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-      </select>
-      <div class="sheet-hint">인식 오류가 발생하면 모델을 변경해보세요.</div>
+      <label class="field-label">인식 모델 (물량 탭 · 위에서부터 순서대로 시도)</label>
+      <input class="inp" id="set-model-0" list="mv-model-list" placeholder="1순위 모델" autocomplete="off">
+      <div style="height:7px"></div>
+      <input class="inp" id="set-model-1" list="mv-model-list" placeholder="2순위 모델" autocomplete="off">
+      <div style="height:7px"></div>
+      <input class="inp" id="set-model-2" list="mv-model-list" placeholder="3순위 모델" autocomplete="off">
+      <datalist id="mv-model-list"></datalist>
+      <div class="row2" style="margin-top:8px">
+        <button class="mini-btn" id="set-model-load" onclick="loadGeminiModels()">쓸 수 있는 모델 불러오기</button>
+        <button class="mini-btn" onclick="resetGeminiModels()">기본값</button>
+      </div>
+      <div class="sheet-hint" id="set-model-msg">앞 모델이 붐비면 다음 모델로 자동으로 넘어갑니다.</div>
       <div style="height:14px"></div>
       <label class="field-label">날짜 자동 갱신 기준 시각</label>
       <select class="inp" id="set-rollover">
@@ -679,10 +684,6 @@ initRoster('dawn');
 
 function cur(){return tab==='dawn'?rosters.dawn:rosters.main;}
 function saveTplFor(R){localStorage.setItem(R.lsKey,JSON.stringify(R.tpl));}
-
-
-
-
 
 let scheduleStore = load('disp-schedule', null);
 if (!scheduleStore || typeof scheduleStore !== 'object') {
@@ -923,7 +924,6 @@ function applyDayRollover(force){
     scheduleStore.selectedDate = rollDate(scheduleStore.selectedDate);
     saveSchedule();
   }
-
 
   ['trunk','rabbit'].forEach(k=>{ if(inboundStore && inboundStore[k]) inboundStore[k].date = t; });
   saveInbound();
@@ -1205,7 +1205,6 @@ async function fetchWeather(){
     wx.timeline = tl;
     wx.minutely = m15;
 
-    // 클로드 피드백 반영: 다가올 다음 일몰 시각을 올바르게 구함
     const suns = (f.daily && f.daily.sunset) ? f.daily.sunset.map(t=>t*1000) : [];
     wx.sun = suns.find(t => t > now) || null;
 
@@ -1401,8 +1400,7 @@ function wxNowHtml(){
   if(!n) return '';
   const air = wx.air || {};
   const p10 = aqGrade(air.pm10,'pm10'), p25 = aqGrade(air.pm25,'pm25');
-  
-  // 클로드 피드백 반영: 돌풍 임계값(km/h) 및 m/s 단위 표시 변환
+
   const gustKm = n.gust != null ? Math.round(n.gust) : null;
   const gustColor = (gustKm != null && gustKm >= 35) ? 'var(--amber2)' : 'var(--text)';
 
@@ -1435,8 +1433,7 @@ function wxWarnHtml(){
   if(n){
     if(n.feels != null && n.feels >= 33) w.push({c:'red', t:`🥵 체감 ${Math.round(n.feels)}° · 온열질환 주의, 수분 자주 드세요`});
     else if(n.feels != null && n.feels <= 0) w.push({c:'blue', t:`🥶 체감 ${Math.round(n.feels)}° · 노면 결빙 주의`});
-    
-    // 클로드 피드백 반영: 돌풍 km/h 임계값 교정 (50km/h: 강풍, 35km/h: 돌풍)
+
     if(n.gust != null && n.gust >= 50) w.push({c:'red', t:`💨 돌풍 ${(n.gust/3.6).toFixed(1)}m/s (${Math.round(n.gust)}km/h) · 강풍, 적재문 개방 주의`});
     else if(n.gust != null && n.gust >= 35) w.push({c:'amber', t:`💨 돌풍 ${(n.gust/3.6).toFixed(1)}m/s (${Math.round(n.gust)}km/h) · 적재물 날림 주의`});
   }
@@ -1477,7 +1474,6 @@ function wxM15Html(){
     return `<div class="wx-m15-col"><div class="wx-m15-fill" style="height:${h}%;background:${cmap[v.L.color]}"></div></div>`;
   }).join('');
 
-  // 클로드 피드백 반영: 16칸(4시간) 확장 시 1시간 간격으로 정렬
   const labels = list.map((e,i) => {
     const txt = (i % 4 === 0) ? fmtHM(new Date(e.time)) : '';
     return `<div class="wx-m15-lb">${txt}</div>`;
@@ -2428,16 +2424,50 @@ function inboundText(){
 }
 
 function getApiKey(){return localStorage.getItem('gemini-key')||'';}
-const DEFAULT_MODEL='gemini-3.5-flash';
-const VALID_MODELS=['gemini-3.5-flash','gemini-3.1-flash-lite','gemini-2.5-flash'];
-function getModel(){
-  const m=localStorage.getItem('gemini-model');
-  return VALID_MODELS.includes(m)?m:DEFAULT_MODEL;
+
+/* ===== 물량 탭이 함께 쓰는 제미나이 인식 모델 (1~3순위) ===== */
+const MV_MODELS_KEY='mv_models', MV_MIDX_KEY='mv_midx';
+const DEFAULT_MV_MODELS=['gemini-flash-latest','gemini-3.5-flash','gemini-flash-lite-latest'];
+function getMvModels(){
+  try{
+    const a=JSON.parse(localStorage.getItem(MV_MODELS_KEY));
+    if(Array.isArray(a)&&a.length===3) return a.map(x=>String(x||''));
+  }catch(e){}
+  return DEFAULT_MV_MODELS.slice();
+}
+function setMvModels(a){ localStorage.setItem(MV_MODELS_KEY, JSON.stringify(a)); }
+
+async function loadGeminiModels(){
+  const btn=document.getElementById('set-model-load');
+  const key=document.getElementById('set-apikey').value.trim()||getApiKey();
+  const say=t=>{const el=document.getElementById('set-model-msg'); if(el) el.innerHTML=t;};
+  if(!key){ say('먼저 API 키를 넣어주세요.'); return; }
+  btn.disabled=true; btn.textContent='불러오는 중…';
+  try{
+    const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200',{headers:{'x-goog-api-key':key}});
+    const d=await r.json().catch(()=>null);
+    if(!r.ok) throw new Error((d&&d.error&&d.error.message)||('HTTP '+r.status));
+    const names=(d.models||[])
+      .filter(m=>(m.supportedGenerationMethods||[]).indexOf('generateContent')>=0)
+      .map(m=>String(m.name||'').replace(/^models\//,''))
+      .filter(n=>/flash|pro/i.test(n))
+      .filter(n=>!/tts|embedding|image|audio|live|robotics|veo|imagen|gemma|learnlm/i.test(n))
+      .sort();
+    if(!names.length) throw new Error('쓸 수 있는 모델이 없습니다.');
+    document.getElementById('mv-model-list').innerHTML=names.map(n=>`<option value="${esc(n)}">`).join('');
+    say(`모델 ${names.length}개를 불러왔어요. 각 칸을 누르면 목록이 나옵니다.`);
+  }catch(e){ say(esc(e.message||String(e))); }
+  finally{ btn.disabled=false; btn.textContent='쓸 수 있는 모델 불러오기'; }
+}
+function resetGeminiModels(){
+  DEFAULT_MV_MODELS.forEach((m,i)=>{ document.getElementById('set-model-'+i).value=m; });
+  document.getElementById('set-model-msg').textContent='기본값을 넣었어요 · 저장을 눌러 확정하세요';
 }
 
 function openSettings(){
   document.getElementById('set-apikey').value=getApiKey();
-  document.getElementById('set-model').value=getModel();
+  const mm=getMvModels();
+  for(let i=0;i<3;i++) document.getElementById('set-model-'+i).value=mm[i]||'';
   document.getElementById('set-rollover').value=String(getRolloverHour());
   
   const keys = ['roster', 'dawn', 'wx_heavy', 'wx_rain', 'wx_clear', 'tip_clear', 'tip_light', 'tip_normal', 'tip_heavy', 'tip_snow', 'schedule', 'inbound'];
@@ -2506,7 +2536,11 @@ function resetCurrentTemplate(){
 function saveSettings(){
   const k=document.getElementById('set-apikey').value.trim();
   if(k) localStorage.setItem('gemini-key',k); else localStorage.removeItem('gemini-key');
-  localStorage.setItem('gemini-model',document.getElementById('set-model').value);
+
+  const mm=[0,1,2].map(i=>document.getElementById('set-model-'+i).value.trim()||DEFAULT_MV_MODELS[i]);
+  setMvModels(mm);
+  const mi=parseInt(localStorage.getItem(MV_MIDX_KEY),10);
+  if(!(mi>=0&&mi<3)) localStorage.setItem(MV_MIDX_KEY,'0');
 
   const prevRoll = getRolloverHour();
   const newRoll = parseInt(document.getElementById('set-rollover').value,10);
@@ -2527,6 +2561,9 @@ function saveSettings(){
   customInboundText = null;
 
   if(newRoll !== prevRoll) applyDayRollover(true);
+
+  const vf = document.getElementById('frame-volume');
+  if(vf && vf.contentWindow) vf.contentWindow.postMessage({type:'settings'},'*');
   
   closeSettings();
   render();
@@ -2616,6 +2653,9 @@ function applyImport(){
     const cf=document.getElementById('frame-code');
     if(cf) cf.remove();
   }
+
+  const vf=document.getElementById('frame-volume');
+  if(vf) vf.remove();
 
   closeBackup();
   showToast(`✅ ${summary} 데이터를 복원했어요`);
@@ -2730,9 +2770,6 @@ startDayWatcher();
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#2A2E6E">
-<link rel="apple-touch-icon" id="touch-icon" href="icon-333.png">
-<link rel="icon" id="fav-icon" type="image/png" href="icon-333.png">
-<link rel="manifest" id="pwa-manifest" href="">
 <title>LK 배송물량표</title>
 <style>
 :root{
@@ -2775,17 +2812,6 @@ header{
   padding:2px 8px 0;
   box-shadow:0 2px 14px rgba(28,22,68,.22);
 }
-.brand{display:flex;align-items:center;gap:9px;padding-bottom:10px}
-.brand h1{margin:0;font-size:18px;font-weight:700;letter-spacing:-.02em}
-.brand .d{font-size:12px;color:#C7C2E8;font-weight:500}
-.brand .sp{flex:1}
-.gear{
-  appearance:none;border:0;background:rgba(255,255,255,.14);color:#fff;
-  width:38px;height:38px;border-radius:11px;display:grid;place-items:center;cursor:pointer;margin-right:8px;
-}
-.gear:active{background:rgba(255,255,255,.26)}
-.gear svg{width:20px;height:20px;display:block}
-.dot{position:absolute;width:8px;height:8px;border-radius:50%;background:#FFB84D;margin:-14px 0 0 15px;border:2px solid #4A3580}
 nav{display:flex;gap:2px;padding-right:8px}
 nav button{
   flex:1;appearance:none;background:none;border:0;border-bottom:2.5px solid transparent;
@@ -2944,23 +2970,111 @@ details.raw summary{font-size:12.5px;color:var(--act);cursor:pointer;font-weight
 
 <!-- ===== 입력 ===== -->
 <section class="panel" id="p-in">
-   <div class="card" style="--c:#3B4FD8">
-    <div class="step"><b>·</b><h2>제미나이 API 키</h2></div>
-    <p class="hint" style="margin:0">키는 앱 <b>맨 위 ⚙️ 설정</b>에서 한 번만 넣으면 됩니다. 여기서는 그 키를 그대로 씁니다.</p>
-    <div id="keyState" style="margin-top:11px"></div>
+  <div class="card" style="--c:#3B4FD8">
+    <div class="step"><b>1</b><h2>단톡방 내용 넣기</h2></div>
+    <p class="hint">캡쳐는 여러 장 한 번에 넣어도 됩니다. 겹치는 메시지는 알아서 한 번만 셉니다.</p>
+
+    <label class="f" for="dateIn">날짜</label>
+    <input type="date" id="dateIn">
+    <div id="dayBadge"></div>
+
+    <div style="height:13px"></div>
+    <input type="file" id="pick" accept="image/*" multiple class="sr-file">
+    <label class="drop" id="drop" for="pick">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="16" rx="2.5"></rect>
+        <circle cx="8.5" cy="9.5" r="1.6"></circle>
+        <path d="M21 16l-4.5-4.5L7 21"></path>
+      </svg>
+      <span>캡쳐 이미지를 끌어놓거나 붙여넣기</span>
+      <span class="cta">이미지 고르기</span>
+    </label>
+
+    <div id="shotWrap" hidden>
+      <div class="shotbar"><span id="shotCount"></span><button type="button" onclick="clearShots()">전부 빼기</button></div>
+      <div class="shots" id="files"></div>
+    </div>
+
+    <div style="height:14px"></div>
+    <label class="f" for="textIn">복사한 텍스트 (선택)</label>
+    <textarea id="textIn" placeholder="카톡에서 복사한 대화 내용을 붙여넣으세요"></textarea>
   </div>
 
   <div class="card" style="--c:#7B3FD4">
-    <div class="step"><b>·</b><h2>인식 모델 3개</h2></div>
-    <p class="hint">위에서부터 순서대로 시도합니다. 붐비거나 없는 모델이면 다음 것으로 자동으로 넘어갑니다.</p>
-    <div id="modelRows"></div>
-    <div style="height:10px"></div>
-    <div class="row" style="gap:7px">
-      <button class="b sm" onclick="loadModels()" id="mdlBtn" style="flex:1">쓸 수 있는 모델 불러오기</button>
-      <button class="b sm" onclick="resetModels()">기본값</button>
+    <div class="step"><b>2</b><h2>물량 읽기</h2></div>
+    <p class="hint">먼저 쓸 모델을 고르세요. 그 모델이 붐비면 나머지로 자동으로 넘어갑니다. 모델 목록은 앱 맨 위 ⚙️ 설정에서 바꿉니다.</p>
+    <div class="mchips" id="mchips"></div>
+    <div style="height:12px"></div>
+    <div id="inMsg"></div>
+    <button class="b pri wide" id="runBtn" onclick="run()">물량 읽기</button>
+    <p class="muted" id="runNote">읽은 결과는 다음 화면에서 직접 고칠 수 있습니다.</p>
+  </div>
+</section>
+
+<!-- ===== 확인 ===== -->
+<section class="panel" id="p-ck" hidden>
+  <div id="ckEmpty" class="card" style="--c:#8B93A8">
+    <p class="hint" style="margin:0">아직 읽은 물량이 없습니다. 입력 화면에서 캡쳐나 텍스트를 넣고 물량 읽기를 눌러주세요.</p>
+  </div>
+  <div id="ckBody" hidden>
+    <div id="ckMsg"></div>
+    <div class="card" style="--c:#0CA678">
+      <div class="step"><b>3</b><h2>숫자 확인하기</h2></div>
+      <p class="hint">잘못 읽은 칸은 바로 눌러서 고치면 됩니다. 빈칸은 0으로 나갑니다.</p>
+      <div class="scroll">
+        <table id="grid">
+          <thead><tr id="gridHead"></tr></thead>
+          <tbody id="gridBody"></tbody>
+          <tfoot id="gridFoot"></tfoot>
+        </table>
+      </div>
+      <div class="row" style="margin-top:12px;gap:7px">
+        <input type="text" id="addName" placeholder="이름 추가" style="flex:1">
+        <button class="b sm" onclick="addPerson()">추가</button>
+      </div>
+      <details class="raw"><summary>읽어온 원문 보기</summary><div id="rawList"></div></details>
     </div>
-    <datalist id="models"></datalist>
-    <div id="stMsg" style="margin-top:11px"></div>
+    <div class="card" style="--c:#E8590C">
+      <div class="step"><b>4</b><h2>엑셀로 옮기기</h2></div>
+      <p class="hint">복사한 뒤 엑셀에서 붙여넣기 하면 칸이 알아서 나뉩니다.</p>
+      <div class="stack">
+        <button class="b pri wide" onclick="copyTSV(true)">머리글까지 복사</button>
+        <button class="b wide" onclick="copyTSV(false)">숫자만 복사 (이어붙일 때)</button>
+        <button class="b wide" onclick="dlCSV()">CSV 파일로 내려받기</button>
+      </div>
+      <div id="copyMsg" style="margin-top:11px"></div>
+      <details class="raw"><summary>붙여넣을 내용 미리보기</summary>
+        <textarea class="out" id="preview" readonly></textarea></details>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 이름 ===== -->
+<section class="panel" id="p-nm" hidden>
+  <div class="card" style="--c:#1971C2">
+    <div class="step"><b>·</b><h2>닉네임과 실명 연결</h2></div>
+    <p class="hint">단톡방 닉네임을 한 번 연결해두면 다음부터는 자동으로 실명으로 바뀝니다.</p>
+    <div class="row" style="gap:7px;margin-bottom:12px">
+      <input type="text" id="aliasK" placeholder="단톡 닉네임" style="flex:1">
+      <span class="arrow" style="color:var(--ink-3)">→</span>
+      <input type="text" id="aliasV" placeholder="실명" style="flex:1">
+      <button class="b sm" onclick="addAlias()">연결</button>
+    </div>
+    <div id="aliasList"></div>
+  </div>
+</section>
+</main>
+
+<!-- ===== 설정 시트 ===== -->
+<div class="veil" id="veil" onclick="closeSet()"></div>
+<section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="설정">
+  <div class="grab"></div>
+  <div class="shead"><h2>설정</h2><button onclick="closeSet()" aria-label="닫기">×</button></div>
+
+  <div class="card" style="--c:#3B4FD8">
+    <div class="step"><b>·</b><h2>제미나이 API 키 · 인식 모델</h2></div>
+    <p class="hint" style="margin:0">키와 모델 1~3순위는 앱 <b>맨 위 ⚙️ 설정</b>에서 한 번만 정하면 됩니다. 여기서는 그 설정을 그대로 씁니다.</p>
+    <div id="keyState" style="margin-top:11px"></div>
   </div>
 
   <div class="card" style="--c:#0CA678">
@@ -2988,7 +3102,7 @@ details.raw summary{font-size:12.5px;color:var(--act);cursor:pointer;font-weight
 
   <div class="card" style="--c:#C2255C">
     <div class="step"><b>·</b><h2>저장된 내용 지우기</h2></div>
-    <p class="hint">API 키, 닉네임 연결, 물품 목록, 모델 설정이 모두 지워집니다.</p>
+    <p class="hint">닉네임 연결, 물품 목록, 추가 규칙, 모델 선택이 지워집니다. API 키는 앱 설정에 그대로 남습니다.</p>
     <button class="b wide" onclick="wipe()">전부 지우기</button>
   </div>
 </section>
@@ -2999,11 +3113,6 @@ details.raw summary{font-size:12.5px;color:var(--act);cursor:pointer;font-weight
 const K = {models:'mv_models', midx:'mv_midx', items:'mv_items', base:'mv_base', rules:'mv_rules', alias:'mv_alias', last:'mv_last'};
 const HOST_KEY = 'gemini-key';
 const apiKey = () => { try{ return (localStorage.getItem(HOST_KEY)||'').trim(); }catch(e){ return ''; } };
-function drawKeyState(){
-  msg('keyState', apiKey()?'ok':'warn',
-    apiKey() ? '앱 설정에 저장된 키를 쓰고 있습니다.'
-             : '아직 키가 없습니다. 앱 <b>맨 위 ⚙️</b> → 제미나이 API 키에 넣어주세요.');
-}
 const DEFAULT_ITEMS  = ['오네','책','딜리','주말딜리','새벽딜리'];
 const DEFAULT_MODELS = ['gemini-flash-latest','gemini-3.5-flash','gemini-flash-lite-latest'];
 const SLOT = ['1순위','2순위','3순위'];
@@ -3038,7 +3147,7 @@ function dayInfo(){
 const weekendOn = () => dayInfo().weekend
   && S.items.indexOf(WEEKEND_ITEM) >= 0;
 
-  apiKey: load(K.key,'') || (function(){ try{ return localStorage.getItem('gemini-key')||''; }catch(e){ return ''; } })(),
+let S = {
   models: load(K.models, DEFAULT_MODELS.slice()),
   midx:   load(K.midx, 0),
   items:  load(K.items, DEFAULT_ITEMS.slice()),
@@ -3065,10 +3174,15 @@ function msg(el,kind,html){
   const n = document.getElementById(el);
   if (n) n.innerHTML = html ? '<div class="note '+kind+'">'+html+'</div>' : '';
 }
+function drawKeyState(){
+  msg('keyState', apiKey()?'ok':'warn',
+    apiKey() ? '앱 설정에 저장된 키를 쓰고 있습니다. 모델 1순위: <b>'+esc(shortName(S.models[S.midx]||S.models[0]||'—'))+'</b>'
+             : '아직 키가 없습니다. 앱 <b>맨 위 ⚙️</b> → 제미나이 API 키에 넣어주세요.');
+}
 function openSet(){
-  drawKeyState();
+  syncModels();
   document.getElementById('rulesIn').value = S.rules || '';
-  drawModels(); drawItems();
+  drawKeyState(); drawItems();
   document.getElementById('veil').classList.add('on');
   document.getElementById('sheet').classList.add('on');
   document.body.style.overflow = 'hidden';
@@ -3132,7 +3246,17 @@ document.addEventListener('paste', e => {
   if (imgs.length){ e.preventDefault(); addImages(imgs); }
 });
 
-/* ---------- 모델 ---------- */
+/* ---------- 모델 (앱 설정에서 받아옴) ---------- */
+function syncModels(){
+  S.models = load(K.models, DEFAULT_MODELS.slice());
+  if (!Array.isArray(S.models) || S.models.length !== 3) S.models = DEFAULT_MODELS.slice();
+  S.midx = load(K.midx, 0);
+  if (!(S.midx >= 0 && S.midx < S.models.length)) S.midx = 0;
+}
+window.addEventListener('message', e => {
+  if (e.data && e.data.type === 'settings'){ syncModels(); drawChips(); drawKeyState(); }
+});
+
 function drawDay(){
   const el = document.getElementById('dayBadge');
   if (!el) return;
@@ -3142,6 +3266,7 @@ function drawDay(){
     : (i.label ? '<p class="muted" style="margin:7px 0 0">'+i.label+'</p>' : '');
 }
 function drawChips(){
+  syncModels();
   const box = document.getElementById('mchips');
   box.innerHTML = '';
   S.models.forEach((m,i) => {
@@ -3152,45 +3277,6 @@ function drawChips(){
     b.onclick = () => { S.midx = i; save(K.midx,i); drawChips(); };
     box.appendChild(b);
   });
-}
-function drawModels(){
-  const box = document.getElementById('modelRows');
-  box.innerHTML = S.models.map((m,i) =>
-    '<label class="f" for="md'+i+'" style="margin-top:'+(i?10:0)+'px">'+SLOT[i]+'</label>'
-    + '<input type="text" id="md'+i+'" list="models" value="'+esc(m)+'" placeholder="모델 이름">').join('');
-  S.models.forEach((m,i) => {
-    document.getElementById('md'+i).oninput = e => {
-      S.models[i] = e.target.value.trim(); save(K.models, S.models);
-    };
-  });
-}
-function resetModels(){
-  S.models = DEFAULT_MODELS.slice(); S.midx = 0;
-  save(K.models,S.models); save(K.midx,0); drawModels(); drawChips();
-  msg('stMsg','ok','기본값으로 되돌렸습니다.');
-}
-async function loadModels(){
-  const btn = document.getElementById('mdlBtn');
-  const key = apiKey();
-if (!key){ msg('stMsg','warn','앱 맨 위 ⚙️ 설정에서 API 키를 먼저 넣어주세요.'); return; }
-  btn.disabled = true; btn.textContent = '불러오는 중…';
-  try{
-    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200',{headers:{'x-goog-api-key':key}});
-    const d = await r.json().catch(()=>null);
-    if (!r.ok) throw new Error((d&&d.error&&d.error.message)||('HTTP '+r.status));
-    const names = (d.models||[])
-      .filter(m => (m.supportedGenerationMethods||[]).indexOf('generateContent') >= 0)
-      .map(m => String(m.name||'').replace(/^models\//,''))
-      .filter(n => /flash|pro/i.test(n))
-      .filter(n => !/tts|embedding|image|audio|live|robotics|veo|imagen|gemma|learnlm/i.test(n))
-      .sort();
-    if (!names.length) throw new Error('쓸 수 있는 모델이 없습니다.');
-    document.getElementById('models').innerHTML = names.map(n => '<option value="'+esc(n)+'">').join('');
-    const stable = names.filter(n => !/preview|exp/i.test(n));
-    msg('stMsg','ok','모델 '+names.length+'개를 불러왔습니다. 각 칸을 누르면 목록이 나옵니다.'
-      + (stable.length ? ' 붐빔이 잦으면 <b>'+esc(stable[0])+'</b> 처럼 preview가 없는 이름을 권합니다.' : ''));
-  }catch(e){ msg('stMsg','err', esc(e.message||String(e))); }
-  finally{ btn.disabled = false; btn.textContent = '쓸 수 있는 모델 불러오기'; }
 }
 
 /* ---------- 호출 ---------- */
@@ -3261,7 +3347,7 @@ async function callOnce(model, parts){
   const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/'
       + encodeURIComponent(model) + ':generateContent', {
     method:'POST',
-    headers:{ 'Content-Type':'application/json','x-goog-api-key':apiKey() },
+    headers:{ 'Content-Type':'application/json', 'x-goog-api-key':apiKey() },
     body: JSON.stringify({
       systemInstruction:{ parts:[{ text: prompt_() }] },
       contents:[{ role:'user', parts }],
@@ -3282,12 +3368,13 @@ async function callOnce(model, parts){
 async function run(){
   const btn = document.getElementById('runBtn');
   msg('inMsg','','');
- if (!apiKey()){ msg('inMsg','warn','API 키가 없습니다. 앱 <b>맨 위 ⚙️ 설정</b>에서 제미나이 키를 넣어주세요.'); return; }
+  syncModels();
+  if (!apiKey()){ msg('inMsg','warn','API 키가 없습니다. 앱 <b>맨 위 ⚙️ 설정</b>에서 제미나이 키를 넣어주세요.'); return; }
   if (!S.images.length && !document.getElementById('textIn').value.trim()){
     msg('inMsg','warn','캡쳐 이미지나 텍스트 중 하나는 넣어야 합니다.'); return;
   }
   const list = S.models.map(m=>String(m||'').trim()).filter(Boolean);
-  if (!list.length){ msg('inMsg','warn','설정에서 모델을 하나 이상 넣어주세요.'); return; }
+  if (!list.length){ msg('inMsg','warn','앱 맨 위 ⚙️ 설정에서 모델을 하나 이상 넣어주세요.'); return; }
   const order = [];
   const start = Math.min(S.midx, list.length-1);
   for (let i=0;i<list.length;i++) order.push(list[(start+i)%list.length]);
@@ -3323,8 +3410,8 @@ async function run(){
     go('ck'); return;
   }
   let m = (err && err.message) || '알 수 없는 오류';
-  if (err && err.status === 404) m = '설정에 넣은 모델 이름을 모두 찾을 수 없습니다. 톱니바퀴 → <b>쓸 수 있는 모델 불러오기</b>를 눌러 확인하세요.';
-  else if (err && err.status === 400 && /API key/i.test(m)) m = 'API 키가 올바르지 않습니다. 톱니바퀴에서 다시 확인해 주세요.';
+  if (err && err.status === 404) m = '설정에 넣은 모델 이름을 모두 찾을 수 없습니다. 앱 맨 위 ⚙️ 설정 → <b>쓸 수 있는 모델 불러오기</b>를 눌러 확인하세요.';
+  else if (err && err.status === 400 && /API key/i.test(m)) m = 'API 키가 올바르지 않습니다. 앱 맨 위 ⚙️ 설정에서 다시 확인해 주세요.';
   else if (err && err.status === 429) m = '세 모델 모두 사용량 한도에 걸렸습니다. 잠시 뒤에 다시 시도하세요.';
   else if (isBusy(err && err.status, m)) m = '세 모델 모두 붐빕니다. 앱 문제가 아니라 구글 쪽 상황입니다. 잠시 뒤에 다시 눌러주세요.';
   else if (m === 'Failed to fetch') m = '네트워크에 연결하지 못했습니다.';
@@ -3535,18 +3622,6 @@ function drawAlias(){
 }
 
 /* ---------- 설정 ---------- */
-function saveKey(){
-  S.apiKey = document.getElementById('keyIn').value.trim();
-  save(K.key, S.apiKey);
-  document.getElementById('keyDot').hidden = !!S.apiKey;
-  msg('keyMsg', S.apiKey ? 'ok' : 'warn', S.apiKey ? '키를 저장했습니다.' : '키를 비웠습니다.');
-  setTimeout(() => msg('keyMsg','',''), 2500);
-}
-function toggleKey(){
-  const i = document.getElementById('keyIn'), b = document.getElementById('keyEye');
-  const show = i.type === 'password';
-  i.type = show ? 'text' : 'password'; b.textContent = show ? '숨기기' : '보기';
-}
 function saveRules(){
   S.rules = document.getElementById('rulesIn').value;
   save(K.rules, S.rules);
@@ -3578,7 +3653,7 @@ function drawItems(){
   });
 }
 function wipe(){
-  if (!confirm('저장된 API 키, 닉네임 연결, 물품 목록, 모델 설정을 모두 지웁니다. 계속할까요?')) return;
+  if (!confirm('저장된 닉네임 연결, 물품 목록, 추가 규칙, 모델 선택을 모두 지웁니다. API 키는 앱 설정에 남습니다. 계속할까요?')) return;
   Object.values(K).forEach(k => localStorage.removeItem(k));
   location.reload();
 }
@@ -3604,8 +3679,6 @@ function restore(){
 (function init(){
   const d = new Date();
   document.getElementById('dateIn').value = new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
-  document.getElementById('hdrDate').textContent = (d.getMonth()+1)+'월 '+d.getDate()+'일';
-  document.getElementById('keyDot').hidden = !!S.apiKey;
   document.getElementById('dateIn').addEventListener('change', () => {
     drawDay();
     if (S.rawRows.length) build(S.rawRows);
@@ -3615,7 +3688,7 @@ function restore(){
   document.getElementById('itemIn').addEventListener('keydown', e => { if (e.key==='Enter') addItem(); });
   document.getElementById('aliasV').addEventListener('keydown', e => { if (e.key==='Enter') addAlias(); });
   drawDay(); drawChips(); drawFiles(); restore();
-  if (!S.apiKey) setTimeout(openSet, 350);
+  if (!apiKey()) msg('inMsg','warn','제미나이 API 키가 없습니다. 앱 <b>맨 위 ⚙️ 설정</b>에서 키를 넣어주세요.');
 })();
 <\/script>
 </body>
