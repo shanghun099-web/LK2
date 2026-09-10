@@ -566,6 +566,7 @@ let customWeatherText = null;
 let customVolumeText = null;
 let customScheduleText = null;
 let customInboundText = null;
+let rosterPanels = { bulk:false, opts:false };
 
 const DEFAULT_TEMPLATES = {
   roster: `{emoji} {date} {title}\n━━━━━━━━━━━━\n{zones}\n{backup_block}\n━━━━━━━━━━━━\n👥 총 {total}명{total_detail}`,
@@ -1687,7 +1688,7 @@ function renderRoster(){
            ${(()=>{return zoneLineText(z,getCompactMode()).indexOf('\n')>=0?`<div style="font-size:10.5px;color:var(--blue3);font-weight:700;margin:-4px 0 8px 2px;">↩️ 인원이 많아 카톡에서 2줄로 나눠 보냅니다</div>`:''})()}
       <div class="chips">
         ${z.people.map((p,pi)=>`<span class="chip">${esc(p)}<button class="chip-x" onclick="delPerson(${zi},${pi})">✕</button></span>`).join('')}
-        <span class="chip-add"><input placeholder="+ 이름" onkeydown="if(event.key==='Enter'){addPerson(${zi},this.value);this.value='';}" onblur="if(this.value.trim()){addPerson(${zi},this.value);this.value='';}"></span>
+        <span class="chip-add"><input id="padd-${zi}" placeholder="+ 이름 (여러 명 띄어쓰기)" onkeydown="if(event.key==='Enter'){event.preventDefault();addPerson(${zi},this.value,true);this.value='';}" onblur="if(this.value.trim()){addPerson(${zi},this.value);this.value='';}"></span>
       </div>
     </div>`).join('');
 
@@ -1700,21 +1701,31 @@ function renderRoster(){
       <div class="field" style="margin:0"><label class="field-label">📅 날짜</label><input type="date" class="inp" value="${R.work.date}" onchange="cur().work.date=this.value;customRosterText=null;render()"></div>
       <div class="field" style="margin:0"><label class="field-label">📋 제목</label><input class="inp" value="${esc(R.work.title)}" placeholder="${esc(R.defTitle)}" onchange="cur().work.title=this.value;customRosterText=null;render()"></div>
     </div>
-        <div class="opt-row">
-      <div><div class="opt-text">이름 간격 좁게</div><div class="opt-sub">쉼표 공백을 없애 한 줄에 더 많이 담습니다 (권장)</div></div>
-      <label class="switch"><input type="checkbox" ${getCompactMode()?'checked':''} onchange="setCompactMode(this.checked)"><span class="slider"></span></label>
-    </div>
-    <div class="opt-row" style="display:block">
-      <div style="margin-bottom:9px">
-        <div class="opt-text">구역 · 이름 구분 방식</div>
-        <div class="opt-sub">카톡에서 구역명과 명단이 한눈에 나뉘게 합니다</div>
+    <details class="paste-box" style="margin-bottom:11px" ${rosterPanels.bulk?'open':''} ontoggle="rosterPanels.bulk=this.open">
+      <summary>⚡ 빠른 입력 · 명단 통째로 붙여넣기</summary>
+      <div class="paste-inner">
+        <div class="paste-hint">한 줄에 <b>구역: 이름 이름</b> 형식으로 붙여넣으세요. 근무 구역이 교체됩니다 (<b>🆘 백업은 유지</b>).<br>예: <code>도곡: 전진환, 이정휘</code></div>
+        <textarea class="paste-ta" id="bulk-roster-ta" placeholder="도곡: 전진환 이정휘&#10;대치: 권현정 김복영 이영진&#10;일원: 신상훈 김성동"></textarea>
+        <div class="paste-btns">
+          <button class="mini-btn" style="border-color:#155244;color:var(--teal3)" onclick="applyBulkRoster(document.getElementById('bulk-roster-ta').value)">↩️ 반영하기</button>
+        </div>
       </div>
-      <div class="paste-mode" style="margin-bottom:0">
-        ${Object.keys(ZONE_SEPS).map(k=>`<button class="paste-mode-btn ${k===getZoneSep()?'active':''}" style="padding:9px 2px;font-size:11.5px" onclick="setZoneSep('${k}')">${esc(ZONE_SEPS[k].label)}</button>`).join('')}
+    </details>
+    <details class="paste-box" style="margin-bottom:13px" ${rosterPanels.opts?'open':''} ontoggle="rosterPanels.opts=this.open">
+      <summary>표시 옵션 · 이름 간격 / 구분 방식</summary>
+      <div class="paste-inner">
+        <div class="opt-row" style="margin:0 0 9px">
+          <div><div class="opt-text">이름 간격 좁게</div><div class="opt-sub">쉼표 공백을 없애 한 줄에 더 많이 담습니다 (권장)</div></div>
+          <label class="switch"><input type="checkbox" ${getCompactMode()?'checked':''} onchange="setCompactMode(this.checked)"><span class="slider"></span></label>
+        </div>
+        <div class="opt-text" style="margin-bottom:6px">구역 · 이름 구분 방식</div>
+        <div class="paste-mode" style="margin-bottom:0">
+          ${Object.keys(ZONE_SEPS).map(k=>`<button class="paste-mode-btn ${k===getZoneSep()?'active':''}" style="padding:9px 2px;font-size:11.5px" onclick="setZoneSep('${k}')">${esc(ZONE_SEPS[k].label)}</button>`).join('')}
+        </div>
       </div>
-    </div>
+    </details>
     <div class="section-head">
-      <div class="section-title">구역 <b>${R.work.zones.filter(z=>!z.isBackup).length}</b>개 · 근무 <b>${R.work.zones.filter(z=>!z.isBackup).reduce((s,z)=>s+z.people.length,0)}</b>명 · 🆘 백업 <b>${R.work.zones.filter(z=>z.isBackup).reduce((s,z)=>s+z.people.length,0)}</b>명</div>
+      <div class="section-title">구역 <b>${R.work.zones.filter(z=>!z.isBackup).length}</b>개 · 근무 <b>${rosterUniqNames(R.work.zones.filter(z=>!z.isBackup)).length}</b>명 · 🆘 백업 <b>${rosterUniqNames(R.work.zones.filter(z=>z.isBackup)).length}</b>명</div>
     </div>
     ${zonesHtml}
     <button class="btn-add-zone" onclick="addZone()">＋ 구역 추가</button>
@@ -1736,6 +1747,24 @@ function renderRoster(){
     <div style="height:20px"></div>
   </div>`;
 }
+function rosterBaseName(p){
+  var s=String(p==null?'':p);
+  var i=s.indexOf('(');
+  var j=s.indexOf('（');
+  if(i<0)i=j; else if(j>=0&&j<i)i=j;
+  return (i<0?s:s.slice(0,i)).trim();
+}
+function rosterUniqNames(zones){
+  var seen={},out=[];
+  for(var a=0;a<zones.length;a++){
+    var ppl=(zones[a]&&zones[a].people)||[];
+    for(var b=0;b<ppl.length;b++){
+      var nm=rosterBaseName(ppl[b]);
+      if(nm&&!Object.prototype.hasOwnProperty.call(seen,nm)){seen[nm]=1;out.push(nm);}
+    }
+  }
+  return out;
+}
 function rosterText(){
   const R=cur();
   const active=R.work.zones.filter(z=>z.name.trim()&&z.people.length);
@@ -1749,8 +1778,10 @@ function rosterText(){
 
   const zonesStr=norm.map(line).join('\n');
   const backupStr=back.map(z=>zoneLineText({...z, emoji: z.emoji||'🆘'}, compact)).join('\n');
-  const workTotal=norm.reduce((s,z)=>s+z.people.length,0);
-  const backTotal=back.reduce((s,z)=>s+z.people.length,0);
+  const _workNames=rosterUniqNames(norm);
+  const _backNames=rosterUniqNames(back).filter(function(n){return _workNames.indexOf(n)<0;});
+  const workTotal=_workNames.length;
+  const backTotal=_backNames.length;
   const tplKey = tab==='dawn'?'dawn':'roster';
   return tidyLines(formatTemplate(getTemplate(tplKey), {
     emoji: R.emoji,
@@ -1824,7 +1855,37 @@ function zoneLineText(z, compact){
   return lines.join('\n');
 }
 
-function addPerson(zi,v){const n=v.trim();if(!n)return;customRosterText=null;cur().work.zones[zi].people.push(n);render();}
+function addPerson(zi,v,keepFocus){
+  const names=String(v||'').split(/[\s,、·]+/).map(s=>s.trim()).filter(Boolean);
+  if(!names.length)return;
+  const z=cur().work.zones[zi]; if(!z)return;
+  customRosterText=null;
+  names.forEach(n=>z.people.push(n));
+  render();
+  if(keepFocus){const el=document.getElementById('padd-'+zi);if(el)el.focus();}
+}
+function applyBulkRoster(text){
+  const lines=String(text||'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  if(!lines.length){showToast('붙여넣은 내용이 없어요','err');return;}
+  const zones=[];
+  lines.forEach(l=>{
+    let name,rest;
+    const c=l.split(/\s*[:：]\s*/);
+    if(c.length>=2){name=c[0].trim();rest=c.slice(1).join(':');}
+    else{const p=l.split(/\s+/);name=p.shift()||'';rest=p.join(' ');}
+    name=name.replace(/^[📍🔹🚩🆘•\-]+\s*/,'').trim();
+    const people=rest.split(/[\s,、·]+/).map(s=>s.trim()).filter(Boolean);
+    if(name)zones.push({emoji:'📍',name,people,isBackup:false});
+  });
+  if(!zones.length){showToast('구역을 인식하지 못했어요','err');return;}
+  const R=cur();
+  const backups=R.work.zones.filter(z=>z.isBackup);
+  R.work.zones=zones.concat(backups);
+  customRosterText=null;
+  rosterPanels.bulk=false;
+  render();
+  showToast(`✅ ${zones.length}개 구역 · ${zones.reduce((s,z)=>s+z.people.length,0)}명 반영`);
+}
 function delPerson(zi,pi){customRosterText=null;cur().work.zones[zi].people.splice(pi,1);render();}
 
 function saveAsTpl(){
