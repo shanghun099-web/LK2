@@ -1,6 +1,6 @@
 {
-  "name": "단톡 정리",
-  "short_name": "단톡 정리",
+  "name": "LK 전용앱",
+  "short_name": "LK 전용앱",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
