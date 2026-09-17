@@ -1,0 +1,13 @@
+{
+  "name": "단톡 정리",
+  "short_name": "단톡 정리",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0e1116",
+  "theme_color": "#2563EB",
+  "icons": [
+    { "src": "icon-lk2.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" }
+  ]
+}
