@@ -3274,6 +3274,13 @@ details.raw summary{font-size:12.5px;color:var(--act-3);cursor:pointer;font-weig
       <details class="raw"><summary>붙여넣을 내용 미리보기</summary>
         <textarea class="out" id="preview" readonly></textarea></details>
     </div>
+    <div class="card" style="--c:#0B7285">
+      <div class="step"><b>5</b><h2>배송관리자로 보내기</h2></div>
+      <p class="hint">위 표의 수량을 <b>배송관리자</b> 앱의 기사별 일일 기록에 바로 넣습니다. 같은 날짜에 이미 있는 수량은 이 표로 덮어씁니다.</p>
+      <div id="mgrMap"></div>
+      <button class="b pri wide" id="mgrBtn" onclick="sendToMgr()">📤 배송관리자로 보내기</button>
+      <div id="mgrMsg" style="margin-top:11px"></div>
+    </div>
   </div>
 </section>
 
@@ -3338,7 +3345,7 @@ details.raw summary{font-size:12.5px;color:var(--act-3);cursor:pointer;font-weig
 <script>
 'use strict';
 
-const K = {models:'mv_models', midx:'mv_midx', items:'mv_items', base:'mv_base', rules:'mv_rules', alias:'mv_alias', last:'mv_last'};
+const K = {models:'mv_models', midx:'mv_midx', items:'mv_items', base:'mv_base', rules:'mv_rules', alias:'mv_alias', last:'mv_last', mgrmap:'mv_mgr_map'};
 const HOST_KEY = 'gemini-key';
 const apiKey = () => { try{ return (localStorage.getItem(HOST_KEY)||'').trim(); }catch(e){ return ''; } };
 const DEFAULT_ITEMS  = ['오네','책','딜리','주말딜리','새벽딜리'];
@@ -3734,7 +3741,7 @@ function drawGrid(){
   document.getElementById('gridFoot').innerHTML =
     '<tr><td class="nm">합계</td>' + c.map(x => '<td data-col="'+esc(x)+'"></td>').join('')
     + '<td data-col="__all"></td><td></td></tr>';
-  totals(); preview();
+  totals(); preview(); drawMgrMap();
 }
 function totals(){
   const c = cols(); let all = 0;
@@ -3884,6 +3891,117 @@ function wipe(){
   if (!confirm('저장된 닉네임 연결, 물품 목록, 추가 규칙, 모델 선택을 모두 지웁니다. API 키는 앱 설정에 남습니다. 계속할까요?')) return;
   Object.values(K).forEach(k => localStorage.removeItem(k));
   location.reload();
+}
+
+/* ---------- 배송관리자(delivery-) 연동 ----------
+   배송관리자 앱이 쓰는 Supabase 에 이 표를 기사별 일일 기록(daily_records)으로 바로 넣는다.
+   - 기사 매칭: 표의 이름(닉네임 연결 후 실명) == workers.name. 안 맞으면 아래 선택칸에서 한 번 고르면 기억(K.mgrmap).
+   - 물품 매칭: 배송관리자 qty_a~f 순서가 오네·오네책·딜리·딜리주말·딜리새벽·딜리낮. LK2 물품을 그 자리에 넣는다.
+     기타 열과 낮딜리(f)는 넣을 곳이 없어 건너뛴다.
+   - 같은 날짜·기사 줄이 이미 있으면 덮어쓴다(upsert) — 다시 읽어서 다시 보내면 그 날짜만 고쳐진다.
+   - 키는 배송관리자 앱에 이미 공개돼 있는 anon 키. 쓰기 권한은 배송관리자와 같은 규칙(RLS)을 따른다. */
+const MGR_URL = 'https://vvivcdwmommvgvbpxwxk.supabase.co';
+const MGR_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2aXZjZHdtb21tdmd2YnB4d3hrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxMTY1MzcsImV4cCI6MjA4OTY5MjUzN30.bjHhtHjO0kmb6lKu9cyZea8n1lYz9IoMuXFD2CKz9oE';
+const MGR_ITEM = { '오네':'qty_a', '책':'qty_b', '딜리':'qty_c', '주말딜리':'qty_d', '새벽딜리':'qty_e' };
+let mgrWorkers = null, mgrLoading = null, mgrErr = '';
+const normName = n => String(n||'').replace(/\s+/g,'').toLowerCase();
+
+async function mgrFetch(path, opt){
+  opt = opt || {};
+  const h = Object.assign({ apikey:MGR_KEY, Authorization:'Bearer '+MGR_KEY, 'Content-Type':'application/json' }, opt.headers||{});
+  const r = await fetch(MGR_URL + '/rest/v1/' + path, { method:opt.method||'GET', headers:h, body:opt.body ? JSON.stringify(opt.body) : undefined });
+  if (!r.ok){
+    let m = 'HTTP ' + r.status;
+    try{ const j = await r.json(); if (j && (j.message||j.hint)) m = j.message || j.hint; }catch(e){}
+    const err = new Error(m); err.status = r.status; throw err;
+  }
+  const t = await r.text();                       // return=minimal 이면 본문이 비어 온다
+  return t ? JSON.parse(t) : null;
+}
+/* 기사 목록 — 한 번 받아 두고 재사용 (실패하면 다음 보내기 때 다시 시도) */
+function mgrLoadWorkers(force){
+  if (mgrWorkers && !force) return Promise.resolve(mgrWorkers);
+  if (mgrLoading) return mgrLoading;
+  mgrLoading = mgrFetch('workers?select=id,name,login_id&order=id')
+    .then(list => {
+      mgrWorkers = (list||[]).filter(w => w.login_id !== '__system_notice__' && w.name !== '__SYSTEM__');
+      mgrErr = ''; return mgrWorkers;
+    })
+    .catch(e => { mgrErr = e.message || '연결 실패'; throw e; })
+    .finally(() => { mgrLoading = null; });
+  return mgrLoading;
+}
+/* 표의 이름 → 기사 id. 기억해 둔 연결 > 이름 완전 일치 > 공백·대소문자 무시 일치 */
+function mgrMatch(name){
+  if (!mgrWorkers) return null;
+  const map = load(K.mgrmap, {});
+  if (map[name] && mgrWorkers.some(w => w.id === map[name])) return map[name];
+  let w = mgrWorkers.find(w => w.name === name) || mgrWorkers.find(w => normName(w.name) === normName(name));
+  return w ? w.id : null;
+}
+function mgrSetMap(name, id){
+  const map = load(K.mgrmap, {});
+  if (id) map[name] = id; else delete map[name];
+  save(K.mgrmap, map); drawMgrMap();
+}
+/* 이름 연결 표 — 못 찾은 이름만 선택칸으로 보여준다 */
+function drawMgrMap(){
+  const box = document.getElementById('mgrMap'); if (!box) return;
+  if (!S.people.length){ box.innerHTML = ''; return; }
+  if (!mgrWorkers){
+    box.innerHTML = mgrErr
+      ? '<div class="note warn">배송관리자에 연결하지 못했습니다 ('+esc(mgrErr)+'). 보내기를 누르면 다시 시도합니다.</div>'
+      : '<p class="muted">배송관리자 기사 목록 확인 중…</p>';
+    if (!mgrErr) mgrLoadWorkers().then(drawMgrMap).catch(drawMgrMap);
+    return;
+  }
+  const miss = S.people.filter(p => !mgrMatch(p));
+  const ok = S.people.length - miss.length;
+  if (!miss.length){ box.innerHTML = '<div class="note ok">'+ok+'명 모두 배송관리자 기사와 연결됐습니다.</div>'; return; }
+  const opts = mgrWorkers.map(w => '<option value="'+w.id+'">'+esc(w.name)+'</option>').join('');
+  box.innerHTML = '<div class="note warn"><b>'+miss.length+'명</b>은 배송관리자에 같은 이름의 기사가 없습니다. 누구인지 골라주세요 (한 번 고르면 기억합니다). 안 고르면 그 사람은 건너뜁니다.</div>'
+    + miss.map(p => '<div class="row" style="gap:7px;margin-bottom:8px"><b style="flex:0 0 auto;min-width:64px">'+esc(p)+'</b>'
+        + '<span class="arrow" style="color:var(--ink-3)">→</span>'
+        + '<select style="flex:1" data-name="'+esc(p)+'" onchange="mgrSetMap(this.dataset.name, Number(this.value)||0)"><option value="">(건너뛰기)</option>'+opts+'</select></div>').join('');
+}
+async function sendToMgr(){
+  const date = document.getElementById('dateIn').value;
+  if (!date){ msg('mgrMsg','err','날짜를 먼저 고르세요.'); return; }
+  if (!S.people.length){ msg('mgrMsg','warn','보낼 표가 없습니다.'); return; }
+  const btn = document.getElementById('mgrBtn'); btn.disabled = true; btn.textContent = '보내는 중…';
+  try{
+    await mgrLoadWorkers(!!mgrErr);
+    drawMgrMap();
+    const rows = [], skipped = [], noItem = [];
+    S.people.forEach(p => {
+      const wid = mgrMatch(p);
+      if (!wid){ skipped.push(p); return; }
+      const g = S.grid[p] || {};
+      const row = { work_date:date, worker_id:wid, qty_a:0, qty_b:0, qty_c:0, qty_d:0, qty_e:0, qty_f:0 };
+      Object.keys(g).forEach(it => {
+        const col = MGR_ITEM[it];
+        if (col) row[col] += Number(g[it])||0;
+        else if (g[it]) noItem.push(p+' · '+it+' '+g[it]);
+      });
+      rows.push(row);
+    });
+    if (!rows.length){ msg('mgrMsg','err','연결된 기사가 한 명도 없어 보내지 못했습니다. 위에서 이름을 골라주세요.'); return; }
+    await mgrFetch('daily_records?on_conflict=work_date,worker_id', {
+      method:'POST', body:rows, headers:{ Prefer:'resolution=merge-duplicates,return=minimal' }
+    });
+    const d = new Date(date+'T00:00:00');
+    const label = isNaN(d) ? date : (d.getMonth()+1)+'월 '+d.getDate()+'일('+DAYS[d.getDay()]+')';
+    const bits = ['<b>'+label+'</b> 기사 <b>'+rows.length+'명</b> 수량을 배송관리자에 넣었습니다.'];
+    if (skipped.length) bits.push('건너뜀(이름 못 찾음): <b>'+skipped.map(esc).join(', ')+'</b>');
+    if (noItem.length) bits.push('넣을 칸이 없어 뺀 것: '+noItem.map(esc).join(', '));
+    msg('mgrMsg', skipped.length||noItem.length ? 'warn' : 'ok', bits.join('<br>'));
+  }catch(e){
+    let m = e.message || '알 수 없는 오류';
+    if (m === 'Failed to fetch') m = '네트워크에 연결하지 못했습니다. 배송관리자 서버가 잠시 멈춰 있을 수도 있습니다(무료 플랜은 일주일 안 쓰면 멈춤) — 배송관리자 앱을 한 번 열어 보세요.';
+    msg('mgrMsg','err','보내지 못했습니다: '+esc(m));
+  }finally{
+    btn.disabled = false; btn.textContent = '📤 배송관리자로 보내기';
+  }
 }
 
 /* ---------- 임시 저장 ---------- */
