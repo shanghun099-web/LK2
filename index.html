@@ -4121,17 +4121,13 @@ body.dragging .cscroll{scroll-snap-type:none; user-select: none; -webkit-user-se
 .abt{width:32px;height:32px;border:1px solid var(--border2);border-radius:8px;background:var(--s3);color:var(--text2);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .abt:active{transform:scale(.9);}
 .abt.add{color:var(--amber);border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.08);}
+.abt.share,.asm.share{color:var(--amber);border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.08);}
 .abt.del{color:var(--red);border-color:rgba(248,113,113,.3);background:rgba(248,113,113,.06);}
 .chv{color:var(--text3);font-size:11px;transition:transform .25s;margin-left:2px;flex-shrink:0;}
 .region-card.open .chv.r{transform:rotate(180deg);color:var(--amber);}
 .rg-body{display:none;background:var(--bg);padding:8px 10px 10px;}
 .region-card.open .rg-body{display:block;}
 
-.bulk-bar{display:flex;gap:6px;margin-bottom:10px;}
-.bulk-btn{flex:1;height:34px;border-radius:8px;border:1px solid var(--border2);background:var(--s3);color:var(--text2);font-size:12px;font-weight:700;font-family:var(--sans);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;}
-.bulk-btn:active{transform:scale(.97);}
-.bulk-btn.amber{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.22);color:var(--amber);}
-.bulk-bar.sm .bulk-btn{height:32px;font-size:11.5px;}
 .bulk-btn.blue{background:rgba(96,165,250,.1);border-color:rgba(96,165,250,.25);color:var(--blue);}
 
 .complex-card{border-radius:12px;border:1px solid var(--border);margin-bottom:8px;overflow:hidden;transition:border-color .2s;}
@@ -4501,6 +4497,7 @@ function render(){
 <div><div class="rg-name">${esc(rg.name)}</div><div class="rg-meta">${mcx.length}개 단지 · ${kc}개 코드</div></div>
 </div>
 <div class="rg-acts">
+${kc>0?`<button class="abt share" onclick="event.stopPropagation();shareRegionCodes('${esc(rg.id)}')" title="구역 전체 공유">💬</button>`:''}
 <button class="abt add" onclick="openModal('aC',{r:'${esc(rg.id)}'})">＋</button>
 <button class="abt" onclick="openModal('eR',{r:'${esc(rg.id)}'})">✏️</button>
 <button class="abt del" onclick="cdR('${esc(rg.id)}')">🗑</button>
@@ -4509,12 +4506,6 @@ function render(){
 </div>
 <div class="rg-body">`;
 
-    if(kc>0){
-      html+=`<div class="bulk-bar">
-<button class="bulk-btn amber" onclick="shareRegionCodes('${esc(rg.id)}')">💬 구역전체 공유</button>
-<button class="bulk-btn" onclick="copyRegionCodes('${esc(rg.id)}')">📋 구역전체 복사</button>
-</div>`;
-    }
 
     if(!mcx.length){
       html+=`<div style="text-align:center;padding:20px 0;color:var(--text3);font-size:12px;font-family:var(--mono);">단지가 없습니다 · <span style="color:var(--amber);cursor:pointer;" onclick="openModal('aC',{r:'${esc(rg.id)}'})">＋ 단지 추가</span></div>`;
@@ -4530,6 +4521,7 @@ function render(){
 <div class="cx-col"><div class="cx-name">${esc(cx.name)}</div><div class="cx-addr">${esc(cx.addr||'')}</div></div>
 </div>
 <div class="cx-acts">
+${cx.codes.length>0?`<button class="asm share" onclick="event.stopPropagation();shareComplexCodes('${esc(rg.id)}','${esc(cx.id)}')" title="단지 전체 공유">💬</button>`:''}
 <button class="asm add" onclick="openModal('aK',{r:'${esc(rg.id)}',c:'${esc(cx.id)}'})">＋</button>
 <button class="asm" onclick="openModal('eC',{r:'${esc(rg.id)}',c:'${esc(cx.id)}'})">✏️</button>
 <button class="asm del" onclick="cdC('${esc(rg.id)}','${esc(cx.id)}')">🗑</button>
@@ -4538,12 +4530,6 @@ function render(){
 </div>
 <div class="cx-body">`;
 
-        if(cx.codes.length>0){
-          html+=`<div class="bulk-bar sm">
-<button class="bulk-btn blue" onclick="shareComplexCodes('${esc(rg.id)}','${esc(cx.id)}')">💬 단지전체 공유</button>
-<button class="bulk-btn" onclick="copyComplexCodes('${esc(rg.id)}','${esc(cx.id)}')">📋 단지전체 복사</button>
-</div>`;
-        }
 
         let ps='__NONE__';
         cx.codes.forEach(cd=>{
@@ -4620,7 +4606,7 @@ const DND={
     const rect=this.src.getBoundingClientRect();this.offY=touch.clientY-rect.top;
     const ghost=document.getElementById('drag-ghost');
     const clone=this.src.cloneNode(true);
-    clone.querySelectorAll('.rg-body,.cx-body,.add-row-btn,.bulk-bar').forEach(b=>b.remove());
+    clone.querySelectorAll('.rg-body,.cx-body,.add-row-btn').forEach(b=>b.remove());
     clone.style.cssText='width:100%;';ghost.innerHTML='';ghost.appendChild(clone);
     ghost.style.cssText=`display:block;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;`;
     this.ghost=ghost;this.src.classList.add('drag-placeholder');
