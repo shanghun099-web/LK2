@@ -3461,6 +3461,10 @@ details.raw{margin-top:12px;border-top:1px solid var(--rule-soft);padding-top:10
 details.raw summary{font-size:12.5px;color:var(--act-3);cursor:pointer;font-weight:650}
 .rawline{font-size:12.5px;color:var(--ink-2);padding:6px 0;border-bottom:1px dotted var(--rule-soft);line-height:1.55}
 .rawline b{color:var(--ink);font-weight:700}
+.msg{padding:7px 0;border-bottom:1px dotted var(--rule-soft)}
+.msg-h{font-size:11.5px;color:var(--ink-3)}
+.msg-h b{color:var(--ink);font-size:12.5px;font-weight:700;margin-right:5px}
+.msg-t{font-size:13px;color:var(--ink-2);white-space:pre-wrap;word-break:break-word;line-height:1.5;margin-top:2px}
 
 .maprow{display:flex;gap:7px;align-items:center;padding:8px 0;border-bottom:1px solid var(--rule-soft)}
 .maprow .k{flex:1;font-size:13.5px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
@@ -3572,7 +3576,7 @@ details.raw summary{font-size:12.5px;color:var(--act-3);cursor:pointer;font-weig
         <input type="text" id="addName" placeholder="이름 추가" style="flex:1">
         <button class="b sm" onclick="addPerson()">추가</button>
       </div>
-      <details class="raw"><summary>읽어온 원문 보기</summary><div id="rawList"></div></details>
+      <details class="raw"><summary>카톡 원문 보기</summary><div id="rawList"></div></details>
     </div>
     <div class="card" style="--c:#E8590C">
       <div class="step"><b>4</b><h2>엑셀로 옮기기</h2></div>
@@ -3586,15 +3590,8 @@ details.raw summary{font-size:12.5px;color:var(--act-3);cursor:pointer;font-weig
       <details class="raw"><summary>붙여넣을 내용 미리보기</summary>
         <textarea class="out" id="preview" readonly></textarea></details>
     </div>
-    <div class="card" style="--c:#0B7285">
-      <div class="step"><b>5</b><h2>배송관리자로 보내기</h2></div>
-      <p class="hint">위 표의 수량을 <b>배송관리자</b> 앱의 기사별 일일 기록에 바로 넣습니다. 같은 날짜에 이미 있는 수량은 이 표로 덮어씁니다.</p>
-      <div id="mgrMap"></div>
-      <button class="b pri wide" id="mgrBtn" onclick="sendToMgr()">📤 배송관리자로 보내기</button>
-      <div id="mgrMsg" style="margin-top:11px"></div>
-    </div>
     <div class="card" style="--c:#C2255C">
-      <div class="step"><b>6</b><h2>정산에 저장</h2></div>
+      <div class="step"><b>5</b><h2>정산에 저장</h2></div>
       <p class="hint">위 표를 이 날짜의 기록으로 이 기기에 저장합니다. 앱의 <b>💰 정산</b> 탭이 월별로 모아 사람별 단가를 곱해 계산합니다. 같은 날짜를 다시 저장하면 덮어씁니다.</p>
       <div id="stlState"></div>
       <button class="b pri wide" onclick="saveToSettle()">💰 정산에 저장</button>
@@ -3664,7 +3661,7 @@ details.raw summary{font-size:12.5px;color:var(--act-3);cursor:pointer;font-weig
 <script>
 'use strict';
 
-const K = {models:'mv_models', midx:'mv_midx', items:'mv_items', base:'mv_base', rules:'mv_rules', alias:'mv_alias', last:'mv_last', mgrmap:'mv_mgr_map'};
+const K = {models:'mv_models', midx:'mv_midx', items:'mv_items', base:'mv_base', rules:'mv_rules', alias:'mv_alias', last:'mv_last'};
 const HOST_KEY = 'gemini-key';
 const apiKey = () => { try{ return (localStorage.getItem(HOST_KEY)||'').trim(); }catch(e){ return ''; } };
 const DEFAULT_ITEMS  = ['오네','책','딜리','주말딜리','새벽딜리'];
@@ -3708,7 +3705,7 @@ let S = {
   baseItem: load(K.base, '오네'),
   rules:  load(K.rules, ''),
   alias:  load(K.alias, {}),
-  images: [], rawRows: [], people: [], grid: {}, flags: {}
+  images: [], rawRows: [], messages: [], people: [], grid: {}, flags: {}
 };
 if (!Array.isArray(S.items)  || !S.items.length)  S.items  = DEFAULT_ITEMS.slice();
 if (!Array.isArray(S.models) || S.models.length !== 3) S.models = DEFAULT_MODELS.slice();
@@ -3874,6 +3871,11 @@ function prompt_(){
     '- 숫자가 흐리거나 어느 물품인지 애매하면 sure를 false로 두세요.',
     '- 보이지 않는 것은 추측하지 말고 빼세요.',
     '',
+    '[원문 옮기기 · messages]',
+    '- 캡쳐와 텍스트에 보이는 카톡 메시지를 위에서부터 순서대로 빠짐없이 messages 에 옮기세요. 물량이 아닌 메시지(인사, 공지, 문의)도 넣습니다.',
+    '- name 은 보낸 사람 이름 그대로, time 은 메시지 옆에 보이는 시각(없으면 빈 칸), text 는 본문을 한 글자도 고치지 말고 줄바꿈까지 그대로 옮기세요. 요약하거나 정리하지 마세요.',
+    '- 겹친 캡쳐로 같은 메시지가 두 번 보이면 한 번만 넣으세요.',
+    '',
     '[보기]',
     '"대치30. 딜리8. 완료" → 오네 30, 딜리 8 (지역 대치)',
     '"역 2 아. 오네 77개. 11개 출" → 오네 77, 딜리 11',
@@ -3885,9 +3887,14 @@ function prompt_(){
     '"일원본 오34 딜7 출 완" → 오네 34, 딜리 7'
   ].join('\n') + (extra ? '\n\n[추가 규칙]\n' + extra : '');
 }
-const SCHEMA = { type:'OBJECT', properties:{ rows:{ type:'ARRAY', items:{ type:'OBJECT',
-  properties:{ name:{type:'STRING'}, area:{type:'STRING'}, item:{type:'STRING'}, qty:{type:'NUMBER'}, raw:{type:'STRING'}, sure:{type:'BOOLEAN'} },
-  required:['name','area','item','qty','raw','sure'], propertyOrdering:['name','area','item','qty','raw','sure'] } } }, required:['rows'] };
+const SCHEMA = { type:'OBJECT', properties:{
+  rows:{ type:'ARRAY', items:{ type:'OBJECT',
+    properties:{ name:{type:'STRING'}, area:{type:'STRING'}, item:{type:'STRING'}, qty:{type:'NUMBER'}, raw:{type:'STRING'}, sure:{type:'BOOLEAN'} },
+    required:['name','area','item','qty','raw','sure'], propertyOrdering:['name','area','item','qty','raw','sure'] } },
+  messages:{ type:'ARRAY', items:{ type:'OBJECT',
+    properties:{ name:{type:'STRING'}, time:{type:'STRING'}, text:{type:'STRING'} },
+    required:['name','time','text'], propertyOrdering:['name','time','text'] } }
+}, required:['rows','messages'] };
 
 function buildParts(){
   const parts = [];
@@ -3946,6 +3953,7 @@ async function run(){
       try{
         const out = await callOnce(model, parts);
         used = model;
+        S.messages = Array.isArray(out.messages) ? out.messages.map(m => ({ name:String(m.name||'').trim(), time:String(m.time||'').trim(), text:String(m.text||'').replace(/\r/g,'').trim() })).filter(m => m.text||m.name) : [];
         build(Array.isArray(out.rows) ? out.rows : []);
         break outer;
       }catch(e){
@@ -4060,7 +4068,7 @@ function drawGrid(){
   document.getElementById('gridFoot').innerHTML =
     '<tr><td class="nm">합계</td>' + c.map(x => '<td data-col="'+esc(x)+'"></td>').join('')
     + '<td data-col="__all"></td><td></td></tr>';
-  totals(); preview(); drawMgrMap();
+  totals(); preview();
 }
 function totals(){
   const c = cols(); let all = 0;
@@ -4087,13 +4095,21 @@ function addPerson(){
   drawGrid(); saveLast();
 }
 function drawRaw(){
-  document.getElementById('rawList').innerHTML = S.rawRows.length
-    ? S.rawRows.map(r => '<div class="rawline"><b>'+esc(S.alias[r.name]||r.name)+'</b>'
+  const msgs = (S.messages||[]).length
+    ? S.messages.map(m => '<div class="msg"><div class="msg-h"><b>'+esc(m.name||'?')+'</b>'
+        + (m.time ? ' <span>'+esc(m.time)+'</span>' : '') + '</div>'
+        + '<div class="msg-t">'+esc(m.text)+'</div></div>').join('')
+    : '<p class="muted">' + (S.rawRows.length ? '이 표는 원문을 같이 저장하기 전에 읽은 것입니다. 다시 읽으면 카톡 원문이 그대로 보입니다.' : '원문이 없습니다.') + '</p>';
+  const rows = S.rawRows.length
+    ? '<details class="raw" style="margin-top:10px"><summary>인식한 줄 보기 ('+S.rawRows.length+'줄)</summary>'
+      + S.rawRows.map(r => '<div class="rawline"><b>'+esc(S.alias[r.name]||r.name)+'</b>'
         + (r.area ? ' <span style="color:var(--ink-3)">'+esc(r.area)+'</span>' : '') + ' · '
         + '<span style="color:'+colorOf(S.items.indexOf(r.item)>=0?r.item:ETC)+';font-weight:650">'+esc(r.item)+' '+r.qty+'</span>'
         + (r.item0 && r.item0 !== r.item ? ' <span style="color:var(--ink-3)">('+esc(r.item0)+'→)</span>' : '')
         + (r.sure ? '' : ' <span class="tag">불확실</span>') + '<br>'+esc(r.raw)+'</div>').join('')
-    : '<p class="muted">원문이 없습니다.</p>';
+      + '</details>'
+    : '';
+  document.getElementById('rawList').innerHTML = msgs + rows;
 }
 
 /* ---------- 내보내기 ---------- */
@@ -4212,117 +4228,6 @@ function wipe(){
   location.reload();
 }
 
-/* ---------- 배송관리자(delivery-) 연동 ----------
-   배송관리자 앱이 쓰는 Supabase 에 이 표를 기사별 일일 기록(daily_records)으로 바로 넣는다.
-   - 기사 매칭: 표의 이름(닉네임 연결 후 실명) == workers.name. 안 맞으면 아래 선택칸에서 한 번 고르면 기억(K.mgrmap).
-   - 물품 매칭: 배송관리자 qty_a~f 순서가 오네·오네책·딜리·딜리주말·딜리새벽·딜리낮. LK2 물품을 그 자리에 넣는다.
-     기타 열과 낮딜리(f)는 넣을 곳이 없어 건너뛴다.
-   - 같은 날짜·기사 줄이 이미 있으면 덮어쓴다(upsert) — 다시 읽어서 다시 보내면 그 날짜만 고쳐진다.
-   - 키는 배송관리자 앱에 이미 공개돼 있는 anon 키. 쓰기 권한은 배송관리자와 같은 규칙(RLS)을 따른다. */
-const MGR_URL = 'https://vvivcdwmommvgvbpxwxk.supabase.co';
-const MGR_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2aXZjZHdtb21tdmd2YnB4d3hrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxMTY1MzcsImV4cCI6MjA4OTY5MjUzN30.bjHhtHjO0kmb6lKu9cyZea8n1lYz9IoMuXFD2CKz9oE';
-const MGR_ITEM = { '오네':'qty_a', '책':'qty_b', '딜리':'qty_c', '주말딜리':'qty_d', '새벽딜리':'qty_e' };
-let mgrWorkers = null, mgrLoading = null, mgrErr = '';
-const normName = n => String(n||'').replace(/\s+/g,'').toLowerCase();
-
-async function mgrFetch(path, opt){
-  opt = opt || {};
-  const h = Object.assign({ apikey:MGR_KEY, Authorization:'Bearer '+MGR_KEY, 'Content-Type':'application/json' }, opt.headers||{});
-  const r = await fetch(MGR_URL + '/rest/v1/' + path, { method:opt.method||'GET', headers:h, body:opt.body ? JSON.stringify(opt.body) : undefined });
-  if (!r.ok){
-    let m = 'HTTP ' + r.status;
-    try{ const j = await r.json(); if (j && (j.message||j.hint)) m = j.message || j.hint; }catch(e){}
-    const err = new Error(m); err.status = r.status; throw err;
-  }
-  const t = await r.text();                       // return=minimal 이면 본문이 비어 온다
-  return t ? JSON.parse(t) : null;
-}
-/* 기사 목록 — 한 번 받아 두고 재사용 (실패하면 다음 보내기 때 다시 시도) */
-function mgrLoadWorkers(force){
-  if (mgrWorkers && !force) return Promise.resolve(mgrWorkers);
-  if (mgrLoading) return mgrLoading;
-  mgrLoading = mgrFetch('workers?select=id,name,login_id&order=id')
-    .then(list => {
-      mgrWorkers = (list||[]).filter(w => w.login_id !== '__system_notice__' && w.name !== '__SYSTEM__');
-      mgrErr = ''; return mgrWorkers;
-    })
-    .catch(e => { mgrErr = e.message || '연결 실패'; throw e; })
-    .finally(() => { mgrLoading = null; });
-  return mgrLoading;
-}
-/* 표의 이름 → 기사 id. 기억해 둔 연결 > 이름 완전 일치 > 공백·대소문자 무시 일치 */
-function mgrMatch(name){
-  if (!mgrWorkers) return null;
-  const map = load(K.mgrmap, {});
-  if (map[name] && mgrWorkers.some(w => w.id === map[name])) return map[name];
-  let w = mgrWorkers.find(w => w.name === name) || mgrWorkers.find(w => normName(w.name) === normName(name));
-  return w ? w.id : null;
-}
-function mgrSetMap(name, id){
-  const map = load(K.mgrmap, {});
-  if (id) map[name] = id; else delete map[name];
-  save(K.mgrmap, map); drawMgrMap();
-}
-/* 이름 연결 표 — 못 찾은 이름만 선택칸으로 보여준다 */
-function drawMgrMap(){
-  const box = document.getElementById('mgrMap'); if (!box) return;
-  if (!S.people.length){ box.innerHTML = ''; return; }
-  if (!mgrWorkers){
-    box.innerHTML = mgrErr
-      ? '<div class="note warn">배송관리자에 연결하지 못했습니다 ('+esc(mgrErr)+'). 보내기를 누르면 다시 시도합니다.</div>'
-      : '<p class="muted">배송관리자 기사 목록 확인 중…</p>';
-    if (!mgrErr) mgrLoadWorkers().then(drawMgrMap).catch(drawMgrMap);
-    return;
-  }
-  const miss = S.people.filter(p => !mgrMatch(p));
-  const ok = S.people.length - miss.length;
-  if (!miss.length){ box.innerHTML = '<div class="note ok">'+ok+'명 모두 배송관리자 기사와 연결됐습니다.</div>'; return; }
-  const opts = mgrWorkers.map(w => '<option value="'+w.id+'">'+esc(w.name)+'</option>').join('');
-  box.innerHTML = '<div class="note warn"><b>'+miss.length+'명</b>은 배송관리자에 같은 이름의 기사가 없습니다. 누구인지 골라주세요 (한 번 고르면 기억합니다). 안 고르면 그 사람은 건너뜁니다.</div>'
-    + miss.map(p => '<div class="row" style="gap:7px;margin-bottom:8px"><b style="flex:0 0 auto;min-width:64px">'+esc(p)+'</b>'
-        + '<span class="arrow" style="color:var(--ink-3)">→</span>'
-        + '<select style="flex:1" data-name="'+esc(p)+'" onchange="mgrSetMap(this.dataset.name, Number(this.value)||0)"><option value="">(건너뛰기)</option>'+opts+'</select></div>').join('');
-}
-async function sendToMgr(){
-  const date = document.getElementById('dateIn').value;
-  if (!date){ msg('mgrMsg','err','날짜를 먼저 고르세요.'); return; }
-  if (!S.people.length){ msg('mgrMsg','warn','보낼 표가 없습니다.'); return; }
-  const btn = document.getElementById('mgrBtn'); btn.disabled = true; btn.textContent = '보내는 중…';
-  try{
-    await mgrLoadWorkers(!!mgrErr);
-    drawMgrMap();
-    const rows = [], skipped = [], noItem = [];
-    S.people.forEach(p => {
-      const wid = mgrMatch(p);
-      if (!wid){ skipped.push(p); return; }
-      const g = S.grid[p] || {};
-      const row = { work_date:date, worker_id:wid, qty_a:0, qty_b:0, qty_c:0, qty_d:0, qty_e:0, qty_f:0 };
-      Object.keys(g).forEach(it => {
-        const col = MGR_ITEM[it];
-        if (col) row[col] += Number(g[it])||0;
-        else if (g[it]) noItem.push(p+' · '+it+' '+g[it]);
-      });
-      rows.push(row);
-    });
-    if (!rows.length){ msg('mgrMsg','err','연결된 기사가 한 명도 없어 보내지 못했습니다. 위에서 이름을 골라주세요.'); return; }
-    await mgrFetch('daily_records?on_conflict=work_date,worker_id', {
-      method:'POST', body:rows, headers:{ Prefer:'resolution=merge-duplicates,return=minimal' }
-    });
-    const d = new Date(date+'T00:00:00');
-    const label = isNaN(d) ? date : (d.getMonth()+1)+'월 '+d.getDate()+'일('+DAYS[d.getDay()]+')';
-    const bits = ['<b>'+label+'</b> 기사 <b>'+rows.length+'명</b> 수량을 배송관리자에 넣었습니다.'];
-    if (skipped.length) bits.push('건너뜀(이름 못 찾음): <b>'+skipped.map(esc).join(', ')+'</b>');
-    if (noItem.length) bits.push('넣을 칸이 없어 뺀 것: '+noItem.map(esc).join(', '));
-    msg('mgrMsg', skipped.length||noItem.length ? 'warn' : 'ok', bits.join('<br>'));
-  }catch(e){
-    let m = e.message || '알 수 없는 오류';
-    if (m === 'Failed to fetch') m = '네트워크에 연결하지 못했습니다. 배송관리자 서버가 잠시 멈춰 있을 수도 있습니다(무료 플랜은 일주일 안 쓰면 멈춤) — 배송관리자 앱을 한 번 열어 보세요.';
-    msg('mgrMsg','err','보내지 못했습니다: '+esc(m));
-  }finally{
-    btn.disabled = false; btn.textContent = '📤 배송관리자로 보내기';
-  }
-}
-
 /* ---------- 정산 기록 (앱 💰 정산 탭이 읽음) ---------- */
 const HISTORY_KEY = 'mv_history';
 function stlState(){
@@ -4353,7 +4258,7 @@ function saveToSettle(){
 
 /* ---------- 임시 저장 ---------- */
 function saveLast(){
-  save(K.last, { date:document.getElementById('dateIn').value, people:S.people, grid:S.grid, rawRows:S.rawRows, flags:S.flags });
+  save(K.last, { date:document.getElementById('dateIn').value, people:S.people, grid:S.grid, rawRows:S.rawRows, messages:S.messages, flags:S.flags });
 }
 function restore(){
   const l = load(K.last, null);
@@ -4361,7 +4266,7 @@ function restore(){
   const d = new Date();
   const today = new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
   if (l.date !== today) return;
-  S.people = l.people; S.grid = l.grid||{}; S.rawRows = l.rawRows||[]; S.flags = l.flags||{};
+  S.people = l.people; S.grid = l.grid||{}; S.rawRows = l.rawRows||[]; S.messages = l.messages||[]; S.flags = l.flags||{};
   document.getElementById('ckEmpty').hidden = true;
   document.getElementById('ckBody').hidden = false;
   drawGrid(); drawRaw(); stlState();
