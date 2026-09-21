@@ -101,6 +101,8 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
 .chip-add{display:inline-flex;align-items:center;background:transparent;border:1.5px dashed var(--border2);border-radius:9px;padding:0;}
 .chip-add input{background:transparent;border:none;outline:none;color:var(--text);font-size:13.5px;font-family:inherit;padding:7px 10px;width:88px;}
 .chip-add input::placeholder{color:var(--dim);}
+.chip-plus{width:36px;height:34px;border:none;border-left:1.5px dashed var(--border2);background:transparent;color:var(--blue3);font-size:20px;font-weight:900;cursor:pointer;font-family:inherit;line-height:1;}
+.chip-plus:active{background:var(--card2);}
 
 /* Schedule View Styling */
 .sch-nav-bar{display:flex;align-items:center;justify-content:space-between;background:var(--card2);border:1.5px solid var(--border);border-radius:12px;padding:8px 12px;margin-bottom:12px;}
@@ -2992,7 +2994,25 @@ function settleCurMonth(){ const d=new Date(); return d.getFullYear()+'-'+String
 function saveSettle(){ localStorage.setItem(SETTLE_KEY, JSON.stringify(settleStore)); }
 function settleHistory(){ const h=load(SETTLE_HISTORY_KEY,{}); return (h&&typeof h==='object')?h:{}; }
 function saveSettleHistory(h){ localStorage.setItem(SETTLE_HISTORY_KEY, JSON.stringify(h)); }
-function settleItems(){ const it=load('mv_items',null); return (Array.isArray(it)&&it.length?it:SETTLE_DEFAULT_ITEMS).filter(i=>i!=='기타'); }
+const SETTLE_MAX_ITEMS=8;
+function settleRawItems(){ const it=load('mv_items',null); return Array.isArray(it)&&it.length ? it.slice() : SETTLE_DEFAULT_ITEMS.slice(); }
+function settleItems(){ return settleRawItems().filter(i=>i!=='기타'); }
+/* 물품 목록은 물량 탭 설정(mv_items)과 같은 것을 쓴다 — 여기서 바꾸면 물량 탭 iframe 이 storage 이벤트로 따라온다 */
+function settleSaveItems(items){ localStorage.setItem('mv_items', JSON.stringify(items)); }
+function settleAddItem(){
+  const el=document.getElementById('st-item'); const v=(el&&el.value||'').trim();
+  if(!v){ showToast('물품 이름을 넣어주세요','err'); return; }
+  const items=settleRawItems();
+  if(items.filter(i=>i!=='기타').length>=SETTLE_MAX_ITEMS){ showToast('물품은 최대 '+SETTLE_MAX_ITEMS+'가지까지예요','err'); return; }
+  if(items.indexOf(v)>=0||v==='기타'){ showToast('이미 있는 물품이에요','err'); return; }
+  items.push(v); settleSaveItems(items); showToast('📦 '+v+' 추가 — 물량 탭에도 반영됐어요'); render();
+}
+function settleDelItem(it){
+  if(!confirm('"'+it+'" 물품을 목록에서 뺄까요?\n저장된 기록의 수량은 남지만 금액 계산에서는 빠집니다. 물량 탭에서도 빠집니다.')) return;
+  const items=settleRawItems().filter(x=>x!==it);
+  if(!items.filter(i=>i!=='기타').length){ showToast('물품은 하나 이상 있어야 해요','err'); return; }
+  settleSaveItems(items); render();
+}
 function settleIsDeli(it){ return /딜/.test(it); }
 function settleGroups(){
   const items=settleItems();
@@ -3181,7 +3201,13 @@ function renderSettlePrices(){
       </div>
     </div>`;
   }).join('');
+  const full=items.length>=SETTLE_MAX_ITEMS;
+  const chips=items.map(it=>`<span class="chip">${esc(it)}<button class="chip-x" onclick="settleDelItem('${esc(it)}')" aria-label="${esc(it)} 빼기">×</button></span>`).join('')
+    + (full ? '' : `<span class="chip-add"><input type="text" id="st-item" placeholder="물품 추가" maxlength="10" onkeydown="if(event.key==='Enter')settleAddItem()"><button class="chip-plus" onclick="settleAddItem()" aria-label="물품 추가">＋</button></span>`);
   return `
+    <div class="section-head"><div class="section-title">📦 물품 목록 <b>${items.length}</b>/${SETTLE_MAX_ITEMS} · 물량 탭과 같이 씀</div></div>
+    <div class="chips" style="margin-bottom:6px">${chips}</div>
+    <p style="font-size:11.5px;color:var(--dim);margin:0 2px 16px;line-height:1.6">${full?'최대 '+SETTLE_MAX_ITEMS+'가지까지입니다. 빼려면 × 를 누르세요.':'이름에 \'딜\'이 들어가면 딜리 정산, 아니면 오네 정산으로 묶입니다. 추가한 물품은 물량 탭에서도 바로 읽습니다.'}</p>
     <div class="section-head"><div class="section-title">💵 사람별 단가 · 세금 방식 <b>${names.length}</b>명</div></div>
     <p style="font-size:12px;color:var(--sub);margin:-4px 2px 12px;line-height:1.6">물량을 저장하면 이름이 자동으로 올라옵니다. 단가는 건당 금액이고, 세금은 <b style="color:var(--text)">3.3% 공제</b>(매출에서 뺌) 또는 <b style="color:var(--text)">부가세 별도</b>(매출에 10% 더함) 중 고릅니다.</p>
     ${cards||'<div class="st-empty">아직 이름이 없습니다. 아래에서 직접 추가하거나 📦 물량 탭에서 저장하세요.</div>'}
@@ -4356,6 +4382,14 @@ function restore(){
   document.getElementById('aliasV').addEventListener('keydown', e => { if (e.key==='Enter') addAlias(); });
   drawDay(); drawChips(); drawFiles(); restore();
   if (!apiKey()) msg('inMsg','warn','제미나이 API 키가 없습니다. 앱 <b>맨 위 ⚙️ 설정</b>에서 키를 넣어주세요.');
+  /* 앱의 💰 정산 탭에서 물품 목록을 바꾸면 여기도 같은 목록으로 */
+  window.addEventListener('storage', e => {
+    if (e.key !== K.items) return;
+    const it = load(K.items, null);
+    S.items = (Array.isArray(it) && it.length) ? it : DEFAULT_ITEMS.slice();
+    if (document.getElementById('itemChips')) drawItems();
+    if (S.rawRows.length) build(S.rawRows); else if (S.people.length) drawGrid();
+  });
 })();
 <\/script>
 </body>
