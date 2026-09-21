@@ -259,6 +259,53 @@ input[type="time"].time-hint{
 .set-tab{flex:1;padding:11px 0;border:1.5px solid var(--border);border-radius:11px;background:var(--card);color:var(--sub);font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;transition:all 0.15s;}
 .set-tab.active{background:var(--teal);border-color:var(--teal);color:#04211c;}
 
+/* ===== 💰 정산 ===== */
+.st-month{display:flex;gap:8px;align-items:center;margin-bottom:13px;}
+.st-nav{width:46px;height:48px;flex-shrink:0;border:1.5px solid var(--border);border-radius:11px;background:var(--card);color:var(--sub);font-size:22px;font-weight:900;cursor:pointer;font-family:inherit;}
+.st-nav:active{background:var(--card2);color:var(--blue3);}
+.st-month-in{flex:1;text-align:center;font-weight:800;}
+.st-sum{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:13px;}
+.st-sum div{background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:11px 12px;min-width:0;}
+.st-sum small{display:block;font-size:11px;color:var(--sub);font-weight:700;margin-bottom:4px;}
+.st-sum b{font-size:17px;font-weight:900;color:var(--text);white-space:nowrap;}
+.st-sum b.pay{color:var(--teal3);}
+.st-card{background:var(--card);border:1.5px solid var(--border);border-radius:14px;margin-bottom:11px;overflow:hidden;}
+.st-card summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 14px;cursor:pointer;}
+.st-card summary::-webkit-details-marker{display:none;}
+.st-name{font-size:15.5px;font-weight:900;color:var(--blue3);}
+.st-meta{font-size:11.5px;color:var(--sub);margin-top:2px;}
+.st-pay{font-size:16px;font-weight:900;color:var(--teal3);text-align:right;white-space:nowrap;}
+.st-pay small{display:block;font-size:10.5px;color:var(--dim);font-weight:700;}
+.st-body{padding:0 14px 13px;border-top:1px solid var(--border);}
+.st-grp{display:flex;justify-content:space-between;font-size:11.5px;font-weight:800;color:var(--sub);margin:12px 0 5px;letter-spacing:.3px;}
+.st-grp b{color:var(--blue3);}
+.st-line{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;padding:4px 0;color:var(--text);}
+.st-line span:first-child{color:var(--sub);}
+.st-line.sub{border-top:1px dashed var(--border2);margin-top:3px;padding-top:7px;font-weight:800;}
+.st-line.sub span:first-child{color:var(--text);}
+.st-line.tax span:last-child{color:var(--amber2);}
+.st-line.total{font-weight:900;font-size:15.5px;border-top:1.5px solid var(--border2);margin-top:10px;padding-top:10px;}
+.st-line.total span:first-child{color:var(--text);}
+.st-line.total span:last-child{color:var(--teal3);}
+.st-warn{background:#3a2a0a;border:1px solid #6b4a10;color:#ffd48a;border-radius:10px;padding:8px 11px;font-size:12.5px;margin-top:10px;line-height:1.5;}
+.st-warn a{color:#ffd48a;font-weight:800;text-decoration:underline;}
+.st-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}
+.st-actions button{padding:11px;border-radius:11px;font-size:13px;font-weight:800;border:1.5px solid var(--border2);background:var(--card2);color:var(--text);cursor:pointer;font-family:inherit;}
+.st-actions button.k{background:var(--kakao);color:var(--kakao-text);border-color:var(--kakao);}
+.st-empty{background:var(--card);border:1.5px dashed var(--border2);border-radius:14px;padding:22px 16px;text-align:center;color:var(--sub);font-size:13.5px;line-height:1.7;margin-bottom:13px;}
+.st-empty b{color:var(--blue3);}
+.st-worker{background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:13px 13px 12px;margin-bottom:11px;}
+.st-worker-top{display:flex;align-items:center;gap:8px;margin-bottom:11px;}
+.st-worker-top .st-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.st-worker-top select.inp{width:auto;flex-shrink:0;padding:8px 32px 8px 11px;font-size:13px;font-weight:800;border-radius:9px;}
+.st-price-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.st-price-grid label{display:block;font-size:11px;color:var(--sub);font-weight:700;margin-bottom:4px;}
+.st-price-grid .inp{padding:10px 11px;font-size:15px;text-align:right;font-weight:700;}
+.st-day{display:flex;align-items:center;gap:10px;background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:11px 12px;margin-bottom:9px;}
+.st-day-date{font-size:14px;font-weight:900;color:var(--blue3);min-width:86px;}
+.st-day-sub{flex:1;font-size:12px;color:var(--sub);line-height:1.5;}
+.st-day-sub b{color:var(--text);}
+
 .sheet-tabs{display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:10px;}
 .sheet-tab{flex:1;padding:10px 0;border:none;background:var(--card2);color:var(--sub);font-size:12.5px;font-weight:700;border-radius:8px;cursor:pointer;font-family:inherit;transition:all 0.15s;}
 .sheet-tab.active{background:var(--blue);color:#fff;}
@@ -429,6 +476,7 @@ body.tab-dragging .tabs{overflow-x:hidden;}
     <button class="tab" id="tab-volume" onclick="switchTab('volume')">📦 물량</button>
     <button class="tab" id="tab-schedule" onclick="switchTab('schedule')">📅 근무/휴무</button>
        <button class="tab" id="tab-inbound" onclick="switchTab('inbound')">🚚 입고</button>
+    <button class="tab" id="tab-settle" onclick="switchTab('settle')">💰 정산</button>
     <button class="tab" id="tab-code" onclick="switchTab('code')">🔑 출입코드</button>
   </div>
 
@@ -564,8 +612,8 @@ body.tab-dragging .tabs{overflow-x:hidden;}
 const DAYS=['일','월','화','수','목','금','토'];
 const DOW_FULL=['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
 let tab='roster';
-const TAB_TITLES={roster:'출근명단 정리',dawn:'새벽반 명단',weather:'실시간 기상 감시 (강남구)',volume:'LK 배송물량표',schedule:'근무/휴무 현황',inbound:'간선 도착 · 입고',code:'출입코드 노트'};
-const ALL_TABS=['roster','dawn','weather','volume','schedule','inbound','code'];
+const TAB_TITLES={roster:'출근명단 정리',dawn:'새벽반 명단',weather:'실시간 기상 감시 (강남구)',volume:'LK 배송물량표',schedule:'근무/휴무 현황',inbound:'간선 도착 · 입고',settle:'월별 정산',code:'출입코드 노트'};
+const ALL_TABS=['roster','dawn','weather','volume','schedule','inbound','settle','code'];
 let customRosterText = null;
 let customWeatherText = null;
 let customVolumeText = null;
@@ -2792,7 +2840,7 @@ function saveSettings(){
 }
 
 const BK_KEYS=['disp-roster-tpl','disp-dawn-tpl','disp-schedule','disp-inbound','disp-roster-wide','disp-roster-compact','disp-roster-sep','disp-tab-order','acn5',
-               'mv_alias','mv_items','mv_base','mv_rules','mv_models','mv_midx'];
+               'mv_alias','mv_items','mv_base','mv_rules','mv_models','mv_midx','mv_history','disp-settle'];
 let pendingImport=null;
 
 function openBackup(){document.getElementById('backup-sheet').classList.add('show');}
@@ -2930,6 +2978,243 @@ document.getElementById('dlg-ok').onclick=function(){
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function showToast(msg,type){const t=document.getElementById('toast');if(!t)return;t.textContent=msg;t.className='toast show'+(type==='err'?' err':'');clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.className='toast'+(type==='err'?' err':''),2400);}
 
+/* ===== 💰 정산 — 물량 탭이 날짜별로 저장한 표(mv_history)를 월별로 모아 사람별 단가를 곱함 ===== */
+const SETTLE_KEY='disp-settle', SETTLE_HISTORY_KEY='mv_history';
+const SETTLE_DEFAULT_ITEMS=['오네','책','딜리','주말딜리','새벽딜리'];
+const TAX_TYPES={ '3.3':'3.3% 공제', 'vat':'부가세 별도', 'none':'세금 없음' };
+let settleStore=load(SETTLE_KEY,null);
+if(!settleStore||typeof settleStore!=='object') settleStore={};
+if(!settleStore.workers||typeof settleStore.workers!=='object') settleStore.workers={};
+if(!settleStore.month) settleStore.month=settleCurMonth();
+if(!settleStore.view) settleStore.view='table';
+
+function settleCurMonth(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+function saveSettle(){ localStorage.setItem(SETTLE_KEY, JSON.stringify(settleStore)); }
+function settleHistory(){ const h=load(SETTLE_HISTORY_KEY,{}); return (h&&typeof h==='object')?h:{}; }
+function saveSettleHistory(h){ localStorage.setItem(SETTLE_HISTORY_KEY, JSON.stringify(h)); }
+function settleItems(){ const it=load('mv_items',null); return (Array.isArray(it)&&it.length?it:SETTLE_DEFAULT_ITEMS).filter(i=>i!=='기타'); }
+function settleIsDeli(it){ return /딜/.test(it); }
+function settleGroups(){
+  const items=settleItems();
+  return [ {key:'one',label:'오네 정산',items:items.filter(i=>!settleIsDeli(i))},
+           {key:'deli',label:'딜리 정산',items:items.filter(settleIsDeli)} ];
+}
+function settleMonthLabel(m){ const a=String(m||'').split('-'); return a.length===2 ? a[0]+'년 '+parseInt(a[1],10)+'월' : m; }
+function settleDateLabel(d){ const x=new Date(d+'T00:00:00'); return isNaN(x) ? d : (x.getMonth()+1)+'/'+x.getDate()+'('+['일','월','화','수','목','금','토'][x.getDay()]+')'; }
+function won(n){ return Math.round(n).toLocaleString('ko-KR')+'원'; }
+function num(n){ return Number(n||0).toLocaleString('ko-KR'); }
+function settleWorker(name){ if(!settleStore.workers[name]) settleStore.workers[name]={prices:{},tax:'3.3'}; if(!settleStore.workers[name].prices) settleStore.workers[name].prices={}; return settleStore.workers[name]; }
+function settleAllNames(){
+  const h=settleHistory(); const set={};
+  Object.keys(h).forEach(d=>Object.keys((h[d]&&h[d].grid)||{}).forEach(n=>set[n]=1));
+  Object.keys(settleStore.workers).forEach(n=>set[n]=1);
+  return Object.keys(set).sort((a,b)=>a.localeCompare(b,'ko'));
+}
+
+function settleCalc(month){
+  const h=settleHistory(); const groups=settleGroups();
+  const dates=Object.keys(h).filter(d=>d.indexOf(month)===0).sort();
+  const qty={}, days={};
+  dates.forEach(d=>{
+    const g=(h[d]&&h[d].grid)||{};
+    Object.keys(g).forEach(n=>{
+      qty[n]=qty[n]||{}; days[n]=(days[n]||0)+1;
+      Object.keys(g[n]).forEach(it=>{ qty[n][it]=(qty[n][it]||0)+(Number(g[n][it])||0); });
+    });
+  });
+  const rows=Object.keys(qty).sort((a,b)=>a.localeCompare(b,'ko')).map(n=>{
+    const w=settleStore.workers[n]||{prices:{},tax:'3.3'}; const prices=w.prices||{};
+    const gs=groups.map(gr=>{
+      const lines=gr.items.map(it=>{ const q=qty[n][it]||0, p=Number(prices[it])||0; return {item:it,qty:q,price:p,amt:q*p,noPrice:q>0&&!p}; }).filter(l=>l.qty>0);
+      return {key:gr.key,label:gr.label,lines,qty:lines.reduce((s,l)=>s+l.qty,0),sub:lines.reduce((s,l)=>s+l.amt,0)};
+    });
+    const known={}; groups.forEach(gr=>gr.items.forEach(it=>known[it]=1));
+    const etc=Object.keys(qty[n]).filter(it=>!known[it]&&qty[n][it]>0).map(it=>({item:it,qty:qty[n][it]}));
+    const sales=gs.reduce((s,x)=>s+x.sub,0);
+    const taxType=TAX_TYPES[w.tax]?w.tax:'3.3';
+    const tax=taxType==='vat' ? Math.round(sales*0.1) : taxType==='none' ? 0 : -Math.round(sales*0.033);
+    return {name:n,days:days[n],groups:gs,etc,sales,tax,taxType,pay:sales+tax,
+            noPrice:gs.some(x=>x.lines.some(l=>l.noPrice)),totalQty:gs.reduce((s,x)=>s+x.qty,0)};
+  });
+  return {dates,rows,totalSales:rows.reduce((s,r)=>s+r.sales,0),totalPay:rows.reduce((s,r)=>s+r.pay,0)};
+}
+
+function settleView(v){ settleStore.view=v; saveSettle(); render(); }
+function settleMonth(delta){
+  const a=settleStore.month.split('-'); const d=new Date(parseInt(a[0],10), parseInt(a[1],10)-1+delta, 1);
+  settleStore.month=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); saveSettle(); render();
+}
+function settleSetMonth(v){ if(/^\d{4}-\d{2}$/.test(v)){ settleStore.month=v; saveSettle(); render(); } }
+function settlePrice(name,item,v){ const w=settleWorker(name); const n=parseInt(String(v).replace(/[^\d]/g,''),10); if(n>0) w.prices[item]=n; else delete w.prices[item]; saveSettle(); }
+function settleTax(name,v){ settleWorker(name).tax=TAX_TYPES[v]?v:'3.3'; saveSettle(); }
+function settleAddWorker(){
+  const el=document.getElementById('st-add'); const n=(el&&el.value||'').trim();
+  if(!n){ showToast('이름을 넣어주세요','err'); return; }
+  settleWorker(n); saveSettle(); render();
+}
+function settleDelWorker(name){
+  if(!confirm('"'+name+'" 단가 설정을 지울까요?\n(물량 기록은 그대로 남습니다)')) return;
+  delete settleStore.workers[name]; saveSettle(); render();
+}
+function settleDelDay(d){
+  if(!confirm(settleDateLabel(d)+' 기록을 지울까요?')) return;
+  const h=settleHistory(); delete h[d]; saveSettleHistory(h); render();
+}
+
+/* 카톡 문구 — 사람 한 명 */
+function settlePersonText(r){
+  const L=[]; L.push('['+settleMonthLabel(settleStore.month)+' 정산] '+r.name);
+  r.groups.forEach(g=>{
+    if(!g.lines.length) return;
+    L.push('■ '+g.label);
+    g.lines.forEach(l=>L.push(' · '+l.item+' '+num(l.qty)+'건 × '+num(l.price)+'원 = '+won(l.amt)));
+    L.push(' 소계 '+won(g.sub));
+  });
+  if(r.etc.length) L.push('※ 단가 없는 물품: '+r.etc.map(e=>e.item+' '+num(e.qty)+'건').join(', '));
+  L.push('매출 합계 '+won(r.sales));
+  if(r.taxType==='vat') L.push('부가세(10%) +'+won(r.tax));
+  else if(r.taxType==='3.3') L.push('3.3% 공제 '+won(r.tax));
+  L.push('지급액 '+won(r.pay)+' ('+r.days+'일 근무)');
+  return L.join('\n');
+}
+/* 엑셀 붙여넣기용 표 (탭 구분) */
+function settleTSV(){
+  const c=settleCalc(settleStore.month); const groups=settleGroups();
+  const head=['이름','근무일'];
+  groups.forEach(g=>g.items.forEach(it=>head.push(it+' 수량',it+' 단가',it+' 금액')));
+  head.push('오네 소계','딜리 소계','매출 합계','세금 방식','세금','지급액');
+  const rows=[head.join('\t')];
+  c.rows.forEach(r=>{
+    const a=[r.name,r.days];
+    groups.forEach((g,gi)=>g.items.forEach(it=>{ const l=r.groups[gi].lines.find(x=>x.item===it)||{qty:0,price:0,amt:0}; a.push(l.qty,l.price,l.amt); }));
+    a.push(r.groups[0].sub, r.groups[1].sub, r.sales, TAX_TYPES[r.taxType], r.tax, r.pay);
+    rows.push(a.join('\t'));
+  });
+  return rows.join('\n');
+}
+function settleCopyPerson(i){ const c=settleCalc(settleStore.month); if(c.rows[i]) copyText(settlePersonText(c.rows[i])); }
+function settleSharePerson(i){ const c=settleCalc(settleStore.month); if(c.rows[i]) shareText(settlePersonText(c.rows[i])); }
+function settleCopyAll(){ const c=settleCalc(settleStore.month); if(!c.rows.length){ showToast('정산할 기록이 없어요','err'); return; } copyText(settleTSV()); }
+function settleShareAll(){ const c=settleCalc(settleStore.month); if(!c.rows.length){ showToast('정산할 기록이 없어요','err'); return; } shareText(c.rows.map(settlePersonText).join('\n\n')); }
+
+function renderSettle(){
+  const m=settleStore.month, v=settleStore.view;
+  const head=`
+    <div class="set-tabs">
+      <button class="set-tab ${v==='table'?'active':''}" onclick="settleView('table')">📊 정산표</button>
+      <button class="set-tab ${v==='price'?'active':''}" onclick="settleView('price')">💵 단가</button>
+      <button class="set-tab ${v==='days'?'active':''}" onclick="settleView('days')">📅 기록</button>
+    </div>
+    <div class="st-month">
+      <button class="st-nav" onclick="settleMonth(-1)">‹</button>
+      <input type="month" class="inp st-month-in" value="${esc(m)}" onchange="settleSetMonth(this.value)">
+      <button class="st-nav" onclick="settleMonth(1)">›</button>
+    </div>`;
+  let body='';
+  if(v==='price') body=renderSettlePrices();
+  else if(v==='days') body=renderSettleDays();
+  else body=renderSettleTable();
+  return head+body+'<div style="height:20px"></div>';
+}
+
+function renderSettleTable(){
+  const c=settleCalc(settleStore.month);
+  if(!c.rows.length) return `
+    <div class="st-empty"><b>${esc(settleMonthLabel(settleStore.month))}</b>에 저장된 물량이 없습니다.<br>
+    📦 물량 탭에서 숫자 확인 뒤 <b>💰 정산에 저장</b>을 누르면 여기에 쌓입니다.</div>`;
+  const missing=c.rows.filter(r=>r.noPrice).length;
+  const cards=c.rows.map((r,i)=>`
+    <details class="st-card">
+      <summary>
+        <div><div class="st-name">${esc(r.name)}</div><div class="st-meta">${r.days}일 · ${num(r.totalQty)}건 · ${esc(TAX_TYPES[r.taxType])}</div></div>
+        <div class="st-pay">${won(r.pay)}<small>지급액</small></div>
+      </summary>
+      <div class="st-body">
+        ${r.groups.map(g=>g.lines.length?`
+          <div class="st-grp"><span>${esc(g.label)}</span><b>${num(g.qty)}건</b></div>
+          ${g.lines.map(l=>`<div class="st-line"><span>${esc(l.item)} ${num(l.qty)}건 × ${l.price?num(l.price)+'원':'<span style="color:var(--amber2)">단가 없음</span>'}</span><span>${won(l.amt)}</span></div>`).join('')}
+          <div class="st-line sub"><span>소계</span><span>${won(g.sub)}</span></div>`:'').join('')}
+        ${r.etc.length?`<div class="st-warn">단가표에 없는 물품: ${r.etc.map(e=>esc(e.item)+' '+num(e.qty)+'건').join(', ')} — 금액에 넣지 않았습니다.</div>`:''}
+        <div class="st-line" style="margin-top:10px;font-weight:800"><span>매출 합계</span><span>${won(r.sales)}</span></div>
+        ${r.taxType==='vat'?`<div class="st-line tax"><span>부가세 별도 (10%)</span><span>+${won(r.tax)}</span></div>`
+         :r.taxType==='3.3'?`<div class="st-line tax"><span>3.3% 공제</span><span>${won(r.tax)}</span></div>`:''}
+        <div class="st-line total"><span>지급액</span><span>${won(r.pay)}</span></div>
+        ${r.noPrice?`<div class="st-warn">단가가 비어 있는 물품이 있습니다. <a href="#" onclick="settleView('price');return false;">💵 단가 탭</a>에서 넣어주세요.</div>`:''}
+        <div class="st-actions">
+          <button onclick="settleCopyPerson(${i})">📋 문구 복사</button>
+          <button class="k" onclick="settleSharePerson(${i})">💬 카톡 공유</button>
+        </div>
+      </div>
+    </details>`).join('');
+  return `
+    <div class="st-sum">
+      <div><small>기록 · 기사</small><b>${c.dates.length}일 · ${c.rows.length}명</b></div>
+      <div><small>물량 합계</small><b>${num(c.rows.reduce((s,r)=>s+r.totalQty,0))}건</b></div>
+      <div><small>매출 합계</small><b>${won(c.totalSales)}</b></div>
+      <div><small>지급 합계</small><b class="pay">${won(c.totalPay)}</b></div>
+    </div>
+    ${missing?`<div class="st-warn" style="margin:0 0 12px">단가가 비어 있는 기사가 <b>${missing}명</b> 있습니다. 💵 단가 탭에서 채우면 금액이 계산됩니다.</div>`:''}
+    <div class="section-head"><div class="section-title">👤 기사별 정산 <b>${c.rows.length}</b>명 · 이름을 누르면 상세</div></div>
+    ${cards}
+    <div class="actions" style="margin-top:6px">
+      <button class="btn btn-share" onclick="settleShareAll()">💬 전체 문구 공유</button>
+      <button class="btn btn-copy" onclick="settleCopyAll()">📋 엑셀용 표 복사</button>
+    </div>`;
+}
+
+function renderSettlePrices(){
+  const names=settleAllNames(); const items=settleItems();
+  const cards=names.map(n=>{
+    const w=settleStore.workers[n]||{prices:{},tax:'3.3'}; const prices=w.prices||{}; const tax=TAX_TYPES[w.tax]?w.tax:'3.3';
+    const nA=esc(n);
+    return `
+    <div class="st-worker">
+      <div class="st-worker-top">
+        <div class="st-name">${esc(n)}</div>
+        <select class="inp" onchange="settleTax('${nA}',this.value)">
+          ${Object.keys(TAX_TYPES).map(k=>`<option value="${k}" ${k===tax?'selected':''}>${TAX_TYPES[k]}</option>`).join('')}
+        </select>
+        <button class="qty-del" onclick="settleDelWorker('${nA}')">🗑</button>
+      </div>
+      <div class="st-price-grid">
+        ${items.map(it=>`<div><label>${esc(it)} 단가(원)</label><input type="number" inputmode="numeric" class="inp" placeholder="0" value="${prices[it]||''}" onchange="settlePrice('${nA}','${esc(it)}',this.value)"></div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+  return `
+    <div class="section-head"><div class="section-title">💵 사람별 단가 · 세금 방식 <b>${names.length}</b>명</div></div>
+    <p style="font-size:12px;color:var(--sub);margin:-4px 2px 12px;line-height:1.6">물량을 저장하면 이름이 자동으로 올라옵니다. 단가는 건당 금액이고, 세금은 <b style="color:var(--text)">3.3% 공제</b>(매출에서 뺌) 또는 <b style="color:var(--text)">부가세 별도</b>(매출에 10% 더함) 중 고릅니다.</p>
+    ${cards||'<div class="st-empty">아직 이름이 없습니다. 아래에서 직접 추가하거나 📦 물량 탭에서 저장하세요.</div>'}
+    <div class="dispatch-row" style="grid-template-columns:1fr 78px;">
+      <input type="text" id="st-add" class="inp" placeholder="이름 직접 추가" onkeydown="if(event.key==='Enter')settleAddWorker()">
+      <button class="set-tab" style="height:46px" onclick="settleAddWorker()">추가</button>
+    </div>`;
+}
+
+function renderSettleDays(){
+  const h=settleHistory(); const m=settleStore.month;
+  const dates=Object.keys(h).filter(d=>d.indexOf(m)===0).sort().reverse();
+  if(!dates.length) return `<div class="st-empty"><b>${esc(settleMonthLabel(m))}</b>에 저장된 날짜가 없습니다.</div>`;
+  const list=dates.map(d=>{
+    const g=(h[d]&&h[d].grid)||{}; const names=Object.keys(g);
+    let tot=0; names.forEach(n=>Object.keys(g[n]).forEach(it=>tot+=Number(g[n][it])||0));
+    const saved=h[d].savedAt?' · '+new Date(h[d].savedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})+' 저장':'';
+    return `
+    <details class="st-card">
+      <summary>
+        <div><div class="st-name">${esc(settleDateLabel(d))}</div><div class="st-meta">기사 ${names.length}명 · ${num(tot)}건${saved}</div></div>
+        <button class="qty-del" onclick="event.preventDefault();settleDelDay('${esc(d)}')">🗑</button>
+      </summary>
+      <div class="st-body">
+        ${names.sort((a,b)=>a.localeCompare(b,'ko')).map(n=>`<div class="st-line"><span>${esc(n)}</span><span>${Object.keys(g[n]).filter(it=>g[n][it]>0).map(it=>esc(it)+' '+num(g[n][it])).join(' · ')||'0'}</span></div>`).join('')}
+      </div>
+    </details>`;
+  }).join('');
+  return `
+    <div class="section-head"><div class="section-title">📅 저장된 날짜 <b>${dates.length}</b>일 · 누르면 기사별 수량</div></div>
+    ${list}`;
+}
+
 const FRAME_TABS = { code:'accesscode-html', volume:'volume-html' };
 
 function render(){
@@ -2966,6 +3251,7 @@ function render(){
   else if(tab==='weather') c.innerHTML=renderWeather();
   else if(tab==='schedule') c.innerHTML=renderSchedule();
   else if(tab==='inbound') c.innerHTML=renderInbound();
+  else if(tab==='settle') c.innerHTML=renderSettle();
   else c.innerHTML=renderRoster();
 
   setTimeout(autoResizePreviews, 10);
@@ -3280,6 +3566,13 @@ details.raw summary{font-size:12.5px;color:var(--act-3);cursor:pointer;font-weig
       <div id="mgrMap"></div>
       <button class="b pri wide" id="mgrBtn" onclick="sendToMgr()">📤 배송관리자로 보내기</button>
       <div id="mgrMsg" style="margin-top:11px"></div>
+    </div>
+    <div class="card" style="--c:#C2255C">
+      <div class="step"><b>6</b><h2>정산에 저장</h2></div>
+      <p class="hint">위 표를 이 날짜의 기록으로 이 기기에 저장합니다. 앱의 <b>💰 정산</b> 탭이 월별로 모아 사람별 단가를 곱해 계산합니다. 같은 날짜를 다시 저장하면 덮어씁니다.</p>
+      <div id="stlState"></div>
+      <button class="b pri wide" onclick="saveToSettle()">💰 정산에 저장</button>
+      <div id="stlMsg" style="margin-top:11px"></div>
     </div>
   </div>
 </section>
@@ -3679,7 +3972,7 @@ function build(rows){
   });
   document.getElementById('ckEmpty').hidden = S.people.length > 0;
   document.getElementById('ckBody').hidden  = S.people.length === 0;
-  drawGrid(); drawRaw(); saveLast(); notices();
+  drawGrid(); drawRaw(); saveLast(); notices(); stlState();
 }
 let msgAppend = '';
 function notices(){
@@ -4004,6 +4297,34 @@ async function sendToMgr(){
   }
 }
 
+/* ---------- 정산 기록 (앱 💰 정산 탭이 읽음) ---------- */
+const HISTORY_KEY = 'mv_history';
+function stlState(){
+  const date = document.getElementById('dateIn').value;
+  const h = load(HISTORY_KEY, {}) || {}; const r = h[date];
+  const when = r && r.savedAt ? new Date(r.savedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
+  msg('stlState', 'ok', r ? '이 날짜는 이미 저장돼 있습니다 (기사 '+Object.keys(r.grid||{}).length+'명'+(when?', '+when:'')+'). 다시 누르면 덮어씁니다.' : '');
+}
+function saveToSettle(){
+  const date = document.getElementById('dateIn').value;
+  if (!date){ msg('stlMsg','err','날짜를 먼저 고르세요.'); return; }
+  if (!S.people.length){ msg('stlMsg','warn','저장할 표가 없습니다.'); return; }
+  const grid = {}; let n = 0, tot = 0;
+  S.people.forEach(p => {
+    const g = S.grid[p] || {}; const row = {};
+    Object.keys(g).forEach(it => { const q = Number(g[it])||0; if (q > 0){ row[it] = q; tot += q; } });
+    if (Object.keys(row).length){ grid[p] = row; n++; }
+  });
+  if (!n){ msg('stlMsg','warn','수량이 전부 0이라 저장할 게 없습니다.'); return; }
+  const h = load(HISTORY_KEY, {}) || {};
+  h[date] = { grid, savedAt: Date.now() };
+  save(HISTORY_KEY, h);
+  const d = new Date(date+'T00:00:00');
+  const label = isNaN(d) ? date : (d.getMonth()+1)+'월 '+d.getDate()+'일('+DAYS[d.getDay()]+')';
+  msg('stlMsg','ok','<b>'+label+'</b> 기사 <b>'+n+'명</b> · 총 <b>'+tot+'건</b>을 정산 기록에 저장했습니다. 앱의 💰 정산 탭에서 확인하세요.');
+  stlState();
+}
+
 /* ---------- 임시 저장 ---------- */
 function saveLast(){
   save(K.last, { date:document.getElementById('dateIn').value, people:S.people, grid:S.grid, rawRows:S.rawRows, flags:S.flags });
@@ -4017,7 +4338,7 @@ function restore(){
   S.people = l.people; S.grid = l.grid||{}; S.rawRows = l.rawRows||[]; S.flags = l.flags||{};
   document.getElementById('ckEmpty').hidden = true;
   document.getElementById('ckBody').hidden = false;
-  drawGrid(); drawRaw();
+  drawGrid(); drawRaw(); stlState();
   msg('ckMsg','ok','오늘 작업하던 표를 그대로 불러왔습니다.');
 }
 
@@ -4028,7 +4349,7 @@ function restore(){
   document.getElementById('dateIn').addEventListener('change', () => {
     drawDay();
     if (S.rawRows.length) build(S.rawRows);
-    preview(); saveLast();
+    preview(); saveLast(); stlState();
   });
   document.getElementById('addName').addEventListener('keydown', e => { if (e.key==='Enter') addPerson(); });
   document.getElementById('itemIn').addEventListener('keydown', e => { if (e.key==='Enter') addItem(); });
