@@ -378,6 +378,28 @@ input[type="time"].time-hint{
 .st-tile-val.ok{font-size:12.5px;font-weight:800;color:var(--sub);}
 .st-tile-val.no{font-size:12.5px;font-weight:800;color:var(--amber2);}
 .st-tile-sub{font-size:10.5px;color:var(--dim);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.st-mxwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1.5px solid var(--border);border-radius:13px;background:var(--card);}
+.st-mx{border-collapse:separate;border-spacing:0;font-size:13px;width:max-content;min-width:100%;}
+.st-mx th,.st-mx td{padding:7px 8px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--border);}
+.st-mx thead th{text-align:center;line-height:1.15;}
+.st-mx thead th{position:sticky;top:0;z-index:2;background:var(--card2);font-size:11px;font-weight:800;color:var(--sub);}
+.st-mx thead th small{display:block;font-size:9.5px;opacity:.7;font-weight:600;margin-top:1px;}
+.st-mx th.cn,.st-mx td.cn{position:sticky;left:0;z-index:3;text-align:left;background:var(--card);font-weight:900;color:var(--blue3);border-right:1px solid var(--border2);min-width:74px;}
+.st-mx thead th.cn{z-index:4;background:var(--card2);}
+.st-mx tbody tr:nth-child(even) td{background:rgba(255,255,255,.028);}
+.st-mx tbody tr:nth-child(even) td.cn{background:#1b1f27;}
+.st-mx td.z{color:var(--dim);font-weight:400;}
+.st-mx td.ed::after{content:'✎';font-size:9px;color:var(--amber2);margin-left:3px;vertical-align:top;}
+.st-mx td.tot,.st-mx th.tot{font-weight:900;color:var(--text);background:rgba(45,212,191,.07);border-left:1px solid var(--border2);}
+.st-mx tfoot td{position:sticky;bottom:0;background:var(--card3);font-weight:900;color:var(--teal3);border-bottom:none;}
+.st-mx tfoot td.cn{background:var(--card3);color:var(--text);}
+.st-mxhint{font-size:11.5px;color:var(--dim);margin:8px 2px 0;line-height:1.6;}
+.st-mxhint .ed-mark{color:var(--amber2);font-weight:800;}
+.st-dayrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);}
+.st-dayrow:last-child{border-bottom:none;}
+.st-dayrow div{flex:1;min-width:0;}
+.st-dayrow b{display:block;font-size:13.5px;font-weight:900;color:var(--blue3);}
+.st-dayrow small{display:block;font-size:11px;color:var(--sub);margin-top:2px;}
 .st-phead{--pc:var(--blue2);display:flex;align-items:center;gap:6px;padding:13px 14px 13px 4px;border-radius:16px;border:1.5px solid var(--border);background:linear-gradient(90deg,color-mix(in srgb,var(--pc) 28%,var(--card)),var(--card) 75%);}
 .st-back{width:38px;height:44px;flex-shrink:0;border:none;background:transparent;color:var(--text);font-size:28px;font-weight:900;cursor:pointer;font-family:inherit;line-height:1;}
 .st-sentbtn{width:100%;margin-top:9px;padding:11px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px dashed var(--border2);background:transparent;color:var(--sub);cursor:pointer;font-family:inherit;}
@@ -3254,7 +3276,9 @@ function settleAddDay(name){
   h[d].grid[name]={}; settleMarkEdited(h[d],name); saveSettleHistory(h); render();
 }
 
-function settleView(v){ settleUnlocked=false; settleStore.view=v; settlePerson=null; settleFilter='all'; settleQuery=''; saveSettle(); render(); }
+let settleDayItem='';   /* 기록 탭에서 보고 있는 물품 ('' = 전체 합계) */
+function settleDayPick(it){ settleDayItem=it; render(); }
+function settleView(v){ settleUnlocked=false; settleDayItem=''; settleStore.view=v; settlePerson=null; settleFilter='all'; settleQuery=''; saveSettle(); render(); }
 function settleOpenPerson(name){
   settlePerson=name; settleUnlocked=false; settleEditName=null;
   try{ history.pushState({sub:'settle',person:name},''); }catch(e){}
@@ -3457,6 +3481,71 @@ function settleTSV(){
 }
 function settleCopyPerson(name){ const r=settleRow(name); if(r){ copyText(settlePersonText(r)); settleMarkSent(name); } }
 function settleSharePerson(name){ const r=settleRow(name); if(r){ shareText(settlePersonText(r)); settleMarkSent(name); } }
+/* 엑셀에서 한글이 깨지지 않게 BOM 을 붙인 CSV 로 내보낸다. 공유가 되면 카톡·메일로 바로 보낼 수 있다 */
+function csvCell(v){ const t=String(v==null?'':v); return /[",\n]/.test(t) ? '"'+t.replace(/"/g,'""')+'"' : t; }
+function toCSV(rows){ return rows.map(r=>r.map(csvCell).join(',')).join('\r\n'); }
+async function settleDownloadCSV(text, fname){
+  const blob=new Blob(['\uFEFF'+text], {type:'text/csv;charset=utf-8'});
+  const file=new File([blob], fname, {type:'text/csv'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file], title:fname}); showToast('💬 공유 메뉴를 열었어요'); return; }
+    catch(e){ if(e&&e.name==='AbortError') return; }
+  }
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fname;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  showToast('📥 '+fname+' 내려받았어요');
+}
+/* 정산 내역 (이름 × 물품 수량·단가·금액 → 지급액) */
+function settleSheetRows(){
+  const c=settleCalc(settleStore.month); const groups=settleGroups();
+  const head=['이름','근무일'];
+  groups.forEach(g=>g.items.forEach(it=>head.push(it+' 수량',it+' 단가',it+' 금액')));
+  head.push('오네 소계','딜리 소계','매출 합계','세금 방식','세금','지급액');
+  const rows=[head];
+  c.rows.forEach(r=>{
+    const a=[r.name,r.days];
+    groups.forEach((g,gi)=>g.items.forEach(it=>{ const l=r.groups[gi].lines.find(x=>x.item===it)||{qty:0,price:0,amt:0}; a.push(l.qty,l.price,l.amt); }));
+    a.push(r.groups[0].sub, r.groups[1].sub, r.sales, TAX_TYPES[r.taxType], r.tax, r.pay);
+    rows.push(a);
+  });
+  return rows;
+}
+function settleExportSheet(){
+  const c=settleCalc(settleStore.month);
+  if(!c.rows.length){ showToast('내보낼 기록이 없어요','err'); return; }
+  const rows=[[settleMonthLabel(settleStore.month)+' 정산 내역'],[],...settleSheetRows()];
+  settleDownloadCSV(toCSV(rows), settleStore.month+'_정산내역.csv');
+}
+/* 물량 기록 (날짜 × 기사, 물품별로 한 덩어리씩) */
+function settleDaysMatrix(item){
+  const h=settleHistory(); const m=settleStore.month;
+  const dates=Object.keys(h).filter(d=>d.indexOf(m)===0).sort();
+  const names=[...new Set(dates.flatMap(d=>Object.keys(h[d].grid||{})))].sort((a,b)=>a.localeCompare(b,'ko'));
+  const qty=(n,d)=>{ const g=(h[d]&&h[d].grid&&h[d].grid[n])||null; if(!g) return null;
+    if(item) return Number(g[item])||0;
+    return Object.keys(g).reduce((s,k)=>s+(Number(g[k])||0),0); };
+  const rows=names.map(n=>{ const cells=dates.map(d=>qty(n,d)); return {name:n, cells, total:cells.reduce((s,v)=>s+(v||0),0)}; })
+                  .filter(r=>r.total>0 || !item);
+  const colTotals=dates.map((d,i)=>rows.reduce((s,r)=>s+(r.cells[i]||0),0));
+  return {dates, rows, colTotals, total:colTotals.reduce((a,b)=>a+b,0)};
+}
+function settleExportDays(){
+  const items=settleItems(); const m=settleStore.month;
+  const all=settleDaysMatrix(null);
+  if(!all.dates.length){ showToast('내보낼 기록이 없어요','err'); return; }
+  const out=[[settleMonthLabel(m)+' 물량 기록'],[]];
+  const block=(title,mx)=>{
+    out.push([title]);
+    out.push(['이름',...mx.dates.map(settleDateLabel),'합계']);
+    mx.rows.forEach(r=>out.push([r.name,...r.cells.map(v=>v==null?'':v),r.total]));
+    out.push(['합계',...mx.colTotals,mx.total]);
+    out.push([]);
+  };
+  block('전체 합계', all);
+  items.forEach(it=>{ const mx=settleDaysMatrix(it); if(mx.total) block(it, mx); });
+  settleDownloadCSV(toCSV(out), m+'_물량기록.csv');
+}
 function settleCopyAll(){ const c=settleCalc(settleStore.month); if(!c.rows.length){ showToast('정산할 기록이 없어요','err'); return; } copyText(settleTSV()); }
 function settleShareAll(){ const c=settleCalc(settleStore.month); if(!c.rows.length){ showToast('정산할 기록이 없어요','err'); return; } shareText(c.rows.map(settlePersonText).join('\n\n')); }
 
@@ -3545,8 +3634,9 @@ function renderSettleTable(){
     <div id="st-list">${settleDashListHTML()}</div>
     <div class="actions" style="margin-top:14px">
       <button class="btn btn-share" onclick="settleShareAll()">💬 전체 문구 공유</button>
-      <button class="btn btn-copy" onclick="settleCopyAll()">📋 엑셀용 표 복사</button>
+      <button class="btn btn-copy" onclick="settleExportSheet()">📥 엑셀 내보내기</button>
     </div>
+    <button class="st-sentbtn" style="margin-top:8px" onclick="settleCopyAll()">📋 정산 내역 표 복사 (엑셀에 붙여넣기)</button>
     ${settleResetBtn()}`;
 }
 function settleResetBtn(){
@@ -3688,30 +3778,60 @@ function renderSettlePrices(){
 }
 
 function renderSettleDays(){
-  const h=settleHistory(); const m=settleStore.month;
-  const dates=Object.keys(h).filter(d=>d.indexOf(m)===0).sort().reverse();
-  if(!dates.length) return `<div class="st-empty"><b>${esc(settleMonthLabel(m))}</b>에 저장된 날짜가 없습니다.</div>`;
-  const closedNote=settleIsClosed(m)?`<div class="st-warn" style="margin:0 0 12px">🔏 <b>${esc(settleMonthLabel(m))}</b>은 마감됐습니다. 여기 기록을 바꿔도 정산표에는 반영되지 않고, 삭제도 막혀 있어요.</div>`:'';
-  const list=dates.map(d=>{
-    const g=(h[d]&&h[d].grid)||{}; const names=Object.keys(g);
-    let tot=0; names.forEach(n=>Object.keys(g[n]).forEach(it=>tot+=Number(g[n][it])||0));
-    const saved=h[d].savedAt?' · '+new Date(h[d].savedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})+' 저장':'';
-    return `
-    <details class="st-card">
-      <summary>
-        <div><div class="st-name">${esc(settleDateLabel(d))}</div><div class="st-meta">기사 ${names.length}명 · ${num(tot)}건${saved}</div></div>
-        <button class="qty-del" onclick="event.preventDefault();settleDelDay('${esc(d)}')">🗑</button>
-      </summary>
-      <div class="st-body">
-        ${names.sort((a,b)=>a.localeCompare(b,'ko')).map(n=>`<div class="st-line"><span>${esc(n)}</span><span>${Object.keys(g[n]).filter(it=>g[n][it]>0).map(it=>esc(it)+' '+num(g[n][it])).join(' · ')||'0'}</span></div>`).join('')}
-      </div>
-    </details>`;
+  const h=settleHistory(); const m=settleStore.month; const items=settleItems();
+  const dates=Object.keys(h).filter(d=>d.indexOf(m)===0).sort();
+  if(!dates.length) return `<div class="st-empty"><b>${esc(settleMonthLabel(m))}</b>에 저장된 날짜가 없습니다.<br>📦 물량 탭에서 <b>💰 정산에 저장</b>을 누르면 여기에 쌓입니다.</div>`;
+  const closed=settleIsClosed(m);
+  const pick=items.indexOf(settleDayItem)>=0 ? settleDayItem : '';
+  const mx=settleDaysMatrix(pick||null);
+  const used=items.filter(it=>settleDaysMatrix(it).total>0);
+  const chips=[['','전체 합계'],...used.map(it=>[it,it])]
+    .map(([k,l])=>`<button class="st-filter ${pick===k?'on':''}" onclick="settleDayPick('${esc(k)}')">${esc(l)}</button>`).join('');
+  const editedOf=(n,d)=>!!(h[d]&&h[d].edited&&h[d].edited[n]);
+  const table=`
+    <div class="st-mxwrap"><table class="st-mx">
+      <thead><tr><th class="cn">이름</th>${mx.dates.map(d=>{const x=new Date(d+'T00:00:00');return `<th>${(x.getMonth()+1)}/${x.getDate()}<small>${['일','월','화','수','목','금','토'][x.getDay()]}</small></th>`;}).join('')}<th class="tot">합계</th></tr></thead>
+      <tbody>${mx.rows.map(r=>`<tr><td class="cn">${esc(r.name)}</td>${r.cells.map((v,i)=>v==null?'<td class="z">·</td>':`<td class="${editedOf(r.name,mx.dates[i])?'ed':''}">${num(v)}</td>`).join('')}<td class="tot">${num(r.total)}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td class="cn">합계</td>${mx.colTotals.map(v=>`<td>${v?num(v):'·'}</td>`).join('')}<td class="tot">${num(mx.total)}</td></tr></tfoot>
+    </table></div>`;
+  const delList=dates.slice().reverse().map(d=>{
+    const g=(h[d]&&h[d].grid)||{}; const names=Object.keys(g).length;
+    let tot=0; Object.keys(g).forEach(n=>Object.keys(g[n]).forEach(it=>tot+=Number(g[n][it])||0));
+    const saved=h[d].savedAt?new Date(h[d].savedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})+' 저장':'';
+    return `<div class="st-dayrow"><div><b>${esc(settleDateLabel(d))}</b><small>기사 ${names}명 · ${num(tot)}건${saved?' · '+saved:''}</small></div>
+      ${closed?'':`<button class="qty-del" onclick="settleDelDay('${esc(d)}')">🗑</button>`}</div>`;
   }).join('');
   return `
-    ${closedNote}
-    <div class="section-head"><div class="section-title">📅 저장된 날짜 <b>${dates.length}</b>일 · 누르면 기사별 수량</div></div>
-    ${list}
+    ${closed?`<div class="st-warn" style="margin:0 0 12px">🔏 <b>${esc(settleMonthLabel(m))}</b>은 마감됐습니다. 여기 기록을 바꿔도 정산표에는 반영되지 않고, 삭제도 막혀 있어요.</div>`:''}
+    <div class="st-sum">
+      <div><small>저장된 날짜</small><b>${mx.dates.length}일</b></div>
+      <div><small>기사</small><b>${mx.rows.length}명</b></div>
+      <div><small>${pick?esc(pick):'전체'} 합계</small><b>${num(mx.total)}건</b></div>
+      <div><small>하루 평균</small><b>${num(Math.round(mx.total/(mx.dates.length||1)))}건</b></div>
+    </div>
+    <div class="section-head"><div class="section-title">📊 ${esc(settleMonthLabel(m))} 물량 표 · 물품을 골라 보세요</div></div>
+    <div class="st-filters">${chips}</div>
+    ${table}
+    <p class="st-mxhint">표를 옆으로 밀면 나머지 날짜가 보입니다. <span class="ed-mark">✎</span> 는 정산에서 직접 고친 칸입니다.</p>
+    <div class="actions" style="margin-top:14px">
+      <button class="btn btn-share" onclick="settleExportDays()">📥 엑셀 내보내기</button>
+      <button class="btn btn-copy" onclick="settleCopyDays()">📋 표 복사</button>
+    </div>
+    <details class="st-days" style="margin-top:16px">
+      <summary><span>📅 날짜별 저장 기록</span><span>${dates.length}일 ▾</span></summary>
+      <div>${delList}</div>
+    </details>
     ${settleResetBtn()}`;
+}
+function settleCopyDays(){
+  const items=settleItems(); const all=settleDaysMatrix(null);
+  if(!all.dates.length){ showToast('복사할 기록이 없어요','err'); return; }
+  const pick=items.indexOf(settleDayItem)>=0 ? settleDayItem : '';
+  const mx=pick?settleDaysMatrix(pick):all;
+  const rows=[['이름',...mx.dates.map(settleDateLabel),'합계'],
+              ...mx.rows.map(r=>[r.name,...r.cells.map(v=>v==null?'':v),r.total]),
+              ['합계',...mx.colTotals,mx.total]];
+  copyText(rows.map(r=>r.join('\t')).join('\n'));
 }
 
 const FRAME_TABS = { code:'accesscode-html', volume:'volume-html' };
