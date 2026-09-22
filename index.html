@@ -378,6 +378,14 @@ input[type="time"].time-hint{
 .st-tile-pay{font-size:13px;font-weight:900;color:var(--teal3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .st-tile.warn .st-tile-pay{color:var(--amber2);}
 .st-tile-sub{font-size:10.5px;color:var(--dim);margin-top:2px;white-space:nowrap;}
+.st-tile-pay.txt{color:var(--text);font-size:11px;font-weight:700;white-space:normal;line-height:1.35;}
+.st-items{border:1.5px solid var(--border);border-radius:13px;background:var(--card);overflow:hidden;}
+.st-items summary{list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 13px;cursor:pointer;font-size:12.5px;font-weight:800;color:var(--sub);}
+.st-items summary::-webkit-details-marker{display:none;}
+.st-items summary b{color:var(--blue3);}
+.st-items summary span:last-child{font-size:11px;font-weight:600;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+.st-items-body{padding:10px 13px 6px;border-top:1px solid var(--border);}
+.st-items-body .st-lock{margin-bottom:10px;}
 .st-phead{--pc:var(--blue2);display:flex;align-items:center;gap:10px;padding:12px 12px 12px 8px;border-radius:16px;border:1.5px solid var(--border);background:linear-gradient(90deg,color-mix(in srgb,var(--pc) 28%,var(--card)),var(--card) 75%);}
 .st-back{width:38px;height:44px;flex-shrink:0;border:none;background:transparent;color:var(--text);font-size:28px;font-weight:900;cursor:pointer;font-family:inherit;line-height:1;}
 .st-sentbtn{width:100%;margin-top:9px;padding:11px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px dashed var(--border2);background:transparent;color:var(--sub);cursor:pointer;font-family:inherit;}
@@ -3250,7 +3258,7 @@ function settleAddDay(name){
   h[d].grid[name]={}; settleMarkEdited(h[d],name); saveSettleHistory(h); render();
 }
 
-function settleView(v){ settleUnlocked=false; settleStore.view=v; settlePerson=null; saveSettle(); render(); }
+function settleView(v){ settleUnlocked=false; settleStore.view=v; settlePerson=null; settleFilter='all'; settleQuery=''; saveSettle(); render(); }
 function settleOpenPerson(name){
   settlePerson=name; settleUnlocked=false; settleEditName=null;
   try{ history.pushState({sub:'settle',person:name},''); }catch(e){}
@@ -3268,7 +3276,7 @@ function settleMarkSent(name,on){
   saveSettle(); render();
 }
 function settleToggleSent(name){ settleMarkSent(name, !settleSentAt(name)); }
-function settleSetQuery(v){ settleQuery=String(v||'').trim(); render(); const el=document.getElementById('st-q'); if(el){ el.focus(); const L=el.value.length; try{ el.setSelectionRange(L,L); }catch(e){} } }
+function settleSetQuery(v){ settleQuery=String(v||'').trim(); render(); }
 function settleSetFilter(f){ settleFilter=f; render(); }
 function settleRow(name){ return settleCalc(settleStore.month).rows.find(r=>r.name===name); }
 function settleToggleLock(){
@@ -3292,7 +3300,7 @@ function settleTax(name,v){ if(settleNeedUnlock()||settleStore.pinned[name]){ re
 function settleAddWorker(){
   const el=document.getElementById('st-add'); const n=(el&&el.value||'').trim();
   if(!n){ showToast('이름을 넣어주세요','err'); return; }
-  settleWorker(n); saveSettle(); render();
+  settleWorker(n); saveSettle(); settleOpenPerson(n);
 }
 function settleDelWorker(name){
   if(settleNeedUnlock()) return;
@@ -3456,7 +3464,8 @@ function renderSettle(){
       <button class="st-nav" onclick="settleMonth(1)">›</button>
     </div>`;
   let body='';
-  if(v==='price') body=renderSettlePrices();
+  if(settlePerson) body=renderSettlePerson(settlePerson);
+  else if(v==='price') body=renderSettlePrices();
   else if(v==='days') body=renderSettleDays();
   else body=renderSettleTable();
   return head+body+'<div style="height:20px"></div>';
@@ -3469,22 +3478,20 @@ function settleCloseBar(c){
 }
 function settleColorOf(name){ let h=0; for(const ch of name) h=(h*31+ch.charCodeAt(0))>>>0; return SETTLE_PAL[h%SETTLE_PAL.length]; }
 function settleSearchBox(ph){
-  return `<div class="st-search"><span>🔍</span><input type="search" id="st-q" class="inp" placeholder="${ph}" value="${esc(settleQuery)}" oninput="settleSetQuery(this.value)">${settleQuery?`<button onclick="settleSetQuery('')">✕</button>`:''}</div>`;
+  return `<div class="st-search"><span>🔍</span><input type="search" id="st-q" class="inp" placeholder="${ph}" value="${esc(settleQuery)}" autocomplete="off" oninput="settleQueryInput(this.value)"><button id="st-qx" style="${settleQuery?'':'visibility:hidden'}" onclick="settleSetQuery('')">✕</button></div>`;
+}
+/* 입력 중엔 입력칸을 살려둔 채 목록(#st-list)만 바꾼다 — 화면 전체를 다시 그리면 한글 조합이 끊긴다 */
+function settleQueryInput(v){
+  settleQuery=String(v||'').trim();
+  const x=document.getElementById('st-qx'); if(x) x.style.visibility=settleQuery?'visible':'hidden';
+  const list=document.getElementById('st-list'); if(!list){ render(); return; }
+  list.innerHTML = settleStore.view==='price' ? settlePriceListHTML() : settleDashListHTML();
 }
 function settleMatch(name){ const q=settleQuery.replace(/\s+/g,'').toLowerCase(); return !q || name.replace(/\s+/g,'').toLowerCase().indexOf(q)>=0; }
 
-function renderSettleTable(){
-  if(settlePerson) return renderSettlePerson(settlePerson);
+function settleDashListHTML(){
   const c=settleCalc(settleStore.month);
-  if(!c.rows.length) return `
-    <div class="st-empty"><b>${esc(settleMonthLabel(settleStore.month))}</b>에 저장된 물량이 없습니다.<br>
-    📦 물량 탭에서 숫자 확인 뒤 <b>💰 정산에 저장</b>을 누르면 여기에 쌓입니다.</div>`;
-  const closed=!!c.closed;
   const sentMap=settleStore.sent[settleStore.month]||{};
-  const cnt={all:c.rows.length, noprice:c.rows.filter(r=>r.noPrice).length, pinned:c.rows.filter(r=>settleStore.pinned[r.name]).length,
-             sent:c.rows.filter(r=>sentMap[r.name]).length};
-  cnt.unsent=cnt.all-cnt.sent;
-  const FILTERS=[['all','전체'],['noprice','⚠ 단가 없음'],['pinned','📌 고정'],['sent','✓ 보냄'],['unsent','미발송']];
   let rows=c.rows.filter(r=>settleMatch(r.name));
   if(settleFilter==='noprice') rows=rows.filter(r=>r.noPrice);
   else if(settleFilter==='pinned') rows=rows.filter(r=>settleStore.pinned[r.name]);
@@ -3499,6 +3506,21 @@ function renderSettleTable(){
       <div class="st-tile-sub">${r.days}일 · ${num(r.totalQty)}건</div>
     </button>`).join('');
   return `
+    <div class="section-head"><div class="section-title">👥 기사 <b>${rows.length}</b>명 · 이름을 누르면 정산서와 단가</div></div>
+    ${rows.length?`<div class="st-tiles">${tiles}</div>`:'<div class="st-empty">조건에 맞는 기사가 없습니다.</div>'}`;
+}
+function renderSettleTable(){
+  const c=settleCalc(settleStore.month);
+  if(!c.rows.length) return `
+    <div class="st-empty"><b>${esc(settleMonthLabel(settleStore.month))}</b>에 저장된 물량이 없습니다.<br>
+    📦 물량 탭에서 숫자 확인 뒤 <b>💰 정산에 저장</b>을 누르면 여기에 쌓입니다.</div>`;
+  const closed=!!c.closed;
+  const sentMap=settleStore.sent[settleStore.month]||{};
+  const cnt={all:c.rows.length, noprice:c.rows.filter(r=>r.noPrice).length, pinned:c.rows.filter(r=>settleStore.pinned[r.name]).length,
+             sent:c.rows.filter(r=>sentMap[r.name]).length};
+  cnt.unsent=cnt.all-cnt.sent;
+  const FILTERS=[['all','전체'],['noprice','⚠ 단가 없음'],['pinned','📌 고정'],['sent','✓ 보냄'],['unsent','미발송']];
+  return `
     ${settleCloseBar(c)}
     <div class="st-sum">
       <div><small>기록 · 기사</small><b>${c.dates.length}일 · ${c.rows.length}명</b></div>
@@ -3509,8 +3531,7 @@ function renderSettleTable(){
     ${settleSearchBox('기사 이름 검색')}
     <div class="st-filters">${FILTERS.map(([k,l])=>`<button class="st-filter ${settleFilter===k?'on':''}" onclick="settleSetFilter('${k}')">${l}<b>${cnt[k]}</b></button>`).join('')}</div>
     ${cnt.noprice&&!closed&&settleFilter==='all'?`<div class="st-warn" style="margin:0 0 12px">단가가 비어 있는 기사가 <b>${cnt.noprice}명</b> 있습니다. 이름을 누르면 그 자리에서 단가를 넣을 수 있어요.</div>`:''}
-    <div class="section-head"><div class="section-title">👥 기사 <b>${rows.length}</b>명 · 이름을 누르면 정산서와 단가</div></div>
-    ${rows.length?`<div class="st-tiles">${tiles}</div>`:'<div class="st-empty">조건에 맞는 기사가 없습니다.</div>'}
+    <div id="st-list">${settleDashListHTML()}</div>
     <div class="actions" style="margin-top:14px">
       <button class="btn btn-share" onclick="settleShareAll()">💬 전체 문구 공유</button>
       <button class="btn btn-copy" onclick="settleCopyAll()">📋 엑셀용 표 복사</button>
@@ -3603,25 +3624,51 @@ function settleLockBar(locked){
     ? `<div class="st-lock"><div><b>🔒 단가 잠김</b><small>실수로 바뀌지 않게 잠겨 있어요. 고치려면 풀어주세요.</small></div><button onclick="settleToggleLock()">잠금 해제</button></div>`
     : `<div class="st-lock open"><div><b>🔓 잠금 해제됨</b><small>다른 화면으로 가면 자동으로 다시 잠깁니다. 📌 고정된 기사는 그대로 잠겨 있어요.</small></div><button onclick="settleToggleLock()">잠그기</button></div>`;
 }
+function settlePriceListHTML(){
+  const allNames=settleAllNames(); const items=settleItems();
+  let names=allNames.filter(settleMatch);
+  const hasPrice=n=>{ const w=settleStore.workers[n]; return !!(w&&w.prices&&items.some(it=>Number(w.prices[it])>0)); };
+  if(settleFilter==='noprice') names=names.filter(n=>!hasPrice(n));
+  else if(settleFilter==='pinned') names=names.filter(n=>settleStore.pinned[n]);
+  const tiles=names.map(n=>{
+    const w=settleStore.workers[n]||{prices:{},tax:'3.3'}; const prices=w.prices||{}; const ok=hasPrice(n);
+    const sum=items.filter(it=>Number(prices[it])>0).map(it=>esc(it)+' '+num(prices[it])).join(' · ');
+    return `
+    <button class="st-tile ${ok?'':'warn'}" style="--pc:${settleColorOf(n)}" onclick="settleOpenPerson('${esc(n)}')">
+      <div class="st-tile-top"><div class="st-av">${esc(n.slice(0,1))}</div>
+        <div class="st-tile-marks">${settleStore.pinned[n]?'<span>📌</span>':''}${ok?'':'<span class="w">⚠</span>'}</div></div>
+      <div class="st-tile-name">${esc(n)}</div>
+      <div class="st-tile-pay ${ok?'txt':''}">${ok?sum:'단가 없음'}</div>
+      <div class="st-tile-sub">${esc(TAX_TYPES[TAX_TYPES[w.tax]?w.tax:'3.3'])}</div>
+    </button>`; }).join('');
+  return `
+    <div class="section-head"><div class="section-title">💵 기사 <b>${names.length}</b>${names.length!==allNames.length?'/'+allNames.length:''}명 · 이름을 누르면 단가 설정</div></div>
+    ${names.length?`<div class="st-tiles">${tiles}</div>`:(allNames.length?'<div class="st-empty">조건에 맞는 이름이 없습니다.</div>':'<div class="st-empty">아직 이름이 없습니다. 아래에서 직접 추가하거나 📦 물량 탭에서 저장하세요.</div>')}`;
+}
 function renderSettlePrices(){
   const allNames=settleAllNames(); const items=settleItems();
   const locked=!settleUnlocked;
-  const names=allNames.filter(settleMatch);
-  const cards=names.map(n=>settleWorkerCard(n,locked)).join('');
-  const lockBar=settleLockBar(locked);
+  const hasPrice=n=>{ const w=settleStore.workers[n]; return !!(w&&w.prices&&items.some(it=>Number(w.prices[it])>0)); };
+  const cnt={all:allNames.length, noprice:allNames.filter(n=>!hasPrice(n)).length, pinned:allNames.filter(n=>settleStore.pinned[n]).length};
+  const FILTERS=[['all','전체'],['noprice','⚠ 단가 없음'],['pinned','📌 고정']];
+  if(!(settleFilter in cnt)) settleFilter='all';
   const full=items.length>=SETTLE_MAX_ITEMS;
   const chips=items.map(it=>`<span class="chip">${esc(it)}${locked?'':`<button class="chip-x" onclick="settleDelItem('${esc(it)}')" aria-label="${esc(it)} 빼기">×</button>`}</span>`).join('')
     + (full||locked ? '' : `<span class="chip-add"><input type="text" id="st-item" placeholder="물품 추가" maxlength="10" onkeydown="if(event.key==='Enter')settleAddItem()"><button class="chip-plus" onclick="settleAddItem()" aria-label="물품 추가">＋</button></span>`);
   return `
-    ${lockBar}
-    <div class="section-head"><div class="section-title">📦 물품 목록 <b>${items.length}</b>/${SETTLE_MAX_ITEMS} · 물량 탭과 같이 씀</div></div>
-    <div class="chips" style="margin-bottom:6px">${chips}</div>
-    <p style="font-size:11.5px;color:var(--dim);margin:0 2px 16px;line-height:1.6">${full?'최대 '+SETTLE_MAX_ITEMS+'가지까지입니다. 빼려면 × 를 누르세요.':'이름에 \'딜\'이 들어가면 딜리 정산, 아니면 오네 정산으로 묶입니다. 추가한 물품은 물량 탭에서도 바로 읽습니다.'}</p>
-    <div class="section-head"><div class="section-title">💵 사람별 단가 · 세금 방식 <b>${names.length}</b>${names.length!==allNames.length?'/'+allNames.length:''}명</div></div>
-    <p style="font-size:12px;color:var(--sub);margin:-4px 2px 12px;line-height:1.6">물량을 저장하면 이름이 자동으로 올라옵니다. 단가는 건당 금액이고, 세금은 <b style="color:var(--text)">3.3% 공제</b>(매출에서 뺌) 또는 <b style="color:var(--text)">부가세 별도</b>(매출에 10% 더함) 중 고릅니다.</p>
+    <details class="st-items" ${locked?'':'open'}>
+      <summary><span>📦 물품 목록 <b>${items.length}</b>/${SETTLE_MAX_ITEMS}</span><span>${items.map(esc).join(' · ')} ▾</span></summary>
+      <div class="st-items-body">
+        ${settleLockBar(locked)}
+        <div class="chips" style="margin-bottom:6px">${chips}</div>
+        <p style="font-size:11.5px;color:var(--dim);margin:0 2px 4px;line-height:1.6">${full?'최대 '+SETTLE_MAX_ITEMS+'가지까지입니다. 빼려면 × 를 누르세요.':'이름에 \'딜\'이 들어가면 딜리 정산, 아니면 오네 정산으로 묶입니다. 물량 탭과 같은 목록을 씁니다.'}</p>
+      </div>
+    </details>
+    <p style="font-size:12px;color:var(--sub);margin:12px 2px 10px;line-height:1.6">물량을 저장하면 이름이 자동으로 올라옵니다. 이름을 누르면 그 기사의 단가·세금을 넣을 수 있어요.</p>
     ${settleSearchBox('이름 검색')}
-    ${cards||(allNames.length?'<div class="st-empty">검색에 맞는 이름이 없습니다.</div>':'<div class="st-empty">아직 이름이 없습니다. 아래에서 직접 추가하거나 📦 물량 탭에서 저장하세요.</div>')}
-    <div class="dispatch-row" style="grid-template-columns:1fr 78px;">
+    <div class="st-filters">${FILTERS.map(([k,l])=>`<button class="st-filter ${settleFilter===k?'on':''}" onclick="settleSetFilter('${k}')">${l}<b>${cnt[k]}</b></button>`).join('')}</div>
+    <div id="st-list">${settlePriceListHTML()}</div>
+    <div class="dispatch-row" style="grid-template-columns:1fr 78px;margin-top:14px">
       <input type="text" id="st-add" class="inp" placeholder="이름 직접 추가" onkeydown="if(event.key==='Enter')settleAddWorker()">
       <button class="set-tab" style="height:46px" onclick="settleAddWorker()">추가</button>
     </div>`;
