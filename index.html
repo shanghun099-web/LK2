@@ -353,6 +353,35 @@ input[type="time"].time-hint{
 .st-lock:not(.open) button{background:var(--red);border-color:var(--red);color:#fff;}
 .st-close:not(.on) button{background:var(--purple);border-color:var(--purple);color:#fff;}
 .st-meta .pill.closed{color:var(--purple2);border-color:#3b2a6b;background:#1e1640;}
+.st-meta .pill.sent{color:#7fd67f;border-color:#2d5a2d;background:#1a2e1a;}
+.st-search{display:flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:0 12px;margin-bottom:10px;}
+.st-search span{font-size:14px;opacity:.7;}
+.st-search .inp{border:none;background:transparent;padding:12px 0;font-size:15px;flex:1;border-radius:0;}
+.st-search button{border:none;background:var(--card3);color:var(--sub);width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:12px;font-family:inherit;}
+.st-filters{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;margin-bottom:10px;}
+.st-filters::-webkit-scrollbar{display:none;}
+.st-filter{flex-shrink:0;display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:99px;border:1.5px solid var(--border);background:var(--card);color:var(--sub);font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;}
+.st-filter b{font-size:11px;background:var(--card3);padding:1px 7px;border-radius:99px;color:var(--text);}
+.st-filter.on{background:var(--teal);border-color:var(--teal);color:#04211c;}
+.st-filter.on b{background:rgba(0,0,0,.18);color:#04211c;}
+.st-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;}
+.st-tile{--pc:var(--blue2);position:relative;text-align:left;background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:11px 11px 10px;cursor:pointer;font-family:inherit;color:var(--text);min-width:0;transition:transform .1s;}
+.st-tile:active{transform:scale(.97);}
+.st-tile.sent{border-color:#2d5a2d;background:linear-gradient(180deg,#14261a,var(--card) 70%);}
+.st-tile.warn{border-color:#6b4a10;}
+.st-tile-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;}
+.st-tile .st-av{width:34px;height:34px;font-size:14px;border-radius:10px;}
+.st-tile-marks{display:flex;gap:2px;font-size:12px;line-height:1;}
+.st-tile-marks .ok{color:#7fd67f;font-weight:900;}
+.st-tile-marks .w{color:var(--amber2);}
+.st-tile-name{font-size:14px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.st-tile-pay{font-size:13px;font-weight:900;color:var(--teal3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.st-tile.warn .st-tile-pay{color:var(--amber2);}
+.st-tile-sub{font-size:10.5px;color:var(--dim);margin-top:2px;white-space:nowrap;}
+.st-phead{--pc:var(--blue2);display:flex;align-items:center;gap:10px;padding:12px 12px 12px 8px;border-radius:16px;border:1.5px solid var(--border);background:linear-gradient(90deg,color-mix(in srgb,var(--pc) 28%,var(--card)),var(--card) 75%);}
+.st-back{width:38px;height:44px;flex-shrink:0;border:none;background:transparent;color:var(--text);font-size:28px;font-weight:900;cursor:pointer;font-family:inherit;line-height:1;}
+.st-sentbtn{width:100%;margin-top:9px;padding:11px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px dashed var(--border2);background:transparent;color:var(--sub);cursor:pointer;font-family:inherit;}
+.st-sentbtn.on{border-style:solid;border-color:#2d5a2d;background:#1a2e1a;color:#7fd67f;}
 .st-worker-top{display:flex;align-items:center;gap:8px;margin-bottom:11px;}
 .st-worker-top .st-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .st-worker-top select.inp{width:auto;flex-shrink:0;padding:8px 32px 8px 11px;font-size:13px;font-weight:800;border-radius:9px;}
@@ -1221,6 +1250,8 @@ window.addEventListener('popstate',e=>{
   const st=e.state||{};
   if(closeOpenSheets()) return;            /* 뒤로가기로 시트 닫힘 */
   const target=st.sub||MAIN_TAB;
+  const person=(target==='settle'&&st.person)||null;
+  if(person!==settlePerson){ settlePerson=person; settleUnlocked=false; settleEditName=null; if(target===tab){ render(); const c=document.getElementById('content'); if(c) c.scrollTop=0; return; } }
   if(target===tab) return;
   navSilent=true;
   try{ switchTab(target); } finally{ navSilent=false; }
@@ -1234,6 +1265,7 @@ function switchTab(t){
     if(t!==MAIN_TAB){ try{ st.sub?history.replaceState({sub:t},''):history.pushState({sub:t},''); }catch(e){} }
   }
   settleUnlocked = false;   /* 정산 단가 잠금 — 탭을 옮기면 다시 잠김 */
+  if(!navSilent){ settlePerson = null; settleQuery = ''; }
   customRosterText = null;
   customWeatherText = null;
   customVolumeText = null;
@@ -3088,6 +3120,10 @@ if(!settleStore.view) settleStore.view='table';
 if(!settleStore.closed||typeof settleStore.closed!=='object') settleStore.closed={};   /* 월 마감 스냅샷 { '2026-09': {at, rows, ...} } */
 if(!settleStore.pinned||typeof settleStore.pinned!=='object') settleStore.pinned={};   /* 개인별 단가 고정 { 이름: true } */
 let settleUnlocked=false;   /* 단가 잠금 — 화면을 벗어나면 다시 잠김 */
+if(!settleStore.sent||typeof settleStore.sent!=='object') settleStore.sent={};   /* 정산서 보낸 표시 { '2026-09': { 이름: 시각 } } */
+let settlePerson=null;      /* 대시보드에서 고른 기사 (개인 화면) */
+let settleQuery='';         /* 대시보드/단가 이름 검색 */
+let settleFilter='all';     /* all | noprice | pinned | sent | unsent */
 
 function settleCurMonth(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 function saveSettle(){ localStorage.setItem(SETTLE_KEY, JSON.stringify(settleStore)); }
@@ -3214,7 +3250,27 @@ function settleAddDay(name){
   h[d].grid[name]={}; settleMarkEdited(h[d],name); saveSettleHistory(h); render();
 }
 
-function settleView(v){ if(v!=='price') settleUnlocked=false; settleStore.view=v; saveSettle(); render(); }
+function settleView(v){ settleUnlocked=false; settleStore.view=v; settlePerson=null; saveSettle(); render(); }
+function settleOpenPerson(name){
+  settlePerson=name; settleUnlocked=false; settleEditName=null;
+  try{ history.pushState({sub:'settle',person:name},''); }catch(e){}
+  render(); const c=document.getElementById('content'); if(c) c.scrollTop=0;
+}
+function settleClosePerson(){
+  const st=history.state||{};
+  if(st.person){ try{ history.back(); return; }catch(e){} }   /* popstate 가 닫아줌 */
+  settlePerson=null; settleUnlocked=false; render();
+}
+function settleSentAt(name){ const m=settleStore.sent[settleStore.month]||{}; return m[name]||0; }
+function settleMarkSent(name,on){
+  const m=settleStore.month; settleStore.sent[m]=settleStore.sent[m]||{};
+  if(on===false) delete settleStore.sent[m][name]; else settleStore.sent[m][name]=Date.now();
+  saveSettle(); render();
+}
+function settleToggleSent(name){ settleMarkSent(name, !settleSentAt(name)); }
+function settleSetQuery(v){ settleQuery=String(v||'').trim(); render(); const el=document.getElementById('st-q'); if(el){ el.focus(); const L=el.value.length; try{ el.setSelectionRange(L,L); }catch(e){} } }
+function settleSetFilter(f){ settleFilter=f; render(); }
+function settleRow(name){ return settleCalc(settleStore.month).rows.find(r=>r.name===name); }
 function settleToggleLock(){
   if(settleUnlocked){ settleUnlocked=false; render(); return; }
   if(!confirm('단가 잠금을 풀까요?\n\n고친 단가는 바로 저장됩니다. 다른 화면으로 가면 자동으로 다시 잠깁니다.')) return;
@@ -3231,8 +3287,8 @@ function settleMonth(delta){
   settleStore.month=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); saveSettle(); render();
 }
 function settleSetMonth(v){ if(/^\d{4}-\d{2}$/.test(v)){ settleStore.month=v; saveSettle(); render(); } }
-function settlePrice(name,item,v){ if(settleNeedUnlock()||settleStore.pinned[name]){ render(); return; } const w=settleWorker(name); const n=parseInt(String(v).replace(/[^\d]/g,''),10); if(n>0) w.prices[item]=n; else delete w.prices[item]; saveSettle(); }
-function settleTax(name,v){ if(settleNeedUnlock()||settleStore.pinned[name]){ render(); return; } settleWorker(name).tax=TAX_TYPES[v]?v:'3.3'; saveSettle(); }
+function settlePrice(name,item,v){ if(settleNeedUnlock()||settleStore.pinned[name]){ render(); return; } const w=settleWorker(name); const n=parseInt(String(v).replace(/[^\d]/g,''),10); if(n>0) w.prices[item]=n; else delete w.prices[item]; saveSettle(); if(settlePerson) render(); }
+function settleTax(name,v){ if(settleNeedUnlock()||settleStore.pinned[name]){ render(); return; } settleWorker(name).tax=TAX_TYPES[v]?v:'3.3'; saveSettle(); if(settlePerson) render(); }
 function settleAddWorker(){
   const el=document.getElementById('st-add'); const n=(el&&el.value||'').trim();
   if(!n){ showToast('이름을 넣어주세요','err'); return; }
@@ -3341,8 +3397,8 @@ function settleCardPNG(r){
   T('내용 확인 부탁드립니다 · 다른 점 있으면 알려주세요',W/2,H-40,{s:12,w:500,c:'#9ca3af',a:'center'});
   return new Promise(res=>c.toBlob(res,'image/png'));
 }
-async function settlePreviewImage(i){
-  const c=settleCalc(settleStore.month); const r=c.rows[i]; if(!r) return;
+async function settlePreviewImage(name){
+  const r=settleRow(name); if(!r) return;
   try{ if(document.fonts&&document.fonts.load) await document.fonts.load("900 20px 'Noto Sans KR'"); }catch(e){}
   const blob=await settleCardPNG(r); const url=URL.createObjectURL(blob);
   const ov=document.createElement('div');
@@ -3351,19 +3407,20 @@ async function settlePreviewImage(i){
   ov.onclick=()=>{ ov.remove(); URL.revokeObjectURL(url); };
   document.body.appendChild(ov);
 }
-async function settleShareImage(i){
-  const c=settleCalc(settleStore.month); const r=c.rows[i]; if(!r) return;
+async function settleShareImage(name){
+  const r=settleRow(name); if(!r) return;
   try{ if(document.fonts&&document.fonts.load) await document.fonts.load("900 20px 'Noto Sans KR'"); }catch(e){}
   const blob=await settleCardPNG(r);
   const fname=settleStore.month+'_'+r.name+'_정산서.png';
   const file=new File([blob],fname,{type:'image/png'});
   if(navigator.canShare&&navigator.canShare({files:[file]})){
-    try{ await navigator.share({files:[file],title:settleMonthLabel(settleStore.month)+' 정산서 · '+r.name}); showToast('💬 공유 메뉴를 열었어요'); return; }
+    try{ await navigator.share({files:[file],title:settleMonthLabel(settleStore.month)+' 정산서 · '+r.name}); showToast('💬 공유 메뉴를 열었어요'); settleMarkSent(r.name); return; }
     catch(e){ if(e&&e.name==='AbortError') return; }
   }
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fname; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
   showToast('🖼 정산서 이미지를 내려받았어요 — 카톡에 첨부해 보내세요');
+  settleMarkSent(r.name);
 }
 /* 엑셀 붙여넣기용 표 (탭 구분) */
 function settleTSV(){
@@ -3380,8 +3437,8 @@ function settleTSV(){
   });
   return rows.join('\n');
 }
-function settleCopyPerson(i){ const c=settleCalc(settleStore.month); if(c.rows[i]) copyText(settlePersonText(c.rows[i])); }
-function settleSharePerson(i){ const c=settleCalc(settleStore.month); if(c.rows[i]) shareText(settlePersonText(c.rows[i])); }
+function settleCopyPerson(name){ const r=settleRow(name); if(r){ copyText(settlePersonText(r)); settleMarkSent(name); } }
+function settleSharePerson(name){ const r=settleRow(name); if(r){ shareText(settlePersonText(r)); settleMarkSent(name); } }
 function settleCopyAll(){ const c=settleCalc(settleStore.month); if(!c.rows.length){ showToast('정산할 기록이 없어요','err'); return; } copyText(settleTSV()); }
 function settleShareAll(){ const c=settleCalc(settleStore.month); if(!c.rows.length){ showToast('정산할 기록이 없어요','err'); return; } shareText(c.rows.map(settlePersonText).join('\n\n')); }
 
@@ -3405,94 +3462,125 @@ function renderSettle(){
   return head+body+'<div style="height:20px"></div>';
 }
 
+function settleCloseBar(c){
+  return c.closed
+    ? `<div class="st-close on"><div><b>🔏 마감됨</b><small>${new Date(c.closedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})} 확정 · 단가를 바꿔도 이 달은 변하지 않아요</small></div><button onclick="settleReopenMonth()">마감 해제</button></div>`
+    : `<div class="st-close"><div><b>🔓 진행 중</b><small>정산이 끝났으면 마감하세요. 단가·수량·지급액이 그대로 고정됩니다.</small></div><button onclick="settleCloseMonth()">🔏 이 달 마감</button></div>`;
+}
+function settleColorOf(name){ let h=0; for(const ch of name) h=(h*31+ch.charCodeAt(0))>>>0; return SETTLE_PAL[h%SETTLE_PAL.length]; }
+function settleSearchBox(ph){
+  return `<div class="st-search"><span>🔍</span><input type="search" id="st-q" class="inp" placeholder="${ph}" value="${esc(settleQuery)}" oninput="settleSetQuery(this.value)">${settleQuery?`<button onclick="settleSetQuery('')">✕</button>`:''}</div>`;
+}
+function settleMatch(name){ const q=settleQuery.replace(/\s+/g,'').toLowerCase(); return !q || name.replace(/\s+/g,'').toLowerCase().indexOf(q)>=0; }
+
 function renderSettleTable(){
+  if(settlePerson) return renderSettlePerson(settlePerson);
   const c=settleCalc(settleStore.month);
   if(!c.rows.length) return `
     <div class="st-empty"><b>${esc(settleMonthLabel(settleStore.month))}</b>에 저장된 물량이 없습니다.<br>
     📦 물량 탭에서 숫자 확인 뒤 <b>💰 정산에 저장</b>을 누르면 여기에 쌓입니다.</div>`;
-  const missing=c.rows.filter(r=>r.noPrice).length;
-  const items=settleItems();
   const closed=!!c.closed;
-  const closeBar=closed
-    ? `<div class="st-close on"><div><b>🔏 마감됨</b><small>${new Date(c.closedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})} 확정 · 단가를 바꿔도 이 달은 변하지 않아요</small></div><button onclick="settleReopenMonth()">마감 해제</button></div>`
-    : `<div class="st-close"><div><b>🔓 진행 중</b><small>정산이 끝났으면 마감하세요. 단가·수량·지급액이 그대로 고정됩니다.</small></div><button onclick="settleCloseMonth()">🔏 이 달 마감</button></div>`;
-  const cards=c.rows.map((r,i)=>{
-    const pc=SETTLE_PAL[i%SETTLE_PAL.length];
-    const cols=items.filter(it=>r.daily.some(d=>d.qty[it]));
-    const etcCols=[...new Set(r.daily.flatMap(d=>Object.keys(d.qty).filter(it=>items.indexOf(it)<0&&d.qty[it])))];
-    const editing=!closed&&settleEditName===r.name;
-    const nA=esc(r.name);
-    const allCols=editing ? items.concat(etcCols) : cols.concat(etcCols);
-    const m=settleStore.month;
-    const dayTable=(r.daily.length||editing)?`
-      <details class="st-days" ${editing?'open':''}>
-        <summary><span>📅 날짜별 내역</span><span>${r.daily.length}일
-          ${closed?'':`<button class="st-edit ${editing?'done':''}" onclick="event.preventDefault();event.stopPropagation();settleEdit('${nA}')">${editing?'✔ 완료':'✏️ 수정'}</button>`}</span></summary>
-        ${editing?'<div class="st-edit-hint">숫자 칸을 눌러 고치면 바로 저장되고 지급액이 다시 계산됩니다. 🗑 은 이 기사의 그 날짜만 지웁니다.</div>':''}
-        <div class="scroll"><table>
-          <thead><tr><th>날짜</th>${allCols.map(it=>`<th>${esc(it)}</th>`).join('')}<th>합계</th></tr></thead>
-          <tbody>${r.daily.map(d=>`<tr><td>${esc(settleDateLabel(d.date))}${editing?`<button class="qty-del" onclick="settleDelPersonDay('${nA}','${d.date}')">🗑</button>`:''}</td>${allCols.map(it=>editing
-              ? `<td><input type="number" inputmode="numeric" class="st-cell" value="${d.qty[it]||''}" placeholder="0" onchange="settleSetQty('${nA}','${d.date}','${esc(it)}',this.value)"></td>`
-              : (d.qty[it]?`<td>${num(d.qty[it])}</td>`:'<td class="z">·</td>')).join('')}<td class="${d.edited?'ed':''}">${num(d.total)}</td></tr>`).join('')}</tbody>
-        </table></div>
-        ${editing?`<div class="st-addday"><input type="date" id="st-addday" class="inp" min="${m}-01" max="${m}-31"><button onclick="settleAddDay('${nA}')">＋ 날짜 추가</button></div>`:''}
-      </details>`:'';
-    return `
-    <details class="st-card" style="--pc:${pc}" ${settleOpenSet.has(r.name)?'open':''} ontoggle="settleToggle('${nA}',this.open)">
-      <summary>
-        <div class="st-av">${esc(r.name.slice(0,1))}</div>
-        <div class="st-who">
-          <div class="st-name">${esc(r.name)}</div>
-          <div class="st-meta"><span>${r.days}일 · ${num(r.totalQty)}건</span><span class="pill ${r.taxType==='vat'?'taxvat':r.taxType==='3.3'?'tax33':''}">${esc(TAX_TYPES[r.taxType])}</span>${closed?'<span class="pill closed">🔏 마감</span>':''}</div>
-        </div>
-        <div class="st-pay">${won(r.pay)}<small>지급액</small></div>
-      </summary>
-      <div class="st-body">
-        ${r.groups.map(g=>g.lines.length?`
-          <div class="st-sec ${g.key}">
-            <div class="st-sec-h"><span>${g.key==='one'?'🟦':'🟩'} ${esc(g.label)}</span><span>${num(g.qty)}건</span></div>
-            ${g.lines.map(l=>`<div class="st-line"><span><em>${esc(l.item)}</em> ${num(l.qty)}건 × ${l.price?num(l.price)+'원':'<span style="color:var(--amber2)">단가 없음</span>'}</span><span>${won(l.amt)}</span></div>`).join('')}
-            <div class="st-line sub"><span>소계</span><span>${won(g.sub)}</span></div>
-          </div>`:'').join('')}
-        ${r.etc.length?`<div class="st-warn">단가표에 없는 물품: ${r.etc.map(e=>esc(e.item)+' '+num(e.qty)+'건').join(', ')} — 금액에 넣지 않았습니다.</div>`:''}
-        <div class="st-sum2">
-          <div class="st-line"><span>매출 합계</span><span><em>${won(r.sales)}</em></span></div>
-          ${r.taxType==='vat'?`<div class="st-line tax"><span>부가세 별도 (10%)</span><span>+${won(r.tax)}</span></div>`
-           :r.taxType==='3.3'?`<div class="st-line tax"><span>3.3% 공제</span><span>${won(r.tax)}</span></div>`:''}
-          <div class="st-line total"><span>💰 지급액</span><span>${won(r.pay)}</span></div>
-        </div>
-        ${dayTable}
-        ${r.noPrice?`<div class="st-warn">단가가 비어 있는 물품이 있습니다. <a href="#" onclick="settleView('price');return false;">💵 단가 탭</a>에서 넣어주세요.</div>`:''}
-        <div class="st-actions">
-          <button class="img" onclick="settleShareImage(${i})">🖼 정산서 이미지 보내기</button>
-          <button class="k" onclick="settleSharePerson(${i})">💬 카톡 문구 보내기</button>
-          <button onclick="settleCopyPerson(${i})">📋 문구 복사</button>
-          <button onclick="settlePreviewImage(${i})">👁 이미지 미리보기</button>
-        </div>
-      </div>
-    </details>`;
-  }).join('');
+  const sentMap=settleStore.sent[settleStore.month]||{};
+  const cnt={all:c.rows.length, noprice:c.rows.filter(r=>r.noPrice).length, pinned:c.rows.filter(r=>settleStore.pinned[r.name]).length,
+             sent:c.rows.filter(r=>sentMap[r.name]).length};
+  cnt.unsent=cnt.all-cnt.sent;
+  const FILTERS=[['all','전체'],['noprice','⚠ 단가 없음'],['pinned','📌 고정'],['sent','✓ 보냄'],['unsent','미발송']];
+  let rows=c.rows.filter(r=>settleMatch(r.name));
+  if(settleFilter==='noprice') rows=rows.filter(r=>r.noPrice);
+  else if(settleFilter==='pinned') rows=rows.filter(r=>settleStore.pinned[r.name]);
+  else if(settleFilter==='sent') rows=rows.filter(r=>sentMap[r.name]);
+  else if(settleFilter==='unsent') rows=rows.filter(r=>!sentMap[r.name]);
+  const tiles=rows.map(r=>`
+    <button class="st-tile ${r.noPrice?'warn':''} ${sentMap[r.name]?'sent':''}" style="--pc:${settleColorOf(r.name)}" onclick="settleOpenPerson('${esc(r.name)}')">
+      <div class="st-tile-top"><div class="st-av">${esc(r.name.slice(0,1))}</div>
+        <div class="st-tile-marks">${settleStore.pinned[r.name]?'<span>📌</span>':''}${sentMap[r.name]?'<span class="ok">✓</span>':''}${r.noPrice?'<span class="w">⚠</span>':''}</div></div>
+      <div class="st-tile-name">${esc(r.name)}</div>
+      <div class="st-tile-pay">${won(r.pay)}</div>
+      <div class="st-tile-sub">${r.days}일 · ${num(r.totalQty)}건</div>
+    </button>`).join('');
   return `
-    ${closeBar}
+    ${settleCloseBar(c)}
     <div class="st-sum">
       <div><small>기록 · 기사</small><b>${c.dates.length}일 · ${c.rows.length}명</b></div>
       <div><small>물량 합계</small><b>${num(c.rows.reduce((s,r)=>s+r.totalQty,0))}건</b></div>
       <div><small>매출 합계</small><b>${won(c.totalSales)}</b></div>
       <div><small>지급 합계</small><b class="pay">${won(c.totalPay)}</b></div>
     </div>
-    ${missing&&!closed?`<div class="st-warn" style="margin:0 0 12px">단가가 비어 있는 기사가 <b>${missing}명</b> 있습니다. 💵 단가 탭에서 채우면 금액이 계산됩니다.</div>`:''}
-    <div class="section-head"><div class="section-title">👤 기사별 정산 <b>${c.rows.length}</b>명 · 이름을 누르면 상세</div></div>
-    ${cards}
-    <div class="actions" style="margin-top:6px">
+    ${settleSearchBox('기사 이름 검색')}
+    <div class="st-filters">${FILTERS.map(([k,l])=>`<button class="st-filter ${settleFilter===k?'on':''}" onclick="settleSetFilter('${k}')">${l}<b>${cnt[k]}</b></button>`).join('')}</div>
+    ${cnt.noprice&&!closed&&settleFilter==='all'?`<div class="st-warn" style="margin:0 0 12px">단가가 비어 있는 기사가 <b>${cnt.noprice}명</b> 있습니다. 이름을 누르면 그 자리에서 단가를 넣을 수 있어요.</div>`:''}
+    <div class="section-head"><div class="section-title">👥 기사 <b>${rows.length}</b>명 · 이름을 누르면 정산서와 단가</div></div>
+    ${rows.length?`<div class="st-tiles">${tiles}</div>`:'<div class="st-empty">조건에 맞는 기사가 없습니다.</div>'}
+    <div class="actions" style="margin-top:14px">
       <button class="btn btn-share" onclick="settleShareAll()">💬 전체 문구 공유</button>
       <button class="btn btn-copy" onclick="settleCopyAll()">📋 엑셀용 표 복사</button>
     </div>`;
 }
 
-function renderSettlePrices(){
-  const names=settleAllNames(); const items=settleItems();
-  const locked=!settleUnlocked;
-  const cards=names.map(n=>{
+function renderSettlePerson(name){
+  const c=settleCalc(settleStore.month); const r=c.rows.find(x=>x.name===name);
+  const closed=!!c.closed; const items=settleItems(); const nA=esc(name); const pc=settleColorOf(name);
+  const sentAt=settleSentAt(name);
+  const head=`
+    <div class="st-phead" style="--pc:${pc}">
+      <button class="st-back" onclick="settleClosePerson()">‹</button>
+      <div class="st-av">${esc(name.slice(0,1))}</div>
+      <div class="st-who"><div class="st-name">${nA}${settleStore.pinned[name]?' <small style="color:var(--amber2);font-size:11px">📌 고정</small>':''}</div>
+        <div class="st-meta"><span>${esc(settleMonthLabel(settleStore.month))}</span>${closed?'<span class="pill closed">🔏 마감</span>':''}${sentAt?`<span class="pill sent">✓ ${new Date(sentAt).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'})} 보냄</span>`:'<span class="pill">미발송</span>'}</div></div>
+      ${r?`<div class="st-pay">${won(r.pay)}<small>지급액</small></div>`:''}
+    </div>`;
+  if(!r) return head+`<div class="st-empty">${esc(settleMonthLabel(settleStore.month))}에 <b>${nA}</b> 기록이 없습니다.</div>`
+    + `<div class="section-head"><div class="section-title">💵 단가 · 세금</div></div>${settleLockBar(!settleUnlocked)}${settleWorkerCard(name,!settleUnlocked)}`;
+  const cols=items.filter(it=>r.daily.some(d=>d.qty[it]));
+  const etcCols=[...new Set(r.daily.flatMap(d=>Object.keys(d.qty).filter(it=>items.indexOf(it)<0&&d.qty[it])))];
+  const editing=!closed&&settleEditName===name;
+  const allCols=editing ? items.concat(etcCols) : cols.concat(etcCols);
+  const m=settleStore.month;
+  const dayTable=(r.daily.length||editing)?`
+    <details class="st-days" open>
+      <summary><span>📅 날짜별 내역</span><span>${r.daily.length}일
+        ${closed?'':`<button class="st-edit ${editing?'done':''}" onclick="event.preventDefault();event.stopPropagation();settleEdit('${nA}')">${editing?'✔ 완료':'✏️ 수정'}</button>`}</span></summary>
+      ${editing?'<div class="st-edit-hint">숫자 칸을 눌러 고치면 바로 저장되고 지급액이 다시 계산됩니다. 🗑 은 이 기사의 그 날짜만 지웁니다.</div>':''}
+      <div class="scroll"><table>
+        <thead><tr><th>날짜</th>${allCols.map(it=>`<th>${esc(it)}</th>`).join('')}<th>합계</th></tr></thead>
+        <tbody>${r.daily.map(d=>`<tr><td>${esc(settleDateLabel(d.date))}${editing?`<button class="qty-del" onclick="settleDelPersonDay('${nA}','${d.date}')">🗑</button>`:''}</td>${allCols.map(it=>editing
+            ? `<td><input type="number" inputmode="numeric" class="st-cell" value="${d.qty[it]||''}" placeholder="0" onchange="settleSetQty('${nA}','${d.date}','${esc(it)}',this.value)"></td>`
+            : (d.qty[it]?`<td>${num(d.qty[it])}</td>`:'<td class="z">·</td>')).join('')}<td class="${d.edited?'ed':''}">${num(d.total)}</td></tr>`).join('')}</tbody>
+      </table></div>
+      ${editing?`<div class="st-addday"><input type="date" id="st-addday" class="inp" min="${m}-01" max="${m}-31"><button onclick="settleAddDay('${nA}')">＋ 날짜 추가</button></div>`:''}
+    </details>`:'';
+  return head+`
+    <div class="st-card" style="--pc:${pc};margin-top:12px"><div class="st-body" style="padding-top:2px">
+      ${r.groups.map(g=>g.lines.length?`
+        <div class="st-sec ${g.key}">
+          <div class="st-sec-h"><span>${g.key==='one'?'🟦':'🟩'} ${esc(g.label)}</span><span>${num(g.qty)}건</span></div>
+          ${g.lines.map(l=>`<div class="st-line"><span><em>${esc(l.item)}</em> ${num(l.qty)}건 × ${l.price?num(l.price)+'원':'<span style="color:var(--amber2)">단가 없음</span>'}</span><span>${won(l.amt)}</span></div>`).join('')}
+          <div class="st-line sub"><span>소계</span><span>${won(g.sub)}</span></div>
+        </div>`:'').join('')}
+      ${r.etc.length?`<div class="st-warn">단가표에 없는 물품: ${r.etc.map(e=>esc(e.item)+' '+num(e.qty)+'건').join(', ')} — 금액에 넣지 않았습니다.</div>`:''}
+      <div class="st-sum2">
+        <div class="st-line"><span>매출 합계</span><span><em>${won(r.sales)}</em></span></div>
+        ${r.taxType==='vat'?`<div class="st-line tax"><span>부가세 별도 (10%)</span><span>+${won(r.tax)}</span></div>`
+         :r.taxType==='3.3'?`<div class="st-line tax"><span>3.3% 공제</span><span>${won(r.tax)}</span></div>`:''}
+        <div class="st-line total"><span>💰 지급액</span><span>${won(r.pay)}</span></div>
+      </div>
+      ${dayTable}
+      ${r.noPrice&&!closed?`<div class="st-warn">단가가 비어 있는 물품이 있습니다. 아래 <b>단가 · 세금</b>에서 넣어주세요.</div>`:''}
+      <div class="st-actions">
+        <button class="img" onclick="settleShareImage('${nA}')">🖼 정산서 이미지 보내기</button>
+        <button class="k" onclick="settleSharePerson('${nA}')">💬 카톡 문구 보내기</button>
+        <button onclick="settleCopyPerson('${nA}')">📋 문구 복사</button>
+        <button onclick="settlePreviewImage('${nA}')">👁 이미지 미리보기</button>
+      </div>
+      <button class="st-sentbtn ${sentAt?'on':''}" onclick="settleToggleSent('${nA}')">${sentAt?'✓ 보냄 표시됨 · '+new Date(sentAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})+' (누르면 취소)':'☐ 보냄으로 표시'}</button>
+    </div></div>
+    <div class="section-head" style="margin-top:18px"><div class="section-title">💵 ${nA} 단가 · 세금 ${closed?'<span style="color:var(--dim);font-weight:600">· 마감된 달엔 반영 안 됨</span>':''}</div></div>
+    ${settleLockBar(!settleUnlocked)}
+    ${settleWorkerCard(name,!settleUnlocked)}`;
+}
+
+function settleWorkerCard(n,locked){
+    const items=settleItems();
     const w=settleStore.workers[n]||{prices:{},tax:'3.3'}; const prices=w.prices||{}; const tax=TAX_TYPES[w.tax]?w.tax:'3.3';
     const nA=esc(n); const pinned=!!settleStore.pinned[n]; const ro=locked||pinned;
     return `
@@ -3509,10 +3597,18 @@ function renderSettlePrices(){
         ${items.map(it=>`<div><label>${esc(it)} 단가(원)</label><input type="number" inputmode="numeric" class="inp" placeholder="0" ${ro?'disabled':''} value="${prices[it]||''}" onchange="settlePrice('${nA}','${esc(it)}',this.value)"></div>`).join('')}
       </div>
     </div>`;
-  }).join('');
-  const lockBar=locked
+}
+function settleLockBar(locked){
+  return locked
     ? `<div class="st-lock"><div><b>🔒 단가 잠김</b><small>실수로 바뀌지 않게 잠겨 있어요. 고치려면 풀어주세요.</small></div><button onclick="settleToggleLock()">잠금 해제</button></div>`
     : `<div class="st-lock open"><div><b>🔓 잠금 해제됨</b><small>다른 화면으로 가면 자동으로 다시 잠깁니다. 📌 고정된 기사는 그대로 잠겨 있어요.</small></div><button onclick="settleToggleLock()">잠그기</button></div>`;
+}
+function renderSettlePrices(){
+  const allNames=settleAllNames(); const items=settleItems();
+  const locked=!settleUnlocked;
+  const names=allNames.filter(settleMatch);
+  const cards=names.map(n=>settleWorkerCard(n,locked)).join('');
+  const lockBar=settleLockBar(locked);
   const full=items.length>=SETTLE_MAX_ITEMS;
   const chips=items.map(it=>`<span class="chip">${esc(it)}${locked?'':`<button class="chip-x" onclick="settleDelItem('${esc(it)}')" aria-label="${esc(it)} 빼기">×</button>`}</span>`).join('')
     + (full||locked ? '' : `<span class="chip-add"><input type="text" id="st-item" placeholder="물품 추가" maxlength="10" onkeydown="if(event.key==='Enter')settleAddItem()"><button class="chip-plus" onclick="settleAddItem()" aria-label="물품 추가">＋</button></span>`);
@@ -3521,9 +3617,10 @@ function renderSettlePrices(){
     <div class="section-head"><div class="section-title">📦 물품 목록 <b>${items.length}</b>/${SETTLE_MAX_ITEMS} · 물량 탭과 같이 씀</div></div>
     <div class="chips" style="margin-bottom:6px">${chips}</div>
     <p style="font-size:11.5px;color:var(--dim);margin:0 2px 16px;line-height:1.6">${full?'최대 '+SETTLE_MAX_ITEMS+'가지까지입니다. 빼려면 × 를 누르세요.':'이름에 \'딜\'이 들어가면 딜리 정산, 아니면 오네 정산으로 묶입니다. 추가한 물품은 물량 탭에서도 바로 읽습니다.'}</p>
-    <div class="section-head"><div class="section-title">💵 사람별 단가 · 세금 방식 <b>${names.length}</b>명</div></div>
+    <div class="section-head"><div class="section-title">💵 사람별 단가 · 세금 방식 <b>${names.length}</b>${names.length!==allNames.length?'/'+allNames.length:''}명</div></div>
     <p style="font-size:12px;color:var(--sub);margin:-4px 2px 12px;line-height:1.6">물량을 저장하면 이름이 자동으로 올라옵니다. 단가는 건당 금액이고, 세금은 <b style="color:var(--text)">3.3% 공제</b>(매출에서 뺌) 또는 <b style="color:var(--text)">부가세 별도</b>(매출에 10% 더함) 중 고릅니다.</p>
-    ${cards||'<div class="st-empty">아직 이름이 없습니다. 아래에서 직접 추가하거나 📦 물량 탭에서 저장하세요.</div>'}
+    ${settleSearchBox('이름 검색')}
+    ${cards||(allNames.length?'<div class="st-empty">검색에 맞는 이름이 없습니다.</div>':'<div class="st-empty">아직 이름이 없습니다. 아래에서 직접 추가하거나 📦 물량 탭에서 저장하세요.</div>')}
     <div class="dispatch-row" style="grid-template-columns:1fr 78px;">
       <input type="text" id="st-add" class="inp" placeholder="이름 직접 추가" onkeydown="if(event.key==='Enter')settleAddWorker()">
       <button class="set-tab" style="height:46px" onclick="settleAddWorker()">추가</button>
