@@ -3864,6 +3864,7 @@ function renderSettleDays(){
       <div>${delList}</div>
     </details>
     ${withMsg?`<button class="st-sentbtn" style="margin-top:10px" onclick="settleClearMsgs()">🧽 이 달 카톡 원문만 지우기 <small>${withMsg}일치 · 수량과 정산은 그대로</small></button>`:''}
+    <p class="st-mxhint" style="text-align:center">카톡 원문은 <b style="color:var(--sub)">최근 ${SETTLE_MSG_KEEP_MONTHS}개월</b>치만 보관합니다. ${esc(settleMsgCutoff().replace('-','년 ').replace(/^(.*)년 0?(\d+)$/,'$1년 $2월'))} 이전 달은 수량만 남고 원문은 자동으로 지워집니다.</p>
     ${settleResetBtn()}`;
 }
 /* 저장해둔 카톡 원문과 그때 인식한 수량을 나란히 */
@@ -3894,6 +3895,22 @@ function settleDayCompareHTML(d){
     + rest.map(x=>`<div class="msg"><div class="msg-l"><div class="msg-h"><b>${esc(x.r.n)}</b></div><div class="msg-t">${esc(x.r.x||'')}</div></div>
       <div class="msg-r"><div class="rn">${esc(alias[x.r.n]||x.r.n)}</div><div class="mchips">${chip(x.r)}</div></div></div>`).join('');
   return html;
+}
+const SETTLE_MSG_KEEP_MONTHS=3;
+function settleMsgCutoff(){
+  const d=new Date(); const c=new Date(d.getFullYear(), d.getMonth()-(SETTLE_MSG_KEEP_MONTHS-1), 1);
+  return c.getFullYear()+'-'+String(c.getMonth()+1).padStart(2,'0');
+}
+function settlePurgeOldMsgs(){
+  const h=settleHistory(); const cut=settleMsgCutoff(); const months={};
+  Object.keys(h).forEach(d=>{
+    if(d.slice(0,7) >= cut) return;
+    if(!(h[d].msgs||h[d].rows||h[d].alias)) return;
+    delete h[d].msgs; delete h[d].rows; delete h[d].alias; months[d.slice(0,7)]=1;
+  });
+  const n=Object.keys(months).length;
+  if(n) saveSettleHistory(h);
+  return n;
 }
 function settleClearMsgs(){
   const m=settleStore.month, h=settleHistory();
@@ -3966,6 +3983,7 @@ window.addEventListener('message', function(e) {
 
 render();
 initTabDND();
+settlePurgeOldMsgs();   /* 카톡 원문은 최근 3개월치만 두고 그 전 달은 수량만 남긴다 */
 try{ history.replaceState({},''); }catch(e){}   /* 새로 열었을 때(새로고침 포함) 기록 상태 초기화 */
 watchSheets();
 initWeather();
