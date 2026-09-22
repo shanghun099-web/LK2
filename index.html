@@ -265,7 +265,9 @@ input[type="time"].time-hint{
 .st-month{display:flex;gap:8px;align-items:center;margin-bottom:13px;}
 .st-nav{width:46px;height:48px;flex-shrink:0;border:1.5px solid var(--border);border-radius:11px;background:var(--card);color:var(--sub);font-size:22px;font-weight:900;cursor:pointer;font-family:inherit;}
 .st-nav:active{background:var(--card2);color:var(--blue3);}
-.st-month-in{flex:1;text-align:center;font-weight:800;}
+.st-month-in{flex:1;position:relative;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;padding:0;height:48px;cursor:pointer;}
+.st-month-in span{pointer-events:none;}
+.st-month-in input{position:absolute;inset:0;width:100%;height:100%;opacity:0;border:none;font-size:16px;}
 .st-sum{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:13px;}
 .st-sum div{background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:11px 12px;min-width:0;}
 .st-sum small{display:block;font-size:11px;color:var(--sub);font-weight:700;margin-bottom:4px;}
@@ -3333,7 +3335,7 @@ function renderSettle(){
     </div>
     <div class="st-month">
       <button class="st-nav" onclick="settleMonth(-1)">‹</button>
-      <input type="month" class="inp st-month-in" value="${esc(m)}" onchange="settleSetMonth(this.value)">
+      <label class="inp st-month-in"><span>📅 ${esc(settleMonthLabel(m))}</span><input type="month" value="${esc(m)}" onchange="settleSetMonth(this.value)"></label>
       <button class="st-nav" onclick="settleMonth(1)">›</button>
     </div>`;
   let body='';
