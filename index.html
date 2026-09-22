@@ -709,7 +709,8 @@ body.tab-dragging .tabs{overflow-x:hidden;}
 <div class="sheet-overlay" id="backup-sheet" onclick="if(event.target===this)closeBackup()">
   <div class="sheet">
     <div class="sheet-title">💾 백업 · 복원</div>
-    <div class="sheet-sub">출근명단, 새벽반, 근무/휴무 현황 및 출입코드를 파일 하나로 저장하고, 새 기기에서 불러올 수 있어요.</div>
+    <div class="sheet-sub">출근명단·새벽반·근무/휴무·입고·출입코드에 더해 <b style="color:var(--text)">물량 기록과 정산(단가·마감·보냄 표시)</b>까지 파일 하나로 저장하고, 새 기기에서 불러올 수 있어요.</div>
+    <div class="sheet-hint" id="bk-counts" style="margin:-6px 0 14px"></div>
     <label class="field-label">내보내기</label>
     <div class="sheet-btns" style="margin-top:0">
       <button class="mini-btn" style="border-color:#155244;color:var(--teal3)" onclick="exportBackupFile()">📤 파일로 저장</button>
@@ -3024,10 +3025,14 @@ function saveSettings(){
 }
 
 const BK_KEYS=['disp-roster-tpl','disp-dawn-tpl','disp-schedule','disp-inbound','disp-roster-wide','disp-roster-compact','disp-roster-sep','disp-tab-order','acn5',
-               'mv_alias','mv_items','mv_base','mv_rules','mv_models','mv_midx','mv_history','disp-settle'];
+               'mv_alias','mv_items','mv_base','mv_rules','mv_models','mv_midx','mv_history','mv_last','disp-settle'];
 let pendingImport=null;
 
-function openBackup(){document.getElementById('backup-sheet').classList.add('show');}
+function openBackup(){
+  const el=document.getElementById('bk-counts');
+  if(el) el.innerHTML='이 기기에 담긴 내용 — '+backupCounts();
+  document.getElementById('backup-sheet').classList.add('show');
+}
 function closeBackup(){document.getElementById('backup-sheet').classList.remove('show');}
 
 function collectBackupData(){
@@ -3042,7 +3047,27 @@ function backupSummary(data){
   if(data['disp-schedule'])parts.push('근무/휴무');
   if(data['disp-inbound'])parts.push('입고');
   if(data['acn5'])parts.push('출입코드');
+  if(data['mv_items']||data['mv_alias'])parts.push('물량 설정');
+  if(data['mv_history'])parts.push('물량 기록');
+  if(data['disp-settle'])parts.push('정산');
   return parts.join(' + ')||'명단';
+}
+/* 백업 화면에 지금 무엇이 담기는지 보여준다 */
+function backupCounts(){
+  const j=k=>{ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch(e){ return null; } };
+  const h=j('mv_history')||{}, st=j('disp-settle')||{};
+  const dates=Object.keys(h), months=[...new Set(dates.map(d=>d.slice(0,7)))];
+  const msgDays=dates.filter(d=>h[d]&&(h[d].msgs||[]).length).length;
+  const workers=Object.keys(st.workers||{}).length;
+  const closed=Object.keys(st.closed||{}).length;
+  const bits=[];
+  bits.push(dates.length?`물량 기록 <b>${dates.length}일</b>${months.length>1?` (${months.length}개월)`:''}`:'물량 기록 없음');
+  if(msgDays) bits.push(`카톡 원문 <b>${msgDays}일</b>`);
+  bits.push(workers?`기사 단가 <b>${workers}명</b>`:'단가 없음');
+  if(closed) bits.push(`마감 <b>${closed}개월</b>`);
+  let size=0; BK_KEYS.forEach(k=>{ const v=localStorage.getItem(k); if(v) size+=v.length; });
+  bits.push(`약 <b>${size<1024?size+'B':(size/1024<1024?Math.round(size/1024)+'KB':(size/1048576).toFixed(1)+'MB')}</b>`);
+  return bits.join(' · ');
 }
 function exportBackupFile(){
   const obj=collectBackupData();
@@ -3099,6 +3124,9 @@ function applyImport(){
 
   const restoredInb = load('disp-inbound', null);
   if(restoredInb) { inboundStore = restoredInb; }
+
+  settleReload();
+  settlePurgeOldMsgs();
 
   applyDayRollover(true);
 
@@ -3283,6 +3311,19 @@ function settleCalcLive(month){
 
 /* 기사 카드 열림 상태 유지 + 날짜별 내역 수정 */
 const settleOpenSet=new Set(); let settleEditName=null;
+/* 백업 복원 뒤 저장된 정산 설정을 메모리로 다시 읽는다 (앱을 껐다 켜지 않아도 되게) */
+function settleReload(){
+  const v=load(SETTLE_KEY,null);
+  settleStore=(v&&typeof v==='object')?v:{};
+  if(!settleStore.workers||typeof settleStore.workers!=='object') settleStore.workers={};
+  if(!settleStore.closed||typeof settleStore.closed!=='object') settleStore.closed={};
+  if(!settleStore.pinned||typeof settleStore.pinned!=='object') settleStore.pinned={};
+  if(!settleStore.sent||typeof settleStore.sent!=='object') settleStore.sent={};
+  if(!settleStore.month) settleStore.month=settleCurMonth();
+  if(!settleStore.view) settleStore.view='table';
+  settlePerson=null; settleEditName=null; settleUnlocked=false;
+  settleQuery=''; settleFilter='all'; settleDayItem=''; settleOpenSet.clear();
+}
 function settleToggle(name,open){ if(open) settleOpenSet.add(name); else settleOpenSet.delete(name); }
 function settleEdit(name){ if(settleIsClosed(settleStore.month)){ showToast('🔏 마감된 달은 고칠 수 없어요 — 마감 해제 후 고치세요','err'); return; } settleEditName = settleEditName===name ? null : name; if(settleEditName) settleOpenSet.add(name); render(); }
 function settleMarkEdited(rec,name){ rec.edited=rec.edited||{}; rec.edited[name]=Date.now(); }
