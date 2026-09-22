@@ -4575,7 +4575,7 @@ function drawChips(){
 }
 
 /* ---------- 호출 ---------- */
-function prompt_(){
+function prompt_(lite){
   const base = S.baseItem && S.items.indexOf(S.baseItem) >= 0 ? S.baseItem : S.items[0];
   const extra = String(S.rules||'').trim();
   return [
@@ -4615,11 +4615,11 @@ function prompt_(){
     '- 숫자가 흐리거나 어느 물품인지 애매하면 sure를 false로 두세요.',
     '- 보이지 않는 것은 추측하지 말고 빼세요.',
     '',
-    '[원문 옮기기 · messages]',
-    '- messages 에는 물량 숫자가 적힌 보고 메시지만 위에서부터 순서대로 옮기세요. 인사, 잡담, 공지, 주소 안내, 미스캔 문의, 예상물량 공지 같은 물량 보고가 아닌 메시지는 넣지 마세요.',
-    '- 같은 사람이 "출발"과 "완료"를 따로 올렸으면 완료 메시지만 넣으세요(완료가 없으면 있는 것 하나만). "정정"이 있으면 정정 메시지를 넣으세요.',
-    '- name 은 단톡방에 보이는 닉네임을 그대로 적으세요(실명으로 바꾸지 말 것). time 은 메시지 옆에 보이는 시각(없으면 빈 칸). text 는 본문을 한 글자도 고치지 말고 줄바꿈까지 그대로 옮기세요. 요약하거나 정리하지 마세요.',
-    '- 겹친 캡쳐로 같은 메시지가 두 번 보이면 한 번만 넣으세요.',
+    (lite ? '' : '[원문 옮기기 · messages]'),
+    (lite ? '' : '- messages 에는 물량 숫자가 적힌 보고 메시지만 위에서부터 순서대로 옮기세요. 인사, 잡담, 공지, 주소 안내, 미스캔 문의, 예상물량 공지 같은 물량 보고가 아닌 메시지는 넣지 마세요.'),
+    (lite ? '' : '- 같은 사람이 "출발"과 "완료"를 따로 올렸으면 완료 메시지만 넣으세요(완료가 없으면 있는 것 하나만). "정정"이 있으면 정정 메시지를 넣으세요.'),
+    (lite ? '' : '- name 은 단톡방에 보이는 닉네임을 그대로 적으세요(실명으로 바꾸지 말 것). time 은 메시지 옆에 보이는 시각(없으면 빈 칸). text 는 본문을 한 글자도 고치지 말고 줄바꿈까지 그대로 옮기세요. 요약하거나 정리하지 마세요.'),
+    (lite ? '' : '- 겹친 캡쳐로 같은 메시지가 두 번 보이면 한 번만 넣으세요.'),
     '',
     '[보기]',
     '"대치30. 딜리8. 완료" → 오네 30, 딜리 8 (지역 대치)',
@@ -4630,7 +4630,7 @@ function prompt_(){
     '"출발 오네80/주말딜리15, 완료 오네80/주말딜리15" → 오네 80, 주말딜리 15 (한 번만)',
     '"자곡 정정 딜리11 오네36 완" → 오네 36, 딜리 11 (앞선 보고를 대체)',
     '"일원본 오34 딜7 출 완" → 오네 34, 딜리 7'
-  ].join('\n') + (extra ? '\n\n[추가 규칙]\n' + extra : '');
+  ].filter(x => x !== '').join('\n') + (extra ? '\n\n[추가 규칙]\n' + extra : '');
 }
 const SCHEMA = { type:'OBJECT', properties:{
   rows:{ type:'ARRAY', items:{ type:'OBJECT',
@@ -4639,7 +4639,8 @@ const SCHEMA = { type:'OBJECT', properties:{
   messages:{ type:'ARRAY', items:{ type:'OBJECT',
     properties:{ name:{type:'STRING'}, time:{type:'STRING'}, text:{type:'STRING'} },
     required:['name','time','text'], propertyOrdering:['name','time','text'] } }
-}, required:['rows','messages'] };
+}, required:['rows'] };
+const SCHEMA_LITE = { type:'OBJECT', properties:{ rows:SCHEMA.properties.rows }, required:['rows'] };
 
 function buildParts(){
   const parts = [];
@@ -4649,15 +4650,16 @@ function buildParts(){
   parts.push({ text:'위 내용에서 기사별 물량을 뽑아주세요.' });
   return parts;
 }
-async function callOnce(model, parts){
+async function callOnce(model, parts, lite){
   const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/'
       + encodeURIComponent(model) + ':generateContent', {
     method:'POST',
     headers:{ 'Content-Type':'application/json', 'x-goog-api-key':apiKey() },
     body: JSON.stringify({
-      systemInstruction:{ parts:[{ text: prompt_() }] },
+      systemInstruction:{ parts:[{ text: prompt_(lite) }] },
       contents:[{ role:'user', parts }],
-      generationConfig:{ temperature:0, responseMimeType:'application/json', responseSchema:SCHEMA }
+      generationConfig:{ temperature:0, responseMimeType:'application/json',
+                         responseSchema: lite ? SCHEMA_LITE : SCHEMA, maxOutputTokens: 65536 }
     })
   });
   const data = await res.json().catch(()=>null);
@@ -4666,9 +4668,22 @@ async function callOnce(model, parts){
     const e = new Error(m); e.status = res.status; throw e;
   }
   const cand = data && data.candidates && data.candidates[0];
+  const fin = cand && cand.finishReason;
   const text = cand && cand.content && (cand.content.parts||[]).map(p => p.text||'').join('').trim();
-  if (!text) throw new Error('빈 응답이 왔습니다. 캡쳐 장수를 줄이고 다시 시도해 보세요.');
-  return JSON.parse(text.replace(/^```(?:json)?|```$/g,'').trim());
+  if (!text){
+    const e = new Error(fin === 'MAX_TOKENS'
+      ? '답이 너무 길어 중간에 끊겼습니다.'
+      : fin === 'SAFETY' || fin === 'PROHIBITED_CONTENT'
+        ? '구글이 이 캡쳐의 응답을 막았습니다. 캡쳐를 나눠서 다시 시도해 보세요.'
+        : '빈 응답이 왔습니다.');
+    e.tooLong = (fin === 'MAX_TOKENS'); throw e;
+  }
+  try{
+    return JSON.parse(text.replace(/^```(?:json)?|```$/g,'').trim());
+  }catch(e){
+    const err = new Error(fin === 'MAX_TOKENS' ? '답이 너무 길어 중간에 끊겼습니다.' : '답을 알아볼 수 없습니다.');
+    err.tooLong = true; throw err;   /* 잘린 JSON — 간단 모드로 다시 해볼 만하다 */
+  }
 }
 
 async function run(){
@@ -4687,7 +4702,7 @@ async function run(){
 
   btn.disabled = true;
   const parts = buildParts();
-  let err = null, used = null;
+  let err = null, used = null, liteUsed = false;
 
   outer:
   for (let mi=0; mi<order.length; mi++){
@@ -4696,7 +4711,16 @@ async function run(){
       btn.innerHTML = '<span class="spin"></span>' + esc(shortName(model))
         + (a ? ' 다시 시도 중…' : ' 로 읽는 중…');
       try{
-        const out = await callOnce(model, parts);
+        let out;
+        try{
+          out = await callOnce(model, parts, false);
+        }catch(e1){
+          if (!e1.tooLong) throw e1;
+          /* 원문까지 받으면 답이 길어 끊긴다 — 수량만 받는 간단 모드로 다시 */
+          btn.innerHTML = '<span class="spin"></span>' + esc(shortName(model)) + ' 로 다시 읽는 중… (원문 없이)';
+          out = await callOnce(model, parts, true);
+          liteUsed = true;
+        }
         used = model;
         S.messages = Array.isArray(out.messages) ? out.messages.map(m => ({ name:String(m.name||'').trim(), time:String(m.time||'').trim(), text:String(m.text||'').replace(/\r/g,'').trim() })).filter(m => m.text||m.name) : [];
         build(Array.isArray(out.rows) ? out.rows : []);
@@ -4713,7 +4737,9 @@ async function run(){
   btn.disabled = false; btn.textContent = '물량 읽기';
 
   if (used){
-    document.getElementById('runNote').textContent = shortName(used) + ' 로 읽었습니다.';
+    document.getElementById('runNote').textContent = shortName(used) + ' 로 읽었습니다.'
+      + (liteUsed ? ' (답이 길어 카톡 원문은 받지 못했습니다 — 수량은 정상입니다)' : '');
+    if (liteUsed) msg('ckMsg','warn','캡쳐가 많아 <b>카톡 원문</b>은 받지 못했습니다. 수량은 정상으로 읽었습니다. 원문까지 남기려면 캡쳐를 <b>절반씩 나눠</b> 두 번 읽어주세요.');
     go('ck'); return;
   }
   let m = (err && err.message) || '알 수 없는 오류';
@@ -4721,6 +4747,7 @@ async function run(){
   else if (err && err.status === 400 && /API key/i.test(m)) m = 'API 키가 올바르지 않습니다. 앱 맨 위 ⚙️ 설정에서 다시 확인해 주세요.';
   else if (err && err.status === 429) m = '세 모델 모두 사용량 한도에 걸렸습니다. 잠시 뒤에 다시 시도하세요.';
   else if (isBusy(err && err.status, m)) m = '세 모델 모두 붐빕니다. 앱 문제가 아니라 구글 쪽 상황입니다. 잠시 뒤에 다시 눌러주세요.';
+  else if (err && err.tooLong) m = '답이 너무 길어 끝까지 받지 못했습니다. 캡쳐를 절반씩 나눠서 두 번에 읽어주세요.';
   else if (m === 'Failed to fetch') m = '네트워크에 연결하지 못했습니다.';
   msg('inMsg','err', m);
 }
