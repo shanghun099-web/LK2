@@ -603,16 +603,53 @@ input[type="time"].time-hint{
 .sch-badge.on{background:rgba(34,197,94,.15);color:#4ade80;}
 .sch-badge.off{background:rgba(239,68,68,.2);color:#f87171;}
 .sch-tile.off{background:linear-gradient(90deg,rgba(239,68,68,.13),var(--card) 60%);}
-.cal-day.short{border-color:#dc2626;}
-.sd-cmps{background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:4px 12px;}
-.sd-cmp{display:grid;grid-template-columns:72px 1fr 40px;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;}
-.sd-cmp:last-child{border-bottom:none;}
-.sd-cmp-name{font-size:13px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.sd-cmp-track{height:8px;border-radius:99px;background:var(--card3);overflow:hidden;}
-.sd-cmp-fill{display:block;height:100%;background:linear-gradient(90deg,#fca5a5,#dc2626);border-radius:99px;}
-.sd-cmp-n{font-size:12px;font-weight:900;color:var(--sub);text-align:right;}
-.sd-cmp-n.hi{color:#f87171;}
-.sch-count-row td{background:var(--card2);font-size:12.5px;font-weight:900;}
+.bd-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1.5px solid var(--border);border-radius:14px;background:var(--card);}
+.bd-wrap::-webkit-scrollbar{height:4px;}
+.bd-wrap::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px;}
+.bd{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;}
+.bd th,.bd td{padding:0;}
+.bd thead th{background:var(--card2);border-bottom:1.5px solid var(--border2);}
+.bd-h{width:30px;min-width:30px;padding:7px 0 5px !important;text-align:center;cursor:pointer;}
+.bd-h b{display:block;font-size:12.5px;font-weight:900;color:var(--text);line-height:1.1;}
+.bd-h small{display:block;font-size:9.5px;font-weight:700;color:var(--dim);margin-top:1px;}
+.bd-h.sun b,.bd-h.sun small{color:#f08a8a;}
+.bd-h.sat b,.bd-h.sat small{color:#7ab0f0;}
+.bd-h.today{background:rgba(37,99,235,.3) !important;}
+.bd-h.today b{color:#fff;}
+.bd-h.sel{box-shadow:inset 0 -3px 0 var(--amber2);}
+.bd-name{position:sticky;left:0;z-index:3;background:var(--card);text-align:left;padding:0 6px 0 10px !important;min-width:78px;white-space:nowrap;border-right:1.5px solid var(--border2);cursor:pointer;font-size:13px;font-weight:900;}
+.bd-name span{display:inline-block;max-width:60px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;}
+.bd-name i{font-style:normal;margin-left:4px;font-size:10px;font-weight:900;color:#fff;background:#dc2626;border-radius:99px;padding:1px 5px;vertical-align:middle;}
+.bd thead .bd-corner{z-index:4;background:var(--card2);font-size:11px;font-weight:800;color:var(--sub);}
+.bd tbody tr:nth-child(even) .bd-name{background:#1b1f27;}
+.bd tbody tr:nth-child(even) .bd-c{background:rgba(255,255,255,.018);}
+.bd-c{padding:2px 1px !important;text-align:center;border-bottom:1px solid rgba(255,255,255,.04);}
+.bd tbody .bd-c.we{background:rgba(255,255,255,.035);}
+.bd tbody .bd-c.today{background:rgba(37,99,235,.13);}
+.bd tbody .bd-c.sel{background:rgba(245,158,11,.09);}
+.bd-cell{width:26px;height:27px;border-radius:6px;border:none;cursor:pointer;font-family:inherit;font-size:11px;font-weight:900;padding:0;display:block;margin:0 auto;transition:transform .08s;}
+.bd-cell:active{transform:scale(.88);}
+.bd-cell.work{background:rgba(34,197,94,.14);}
+.bd-cell.off{background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;box-shadow:0 1px 5px rgba(220,38,38,.35);}
+.bd-cell.fix{background:repeating-linear-gradient(135deg,#b91c1c 0 4px,#7f1d1d 4px 8px);color:#fee2e2;}
+.bd tfoot td,.bd tfoot th{background:var(--card3);font-size:11.5px;font-weight:900;color:#4ade80;text-align:center;padding:7px 0 !important;border-top:1.5px solid var(--border2);}
+.bd tfoot th.bd-name{color:var(--sub);text-align:left;font-size:11.5px;background:var(--card3);padding:7px 6px 7px 10px !important;}
+.bd tfoot td.short{color:#fff;background:#b91c1c;}
+.bd-wrap.wide .bd{width:100%;table-layout:fixed;}
+.bd-wrap.wide .bd-name{width:86px;min-width:0;}
+.bd-wrap.wide .bd-h{width:auto;min-width:0;}
+.bd-wrap.wide .bd-cell{width:calc(100% - 4px);max-width:44px;height:36px;font-size:12.5px;}
+.bd-legend{display:flex;gap:11px;justify-content:center;align-items:center;flex-wrap:wrap;font-size:11px;font-weight:700;color:var(--sub);margin:9px 0 0;}
+.bd-legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-2px;}
+.bd-legend .lg-w{background:rgba(34,197,94,.3);}
+.bd-legend .lg-o{background:#dc2626;}
+.bd-legend .lg-f{background:repeating-linear-gradient(135deg,#b91c1c 0 3px,#7f1d1d 3px 6px);}
+.bd-add{display:flex;gap:6px;margin-top:12px;}
+.bd-add .inp{flex:1;padding:11px 12px;font-size:14.5px;}
+.bd-add button{flex-shrink:0;padding:0 13px;border-radius:11px;border:1.5px solid var(--teal);background:var(--teal);color:#04211c;font-size:13px;font-weight:900;cursor:pointer;font-family:inherit;white-space:nowrap;}
+.bd-add button.ghost{background:transparent;color:var(--sub);border-color:var(--border2);}
+.bd-tip{font-size:11px;color:var(--dim);margin:8px 2px 0;line-height:1.6;text-align:center;}
+.bd-tip b{color:var(--sub);}
 .sch-row2{display:flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:11px 13px;margin-bottom:6px;cursor:pointer;min-height:50px;}
 .sch-row2.off{background:rgba(239,68,68,.07);border-color:rgba(239,68,68,.35);}
 .sch-row2 .r-name{flex:1;font-size:15px;font-weight:800;}
@@ -955,7 +992,7 @@ function sanitizeSchedule() {
     scheduleStore = { viewMode: 'weekly', monthlyWorkerFilter: 'ALL', selectedDate: todayISO(), dayWorkers: [], dawnWorkers: [], statusMap: {} };
   }
   if(scheduleStore.viewMode === 'personal' || scheduleStore.viewMode === 'today') scheduleStore.viewMode = 'people';
-  if(['people','weekly','monthly'].indexOf(scheduleStore.viewMode) < 0) scheduleStore.viewMode = 'people';
+  if(['people','weekly','monthly'].indexOf(scheduleStore.viewMode) < 0) scheduleStore.viewMode = 'monthly';
   if(scheduleStore.shift !== 'dawn') scheduleStore.shift = 'day';   /* 보고 있는 반: day=당일배송반, dawn=새벽반 */
   if(!scheduleStore.minStaff || typeof scheduleStore.minStaff !== 'object') scheduleStore.minStaff = { day:0, dawn:0 };
   scheduleStore.monthlyWorkerFilter = scheduleStore.monthlyWorkerFilter || 'ALL';
@@ -2576,66 +2613,70 @@ function schPeopleHTML(){
     <div class="st-filters">${F.map(([k,l]) => `<button class="st-filter ${schFilter===k?'on':''}" onclick="schSetFilter('${k}')">${l}<b>${cnt[k]}</b></button>`).join('')}</div>
     <div class="section-head"><div class="section-title">${SHIFT_ICON[sh]} ${SHIFT_FULL[sh]} 기사 · 이름을 누르면 개인 달력</div></div>
     <div id="sch-list">${schPeopleListHTML()}</div>
-    <div class="dispatch-row" style="grid-template-columns:1fr 78px;margin-top:14px">
-      <input type="text" id="sch-add" class="inp" placeholder="${SHIFT_NAME[sh]}에 기사 추가" onkeydown="if(event.key==='Enter')schAddWorker()">
-      <button class="set-tab" style="height:46px" onclick="schAddWorker()">추가</button>
-    </div>
-    <button class="btn-add-zone" style="padding:11px;font-size:12.5px" onclick="schImportRoster()">📥 ${sh==='dawn'?'새벽반':'출근명단'} 탭에서 불러오기 <span style="color:var(--dim)">(없는 사람만 추가)</span></button>`;
+    ${schAddRowHTML()}
+    <div class="bd-tip">📥 불러오기 = ${sh==='dawn'?'새벽반':'출근명단'} 탭에 있는데 여기 없는 사람만 추가</div>`;
 }
 
-/* ---- 📆 주간표 ---- */
-function schWeeklyHTML(){
-  const sh = schShift(), iso = scheduleStore.selectedDate, week = getWeekDays(iso), today = todayISO(), min = schMin(sh), list = schList(sh);
-  const th = week.map(d => { const x = new Date(d+'T00:00:00'), dw = x.getDay();
-    return `<th class="${d===today?'today-col':''}" style="cursor:pointer;${d===iso?'border-bottom:3px solid var(--amber2);':''}" onclick="schSelect('${d}')">
-      <div style="${dw===0?'color:#f08a8a':(dw===6?'color:#7ab0f0':'')}">${DAYS[dw]}</div><div style="font-size:10px;opacity:.75">${x.getDate()}</div></th>`; }).join('');
-  const rows = list.length ? list.map(w => `<tr>
-      <td class="worker-cell" style="cursor:pointer" onclick="schOpenPerson('${esc(w)}')">${esc(w)}</td>
-      ${week.map(d => { const off = getWorkerStatus(w, d, sh) === 'OFF', fix = isFixedOffDay(w, d, sh);
-        return `<td><div class="grid-cell ${off?'gc-off':'gc-work'} ${fix?'gc-fix':''}" onclick="toggleWorkerStatus('${esc(w)}','${d}','${sh}')">${off?'🔴':'🟢'}</div></td>`; }).join('')}
-    </tr>`).join('')
-    : `<tr><td colspan="8" style="padding:14px;color:var(--dim);text-align:center">등록된 기사가 없습니다.</td></tr>`;
-  const foot = list.length ? `<tr class="sch-count-row"><td class="worker-cell">근무 인원</td>${week.map(d => { const c = schWorkCount(d, sh);
-    return `<td style="color:${min>0&&c<min?'#f87171':'#4ade80'}">${c}</td>`; }).join('')}</tr>` : '';
-  return `
-    <div class="section-head"><div class="section-title">💡 칸 = 근무 ⇄ 휴무 · <b>이름</b> = 개인 달력 · 점선 = 고정 휴무</div></div>
-    <div class="sch-table-wrap"><table class="sch-table compact">
-      <thead><tr><th class="worker-cell">${SHIFT_ICON[sh]} ${SHIFT_NAME[sh]}</th>${th}</tr></thead>
-      <tbody>${rows}${foot}</tbody>
-    </table></div>`;
-}
-
-/* ---- 🗓️ 월간 + 휴무 일수 비교 ---- */
-function schCalHead(){ return `<div class="cal-head sun">일</div><div class="cal-head">월</div><div class="cal-head">화</div><div class="cal-head">수</div><div class="cal-head">목</div><div class="cal-head">금</div><div class="cal-head sat">토</div>`; }
-function schMonthlyHTML(){
+/* ---- 📋 현황판: 기사 한 줄 × 날짜 한 칸. 칸을 누르면 근무 ⇄ 휴무 ---- */
+function schBoardHTML(days, wide){
   const sh = schShift(), iso = scheduleStore.selectedDate, today = todayISO(), list = schList(sh), min = schMin(sh);
-  const d0 = new Date(iso+'T00:00:00'), y = d0.getFullYear(), m = d0.getMonth();
-  const start = new Date(y, m, 1).getDay(), total = new Date(y, m+1, 0).getDate();
-  let cells = '';
-  for (let p = 0; p < start; p++) cells += `<div class="cal-day other-month"><span class="cal-day-num">·</span></div>`;
-  for (let day = 1; day <= total; day++){
-    const d = `${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`, dw = dowOf(d);
-    const offs = list.filter(w => getWorkerStatus(w, d, sh) === 'OFF'), s = min > 0 && (list.length - offs.length) < min;
-    const chips = !list.length ? ''
-      : !offs.length ? `<div class="cal-chip" style="background:rgba(34,197,94,.12);color:#4ade80">전원</div>`
-      : offs.length <= 2 ? offs.map(n => `<div class="cal-chip" style="background:rgba(239,68,68,.18);color:#f87171">${esc(n)}</div>`).join('')
-      : `<div class="cal-chip" style="background:rgba(239,68,68,.18);color:#f87171">휴 ${offs.length}</div>`;
-    cells += `<div class="cal-day ${d===today?'is-today':''} ${d===iso?'selected':''} ${s?'short':''}" onclick="schSelect('${d}',true)">
-      <div class="cal-day-num ${dw===0?'sun':(dw===6?'sat':'')}">${day}</div><div class="cal-day-chips">${chips}</div></div>`;
-  }
-  const stats = list.map(w => ({ w, n: getWorkerMonthlyStats(w, y, m, sh).offCount }))
-                    .sort((a,b) => b.n - a.n || a.w.localeCompare(b.w,'ko'));
-  const maxN = Math.max(1, ...stats.map(x => x.n)), avg = stats.length ? stats.reduce((a,x) => a + x.n, 0) / stats.length : 0;
-  const cmp = stats.map(x => `<div class="sd-cmp" onclick="schOpenPerson('${esc(x.w)}')">
-      <span class="sd-cmp-name" style="color:${settleNameColorOf(x.w)}">${esc(x.w)}</span>
-      <span class="sd-cmp-track"><span class="sd-cmp-fill" style="width:${x.n/maxN*100}%"></span></span>
-      <span class="sd-cmp-n ${x.n>avg+0.5?'hi':''}">${x.n}일</span></div>`).join('');
+  if (!list.length) return `<div class="st-empty">${SHIFT_FULL[sh]}에 등록된 기사가 없습니다.<br>아래에서 추가하거나 불러오세요.</div>`;
+  const head = days.map(d => { const x = new Date(d+'T00:00:00'), dw = x.getDay();
+    return `<th class="bd-h ${dw===0?'sun':(dw===6?'sat':'')} ${d===today?'today':''} ${d===iso?'sel':''}" onclick="schSelect('${d}')"><b>${x.getDate()}</b><small>${DAYS[dw]}</small></th>`; }).join('');
+  const rows = list.map(w => {
+    let n = 0;
+    const cells = days.map(d => {
+      const off = getWorkerStatus(w, d, sh) === 'OFF', fix = off && isFixedOffDay(w, d, sh), dw = dowOf(d);
+      if (off) n++;
+      return `<td class="bd-c ${dw===0||dw===6?'we':''} ${d===today?'today':''} ${d===iso?'sel':''}"><button class="bd-cell ${off?(fix?'fix':'off'):'work'}" onclick="toggleWorkerStatus('${esc(w)}','${d}','${sh}')">${off?'휴':''}</button></td>`;
+    }).join('');
+    return `<tr><th class="bd-name" onclick="schOpenPerson('${esc(w)}')"><span style="color:${settleNameColorOf(w)}">${esc(w)}</span>${n?`<i>${n}</i>`:''}</th>${cells}</tr>`;
+  }).join('');
+  const foot = days.map(d => { const c = schWorkCount(d, sh); return `<td class="${min>0&&c<min?'short':''}">${c}</td>`; }).join('');
   return `
-    <div class="section-head"><div class="section-title">🗓️ 날짜를 누르면 위 현황이 그 날로 바뀝니다${min?' · 빨간 테두리 = 인원 미달':''}</div></div>
-    <div class="cal-grid">${schCalHead()}${cells}</div>
-    <div class="section-head" style="margin-top:6px"><div class="section-title">📊 ${m+1}월 휴무 일수 비교 · 평균 <b>${avg.toFixed(1)}</b>일</div></div>
-    <div class="sd-cmps">${cmp || '<div class="st-empty" style="margin:6px 0">등록된 기사가 없습니다.</div>'}</div>`;
+    <div class="bd-wrap ${wide?'wide':''}" id="bd-wrap"><table class="bd">
+      <thead><tr><th class="bd-name bd-corner">${SHIFT_ICON[sh]} ${list.length}명</th>${head}</tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><th class="bd-name">근무 인원</th>${foot}</tr></tfoot>
+    </table></div>
+    <div class="bd-legend"><span><i class="lg-w"></i>근무</span><span><i class="lg-o"></i>휴무</span><span><i class="lg-f"></i>고정 휴무</span><span>이름 옆 숫자 = 휴무 일수</span></div>`;
 }
+function schAddRowHTML(){
+  const sh = schShift();
+  return `<div class="bd-add">
+    <input type="text" id="sch-add" class="inp" placeholder="＋ ${SHIFT_NAME[sh]} 기사 이름" onkeydown="if(event.key==='Enter')schAddWorker()">
+    <button onclick="schAddWorker()">추가</button>
+    <button class="ghost" onclick="schImportRoster()">📥 불러오기</button>
+  </div>`;
+}
+function schBoardView(days, wide, hint){
+  return `
+    <div class="section-head"><div class="section-title">${hint}</div></div>
+    ${schBoardHTML(days, wide)}
+    ${schAddRowHTML()}
+    <div class="bd-tip">칸 = 근무 ⇄ 휴무 · <b>이름</b> = 고정 휴무 요일 · 반 옮기기 · 삭제 · <b>날짜</b> = 위 현황을 그 날로</div>`;
+}
+function schMonthDays(){
+  const d0 = new Date(scheduleStore.selectedDate+'T00:00:00'), y = d0.getFullYear(), m = d0.getMonth(), n = new Date(y, m+1, 0).getDate(), out = [];
+  for (let i = 1; i <= n; i++) out.push(`${y}-${String(m+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`);
+  return out;
+}
+/* 현황판을 다시 그려도 가로 위치를 지키고, 달이 바뀌면 선택한 날(오늘)이 보이게 */
+let schBoardKey = '', schBoardLeft = 0;
+function schAfterRender(){
+  const wrap = document.getElementById('bd-wrap'); if (!wrap) return;
+  const key = scheduleStore.viewMode + '|' + schShift() + '|' + scheduleStore.selectedDate.slice(0,7);
+  if (key === schBoardKey) wrap.scrollLeft = schBoardLeft;
+  else {
+    const th = wrap.querySelector('th.sel') || wrap.querySelector('th.today'), corner = wrap.querySelector('.bd-corner');
+    if (th && corner) wrap.scrollLeft = Math.max(0, th.offsetLeft - corner.offsetWidth - th.offsetWidth * 2);
+    schBoardLeft = wrap.scrollLeft;
+  }
+  schBoardKey = key;
+  wrap.addEventListener('scroll', () => { schBoardLeft = wrap.scrollLeft; }, { passive:true });
+}
+
+function schCalHead(){ return `<div class="cal-head sun">일</div><div class="cal-head">월</div><div class="cal-head">화</div><div class="cal-head">수</div><div class="cal-head">목</div><div class="cal-head">금</div><div class="cal-head sat">토</div>`; }
 
 /* ---- 👤 개인 화면 ---- */
 function schPersonHTML(w){
@@ -2708,11 +2749,15 @@ function renderSchedule() {
     </div>`;
   const views = `
     <div class="set-tabs" style="margin-top:4px">
+      <button class="set-tab ${mode==='monthly'?'active':''}" onclick="setSchView('monthly')">📋 월간 현황판</button>
+      <button class="set-tab ${mode==='weekly'?'active':''}" onclick="setSchView('weekly')">📆 주간</button>
       <button class="set-tab ${mode==='people'?'active':''}" onclick="setSchView('people')">👥 기사</button>
-      <button class="set-tab ${mode==='weekly'?'active':''}" onclick="setSchView('weekly')">📆 주간표</button>
-      <button class="set-tab ${mode==='monthly'?'active':''}" onclick="setSchView('monthly')">🗓️ 월간</button>
     </div>`;
-  const body = mode === 'weekly' ? schWeeklyHTML() : mode === 'monthly' ? schMonthlyHTML() : schPeopleHTML();
+  const body = mode === 'weekly'
+      ? schBoardView(getWeekDays(iso), true, `📆 ${title} · ${SHIFT_FULL[sh]}`)
+    : mode === 'monthly'
+      ? schBoardView(schMonthDays(), false, `📋 ${d0.getMonth()+1}월 ${SHIFT_FULL[sh]} 현황판 · 옆으로 밀면 나머지 날짜`)
+    : schPeopleHTML();
   return shiftSw + nav + schDashHTML() + views + body + '<div style="height:20px"></div>';
 }
 
@@ -3985,7 +4030,7 @@ function render(){
 
   if(tab==='roster'||tab==='dawn') c.innerHTML=renderRoster();
   else if(tab==='weather') c.innerHTML=renderWeather();
-  else if(tab==='schedule') c.innerHTML=renderSchedule();
+  else if(tab==='schedule'){ const ow=document.getElementById('bd-wrap'); if(ow) schBoardLeft=ow.scrollLeft; c.innerHTML=renderSchedule(); schAfterRender(); }
   else if(tab==='inbound') c.innerHTML=renderInbound();
   else if(tab==='settle') c.innerHTML=renderSettle();
   else c.innerHTML=renderRoster();
