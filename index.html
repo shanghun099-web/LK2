@@ -4506,6 +4506,7 @@ function addImages(fileList){
         S.images.push({ mime:'image/jpeg', b64:url.split(',')[1], url });
         drawFiles();
       };
+      img.onerror = () => msg('inMsg','warn','이 사진은 열 수 없는 형식입니다(아이폰 HEIC 등). 카톡 캡쳐 원본(PNG·JPG)으로 넣어주세요.');
       img.src = r.result;
     };
     r.readAsDataURL(f);
@@ -4638,19 +4639,35 @@ function buildParts(){
   parts.push({ text:'위 내용에서 기사별 물량을 뽑아주세요.' });
   return parts;
 }
+const CALL_TIMEOUT = 90000;   /* 한 모델당 최대 90초 기다림 */
+/* 제미나이 3 계열(과 최신 별칭)은 temperature 를 0 으로 내리면 같은 줄을 되풀이하는 루프에 빠지기 쉽다 — 구글 권장대로 기본값을 둔다.
+   2.x 처럼 이름에 버전이 적힌 옛 모델만 0 으로 고정해 결과를 흔들리지 않게 한다. */
+const pinTemp = m => /gemini-(1|2)\./.test(String(m));
 async function callOnce(model, parts){
-  const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/'
+  const ctl = new AbortController();
+  const tm = setTimeout(() => ctl.abort(), CALL_TIMEOUT);
+  let res;
+  try{
+  res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/'
       + encodeURIComponent(model) + ':generateContent', {
-    method:'POST',
+    method:'POST', signal: ctl.signal,
     headers:{ 'Content-Type':'application/json', 'x-goog-api-key':apiKey() },
     body: JSON.stringify({
       systemInstruction:{ parts:[{ text: prompt_() }] },
       contents:[{ role:'user', parts }],
-      generationConfig:{ temperature:0, responseMimeType:'application/json',
-                         responseSchema: SCHEMA, maxOutputTokens: 65536 }
+      generationConfig:Object.assign(pinTemp(model) ? { temperature:0 } : {},
+                         { responseMimeType:'application/json', responseSchema: SCHEMA, maxOutputTokens: 16384 })
     })
   });
-  const data = await res.json().catch(()=>null);
+  }catch(e){
+    clearTimeout(tm);
+    if (e && e.name === 'AbortError'){ const t = new Error('응답이 너무 오래 걸립니다.'); t.timeout = true; throw t; }
+    throw e;
+  }
+  let data = null;
+  try{ data = await res.json(); }
+  catch(e){ if (ctl.signal.aborted){ clearTimeout(tm); const t = new Error('응답이 너무 오래 걸립니다.'); t.timeout = true; throw t; } }
+  clearTimeout(tm);
   if (!res.ok){
     const m = (data&&data.error&&data.error.message)||('HTTP '+res.status);
     const e = new Error(m); e.status = res.status; throw e;
@@ -4696,16 +4713,20 @@ async function run(){
   for (let mi=0; mi<order.length; mi++){
     const model = order[mi];
     for (let a=0; a<2; a++){
-      btn.innerHTML = '<span class="spin"></span>' + esc(shortName(model))
-        + (a ? ' 다시 시도 중…' : ' 로 읽는 중…');
+      const label = esc(shortName(model)) + (a ? ' 다시 시도 중…' : ' 로 읽는 중…');
+      const t0 = Date.now();
+      const paint = () => { btn.innerHTML = '<span class="spin"></span>' + label + ' ' + Math.floor((Date.now()-t0)/1000) + '초'; };
+      paint();
+      const tick = setInterval(paint, 1000);
       try{
-        const out = await callOnce(model, parts);
+        const out = await callOnce(model, parts).finally(() => clearInterval(tick));
         used = model;
         build(Array.isArray(out.rows) ? out.rows : []);
         break outer;
       }catch(e){
         err = e;
         if (isBusy(e.status, e.message)){ if (a === 0) await sleep(1800); continue; }
+        if (e.timeout) break;                               // 너무 오래 걸림 → 다음 모델로
         if (e.status === 404 || e.status === 429) break;   // 다음 모델로
         break outer;                                        // 되살릴 수 없는 오류
       }
@@ -4723,6 +4744,7 @@ async function run(){
   else if (err && err.status === 400 && /API key/i.test(m)) m = 'API 키가 올바르지 않습니다. 앱 맨 위 ⚙️ 설정에서 다시 확인해 주세요.';
   else if (err && err.status === 429) m = '세 모델 모두 사용량 한도에 걸렸습니다. 잠시 뒤에 다시 시도하세요.';
   else if (isBusy(err && err.status, m)) m = '세 모델 모두 붐빕니다. 앱 문제가 아니라 구글 쪽 상황입니다. 잠시 뒤에 다시 눌러주세요.';
+  else if (err && err.timeout) m = '세 모델 모두 90초 안에 답을 주지 않았습니다. 캡쳐를 절반씩 나눠서 읽어주세요.';
   else if (err && err.tooLong) m = '답이 너무 길어 끝까지 받지 못했습니다. 캡쳐를 절반씩 나눠서 두 번에 읽어주세요.';
   else if (m === 'Failed to fetch') m = '네트워크에 연결하지 못했습니다.';
   msg('inMsg','err', m);
