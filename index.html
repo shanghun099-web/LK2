@@ -4755,7 +4755,7 @@ function stlState(){
   try{ const st = JSON.parse(localStorage.getItem('disp-settle')||'{}'); if (st.closed && st.closed[String(date).slice(0,7)]) closedNote = '<b>🔏 이 달은 정산이 마감됐습니다.</b> 저장해도 정산표에는 반영되지 않습니다 (정산 탭에서 마감 해제 후 다시 저장하세요).'; }catch(e){}
   if (closedNote){ msg('stlState','warn', closedNote); return; }
   msg('stlState', edited.length ? 'warn' : 'ok', r
-    ? '이 날짜는 이미 저장돼 있습니다 (기사 '+Object.keys(r.grid||{}).length+'명'+(when?', '+when:'')+'). 다시 누르면 덮어씁니다.'
+    ? '<b>정산에 저장된 기록</b>: 이 날짜로 기사 '+Object.keys(r.grid||{}).length+'명'+(when?' · '+when+' 저장':'')+'. 지금 화면의 표로 다시 저장하면 덮어씁니다.'
       + (edited.length ? '<br><b>⚠ 정산 탭에서 직접 고친 기록이 있습니다</b> ('+edited.map(esc).join(', ')+'). 다시 저장하면 고친 내용이 지워집니다.' : '')
     : '');
 }
@@ -4803,7 +4803,7 @@ function restore(){
   document.getElementById('dateIn').addEventListener('change', () => {
     drawDay();
     if (S.rawRows.length) build(S.rawRows);
-    preview(); saveLast(); stlState();
+    preview(); saveLast(); msg('stlMsg','',''); stlState();
   });
   document.getElementById('addName').addEventListener('keydown', e => { if (e.key==='Enter') addPerson(); });
   document.getElementById('itemIn').addEventListener('keydown', e => { if (e.key==='Enter') addItem(); });
@@ -4812,12 +4812,16 @@ function restore(){
   if (!apiKey()) msg('inMsg','warn','제미나이 API 키가 없습니다. 앱 <b>맨 위 ⚙️ 설정</b>에서 키를 넣어주세요.');
   /* 앱의 💰 정산 탭에서 물품 목록을 바꾸면 여기도 같은 목록으로 */
   window.addEventListener('storage', e => {
+    /* 앱의 💰 정산 탭에서 기록을 지우거나 마감하면 저장 안내를 다시 계산한다 */
+    if (e.key === HISTORY_KEY || e.key === 'disp-settle'){ msg('stlMsg','',''); stlState(); return; }
     if (e.key !== K.items) return;
     const it = load(K.items, null);
     S.items = (Array.isArray(it) && it.length) ? it : DEFAULT_ITEMS.slice();
     if (document.getElementById('itemChips')) drawItems();
     if (S.rawRows.length) build(S.rawRows); else if (S.people.length) drawGrid();
   });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) stlState(); });
+  window.addEventListener('focus', stlState);
 })();
 <\/script>
 </body>
