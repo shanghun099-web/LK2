@@ -3057,12 +3057,12 @@ function backupCounts(){
   const j=k=>{ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch(e){ return null; } };
   const h=j('mv_history')||{}, st=j('disp-settle')||{};
   const dates=Object.keys(h), months=[...new Set(dates.map(d=>d.slice(0,7)))];
-  const msgDays=dates.filter(d=>h[d]&&(h[d].msgs||[]).length).length;
+  const msgDays=dates.filter(d=>h[d]&&(h[d].rows||[]).length).length;
   const workers=Object.keys(st.workers||{}).length;
   const closed=Object.keys(st.closed||{}).length;
   const bits=[];
   bits.push(dates.length?`물량 기록 <b>${dates.length}일</b>${months.length>1?` (${months.length}개월)`:''}`:'물량 기록 없음');
-  if(msgDays) bits.push(`카톡 원문 <b>${msgDays}일</b>`);
+  if(msgDays) bits.push(`원문 기록 <b>${msgDays}일</b>`);
   bits.push(workers?`기사 단가 <b>${workers}명</b>`:'단가 없음');
   if(closed) bits.push(`마감 <b>${closed}개월</b>`);
   let size=0; BK_KEYS.forEach(k=>{ const v=localStorage.getItem(k); if(v) size+=v.length; });
@@ -3871,15 +3871,15 @@ function renderSettleDays(){
       <tbody>${mx.rows.map(r=>`<tr><td class="cn">${esc(r.name)}</td>${r.cells.map((v,i)=>v==null?'<td class="z">·</td>':`<td class="${editedOf(r.name,mx.dates[i])?'ed':''}">${num(v)}</td>`).join('')}<td class="tot">${num(r.total)}</td></tr>`).join('')}</tbody>
       <tfoot><tr><td class="cn">합계</td>${mx.colTotals.map(v=>`<td>${v?num(v):'·'}</td>`).join('')}<td class="tot">${num(mx.total)}</td></tr></tfoot>
     </table></div>`;
-  const withMsg=dates.filter(d=>(h[d].msgs||[]).length).length;
+  const withMsg=dates.filter(d=>(h[d].rows||[]).length).length;
   const delList=dates.slice().reverse().map(d=>{
     const g=(h[d]&&h[d].grid)||{}; const names=Object.keys(g).length;
     let tot=0; Object.keys(g).forEach(n=>Object.keys(g[n]).forEach(it=>tot+=Number(g[n][it])||0));
     const saved=h[d].savedAt?new Date(h[d].savedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})+' 저장':'';
-    const nMsg=(h[d].msgs||[]).length;
+    const nMsg=(h[d].rows||[]).length;
     return `<details class="st-dayitem">
       <summary><div><b>${esc(settleDateLabel(d))}</b><small>기사 ${names}명 · ${num(tot)}건${saved?' · '+saved:''}</small></div>
-        <span class="st-daymark">${nMsg?'💬 '+nMsg:'<span class="none">원문 없음</span>'}</span>
+        <span class="st-daymark">${nMsg?'💬 '+nMsg+'줄':'<span class="none">원문 없음</span>'}</span>
         ${closed?'':`<button class="qty-del" onclick="event.preventDefault();settleDelDay('${esc(d)}')">🗑</button>`}</summary>
       <div class="st-daybody">${settleDayCompareHTML(d)}</div>
     </details>`;
@@ -3901,53 +3901,51 @@ function renderSettleDays(){
       <button class="btn btn-copy" onclick="settleCopyDays()">📋 표 복사</button>
     </div>
     <details class="st-days" style="margin-top:16px">
-      <summary><span>📅 날짜별 저장 기록 · 누르면 카톡 원문</span><span>${dates.length}일 ▾</span></summary>
+      <summary><span>📅 날짜별 저장 기록 · 누르면 원문 확인</span><span>${dates.length}일 ▾</span></summary>
       <div>${delList}</div>
     </details>
-    ${withMsg?`<button class="st-sentbtn" style="margin-top:10px" onclick="settleClearMsgs()">🧽 이 달 카톡 원문만 지우기 <small>${withMsg}일치 · 수량과 정산은 그대로</small></button>`:''}
-    <p class="st-mxhint" style="text-align:center">카톡 원문은 <b style="color:var(--sub)">최근 ${SETTLE_MSG_KEEP_MONTHS}개월</b>치만 보관합니다. ${esc(settleMsgCutoff().replace('-','년 ').replace(/^(.*)년 0?(\d+)$/,'$1년 $2월'))} 이전 달은 수량만 남고 원문은 자동으로 지워집니다.</p>
+    ${withMsg?`<button class="st-sentbtn" style="margin-top:10px" onclick="settleClearMsgs()">🧽 이 달 원문 기록만 지우기 <small>${withMsg}일치 · 수량과 정산은 그대로</small></button>`:''}
+    <p class="st-mxhint" style="text-align:center">원문 기록은 <b style="color:var(--sub)">최근 ${SETTLE_MSG_KEEP_MONTHS}개월</b>치만 보관합니다. ${esc(settleMsgCutoff().replace('-','년 ').replace(/^(.*)년 0?(\d+)$/,'$1년 $2월'))} 이전 달은 수량만 남고 원문은 자동으로 지워집니다.</p>
     ${settleResetBtn()}`;
 }
-/* 저장해둔 카톡 원문과 그때 인식한 수량을 나란히 */
+/* 저장해둔 "카톡에 적힌 대로"와 정리된 수량을 나란히 */
 function settleDayCompareHTML(d){
   const h=settleHistory(); const rec=h[d]||{};
-  const msgs=rec.msgs||[], rows=rec.rows||[], alias=rec.alias||{}, grid=rec.grid||{};
-  const nk=n=>String(n||'').replace(/\s+/g,'').toLowerCase();
-  if(!msgs.length && !rows.length){
+  const rows=rec.rows||[], alias=rec.alias||{}, grid=rec.grid||{};
+  if(!rows.length){
     const names=Object.keys(grid).sort((a,b)=>a.localeCompare(b,'ko'));
     return `<div class="st-nomsg">이 날짜는 수량만 저장돼 있습니다 (원문을 같이 저장하기 전에 넣은 기록).</div>`
       + names.map(n=>`<div class="st-line"><span>${esc(n)}</span><span>${Object.keys(grid[n]).filter(it=>grid[n][it]>0).map(it=>esc(it)+' '+num(grid[n][it])).join(' · ')||'0'}</span></div>`).join('');
   }
-  const used=new Set();
+  const nk=n=>String(n||'').replace(/\s+/g,'').toLowerCase();
+  const order=[], byKey={};
+  rows.forEach(r=>{
+    const k=nk(r.n);
+    if(!byKey[k]){ byKey[k]={nick:r.n, real:(alias[r.n]||r.n), items:[], raws:[]}; order.push(k); }
+    byKey[k].items.push(r);
+    const t=String(r.x||'').trim();
+    if(t && byKey[k].raws.indexOf(t)<0) byKey[k].raws.push(t);
+  });
   const chip=r=>`<span class="mchip">${esc(r.i)} <b>${num(r.q)}</b></span>`+(r.u?'<span class="tag">불확실</span>':'');
-  let html='<div class="msg-head"><span>카톡 원문 (닉네임 그대로)</span><span>정리된 결과 (실명 · 수량)</span></div>';
-  html+=msgs.map(m=>{
-    const hits=rows.map((r,i)=>({r,i})).filter(x=>nk(x.r.n)===nk(m.n)&&!used.has(x.i));
-    hits.forEach(x=>used.add(x.i));
-    const real=hits.length?(alias[hits[0].r.n]||hits[0].r.n):(alias[m.n]||'');
-    const right=hits.length
-      ? `<div class="rn">${esc(real)}${real!==m.n?` <small>← ${esc(m.n)}</small>`:''}</div><div class="mchips">${hits.map(x=>chip(x.r)).join('')}</div>`
-      : `<div class="rn muted2">${real?esc(real):'—'}</div><div class="mchips"><span class="tag">인식된 수량 없음</span></div>`;
-    return `<div class="msg"><div class="msg-l"><div class="msg-h"><b>${esc(m.n||'?')}</b>${m.t?` <span>${esc(m.t)}</span>`:''}</div>
-      <div class="msg-t">${esc(m.x||'')}</div></div><div class="msg-r">${right}</div></div>`;
-  }).join('');
-  const rest=rows.map((r,i)=>({r,i})).filter(x=>!used.has(x.i));
-  if(rest.length) html+='<div class="msg-head" style="margin-top:8px"><span>원문을 못 찾은 줄</span><span></span></div>'
-    + rest.map(x=>`<div class="msg"><div class="msg-l"><div class="msg-h"><b>${esc(x.r.n)}</b></div><div class="msg-t">${esc(x.r.x||'')}</div></div>
-      <div class="msg-r"><div class="rn">${esc(alias[x.r.n]||x.r.n)}</div><div class="mchips">${chip(x.r)}</div></div></div>`).join('');
-  return html;
+  return '<div class="msg-head"><span>카톡에 적힌 대로 (닉네임)</span><span>정리된 수량 (실명)</span></div>'
+    + order.map(k=>{ const g=byKey[k];
+        return `<div class="msg"><div class="msg-l"><div class="msg-h"><b>${esc(g.nick)}</b></div>
+          <div class="msg-t">${esc(g.raws.join('  /  ')||'—')}</div></div>
+          <div class="msg-r"><div class="rn">${esc(g.real)}${g.real!==g.nick?` <small>← ${esc(g.nick)}</small>`:''}</div>
+          <div class="mchips">${g.items.map(chip).join('')}</div></div></div>`; }).join('');
 }
 const SETTLE_MSG_KEEP_MONTHS=3;
 function settleMsgCutoff(){
   const d=new Date(); const c=new Date(d.getFullYear(), d.getMonth()-(SETTLE_MSG_KEEP_MONTHS-1), 1);
   return c.getFullYear()+'-'+String(c.getMonth()+1).padStart(2,'0');
 }
+/* 원문 기록은 최근 3개월치만 두고 그 전 달은 수량만 남긴다 */
 function settlePurgeOldMsgs(){
   const h=settleHistory(); const cut=settleMsgCutoff(); const months={};
   Object.keys(h).forEach(d=>{
     if(d.slice(0,7) >= cut) return;
-    if(!(h[d].msgs||h[d].rows||h[d].alias)) return;
-    delete h[d].msgs; delete h[d].rows; delete h[d].alias; months[d.slice(0,7)]=1;
+    if(!(h[d].rows||h[d].alias||h[d].msgs)) return;
+    delete h[d].rows; delete h[d].alias; delete h[d].msgs; months[d.slice(0,7)]=1;
   });
   const n=Object.keys(months).length;
   if(n) saveSettleHistory(h);
@@ -3955,10 +3953,10 @@ function settlePurgeOldMsgs(){
 }
 function settleClearMsgs(){
   const m=settleStore.month, h=settleHistory();
-  const dates=Object.keys(h).filter(d=>d.indexOf(m)===0&&(h[d].msgs||[]).length);
+  const dates=Object.keys(h).filter(d=>d.indexOf(m)===0&&(h[d].rows||[]).length);
   if(!dates.length){ showToast('지울 원문이 없어요'); return; }
-  if(!confirm(settleMonthLabel(m)+' 카톡 원문 '+dates.length+'일치를 지울까요?\n\n수량과 정산 금액은 그대로 남습니다. 지우면 되돌릴 수 없습니다.')) return;
-  dates.forEach(d=>{ delete h[d].msgs; delete h[d].rows; delete h[d].alias; });
+  if(!confirm(settleMonthLabel(m)+' 원문 기록 '+dates.length+'일치를 지울까요?\n\n수량과 정산 금액은 그대로 남습니다. 지우면 되돌릴 수 없습니다.')) return;
+  dates.forEach(d=>{ delete h[d].rows; delete h[d].alias; delete h[d].msgs; });
   saveSettleHistory(h); showToast('🧽 카톡 원문을 지웠어요'); render();
 }
 function settleCopyDays(){
@@ -4320,7 +4318,7 @@ details.raw summary{font-size:12.5px;color:var(--act-3);cursor:pointer;font-weig
         <input type="text" id="addName" placeholder="이름 추가" style="flex:1">
         <button class="b sm" onclick="addPerson()">추가</button>
       </div>
-      <details class="raw"><summary>카톡 원문 보기 · 정리 결과와 나란히 비교</summary><div id="rawList"></div></details>
+      <details class="raw"><summary>읽은 내용 확인 (카톡에 적힌 대로 ↔ 정리된 수량)</summary><div id="rawList"></div></details>
     </div>
     <div class="card" style="--c:#E8590C">
       <div class="step"><b>4</b><h2>엑셀로 옮기기</h2></div>
@@ -4449,7 +4447,7 @@ let S = {
   baseItem: load(K.base, '오네'),
   rules:  load(K.rules, ''),
   alias:  load(K.alias, {}),
-  images: [], rawRows: [], messages: [], people: [], grid: {}, flags: {}
+  images: [], rawRows: [], people: [], grid: {}, flags: {}
 };
 if (!Array.isArray(S.items)  || !S.items.length)  S.items  = DEFAULT_ITEMS.slice();
 if (!Array.isArray(S.models) || S.models.length !== 3) S.models = DEFAULT_MODELS.slice();
@@ -4575,7 +4573,7 @@ function drawChips(){
 }
 
 /* ---------- 호출 ---------- */
-function prompt_(lite){
+function prompt_(){
   const base = S.baseItem && S.items.indexOf(S.baseItem) >= 0 ? S.baseItem : S.items[0];
   const extra = String(S.rules||'').trim();
   return [
@@ -4611,15 +4609,9 @@ function prompt_(lite){
     '- 미스캔, 오분류 같은 ±1 조정은 별도 물품이 아닙니다. 본문에 적힌 숫자를 그대로 쓰세요.',
     '- name은 메시지를 보낸 사람 이름을 보이는 그대로 적으세요. 지역명(대치, 개포, 일원, 역삼, 도곡, 자곡, 논현 등)은 사람 이름이 아닙니다.',
     '- area에는 그 사람이 적은 지역명을 넣으세요. 없으면 빈 칸으로 두세요.',
-    '- raw에는 숫자가 나온 메시지 원문을 짧게 그대로 옮기세요.',
+    '- raw에는 그 숫자가 적힌 부분을 카톡에 보이는 그대로 짧게 옮기세요(예: "대치30", "딜리래빗 15 완"). 앞뒤 잡담은 빼고 숫자가 들어간 대목만 옮깁니다.',
     '- 숫자가 흐리거나 어느 물품인지 애매하면 sure를 false로 두세요.',
     '- 보이지 않는 것은 추측하지 말고 빼세요.',
-    '',
-    (lite ? '' : '[원문 옮기기 · messages]'),
-    (lite ? '' : '- messages 에는 물량 숫자가 적힌 보고 메시지만 위에서부터 순서대로 옮기세요. 인사, 잡담, 공지, 주소 안내, 미스캔 문의, 예상물량 공지 같은 물량 보고가 아닌 메시지는 넣지 마세요.'),
-    (lite ? '' : '- 같은 사람이 "출발"과 "완료"를 따로 올렸으면 완료 메시지만 넣으세요(완료가 없으면 있는 것 하나만). "정정"이 있으면 정정 메시지를 넣으세요.'),
-    (lite ? '' : '- name 은 단톡방에 보이는 닉네임을 그대로 적으세요(실명으로 바꾸지 말 것). time 은 메시지 옆에 보이는 시각(없으면 빈 칸). text 는 본문을 한 글자도 고치지 말고 줄바꿈까지 그대로 옮기세요. 요약하거나 정리하지 마세요.'),
-    (lite ? '' : '- 겹친 캡쳐로 같은 메시지가 두 번 보이면 한 번만 넣으세요.'),
     '',
     '[보기]',
     '"대치30. 딜리8. 완료" → 오네 30, 딜리 8 (지역 대치)',
@@ -4635,12 +4627,8 @@ function prompt_(lite){
 const SCHEMA = { type:'OBJECT', properties:{
   rows:{ type:'ARRAY', items:{ type:'OBJECT',
     properties:{ name:{type:'STRING'}, area:{type:'STRING'}, item:{type:'STRING'}, qty:{type:'NUMBER'}, raw:{type:'STRING'}, sure:{type:'BOOLEAN'} },
-    required:['name','area','item','qty','raw','sure'], propertyOrdering:['name','area','item','qty','raw','sure'] } },
-  messages:{ type:'ARRAY', items:{ type:'OBJECT',
-    properties:{ name:{type:'STRING'}, time:{type:'STRING'}, text:{type:'STRING'} },
-    required:['name','time','text'], propertyOrdering:['name','time','text'] } }
+    required:['name','area','item','qty','raw','sure'], propertyOrdering:['name','area','item','qty','raw','sure'] } }
 }, required:['rows'] };
-const SCHEMA_LITE = { type:'OBJECT', properties:{ rows:SCHEMA.properties.rows }, required:['rows'] };
 
 function buildParts(){
   const parts = [];
@@ -4650,16 +4638,16 @@ function buildParts(){
   parts.push({ text:'위 내용에서 기사별 물량을 뽑아주세요.' });
   return parts;
 }
-async function callOnce(model, parts, lite){
+async function callOnce(model, parts){
   const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/'
       + encodeURIComponent(model) + ':generateContent', {
     method:'POST',
     headers:{ 'Content-Type':'application/json', 'x-goog-api-key':apiKey() },
     body: JSON.stringify({
-      systemInstruction:{ parts:[{ text: prompt_(lite) }] },
+      systemInstruction:{ parts:[{ text: prompt_() }] },
       contents:[{ role:'user', parts }],
       generationConfig:{ temperature:0, responseMimeType:'application/json',
-                         responseSchema: lite ? SCHEMA_LITE : SCHEMA, maxOutputTokens: 65536 }
+                         responseSchema: SCHEMA, maxOutputTokens: 65536 }
     })
   });
   const data = await res.json().catch(()=>null);
@@ -4702,7 +4690,7 @@ async function run(){
 
   btn.disabled = true;
   const parts = buildParts();
-  let err = null, used = null, liteUsed = false;
+  let err = null, used = null;
 
   outer:
   for (let mi=0; mi<order.length; mi++){
@@ -4711,18 +4699,8 @@ async function run(){
       btn.innerHTML = '<span class="spin"></span>' + esc(shortName(model))
         + (a ? ' 다시 시도 중…' : ' 로 읽는 중…');
       try{
-        let out;
-        try{
-          out = await callOnce(model, parts, false);
-        }catch(e1){
-          if (!e1.tooLong) throw e1;
-          /* 원문까지 받으면 답이 길어 끊긴다 — 수량만 받는 간단 모드로 다시 */
-          btn.innerHTML = '<span class="spin"></span>' + esc(shortName(model)) + ' 로 다시 읽는 중… (원문 없이)';
-          out = await callOnce(model, parts, true);
-          liteUsed = true;
-        }
+        const out = await callOnce(model, parts);
         used = model;
-        S.messages = Array.isArray(out.messages) ? out.messages.map(m => ({ name:String(m.name||'').trim(), time:String(m.time||'').trim(), text:String(m.text||'').replace(/\r/g,'').trim() })).filter(m => m.text||m.name) : [];
         build(Array.isArray(out.rows) ? out.rows : []);
         break outer;
       }catch(e){
@@ -4737,9 +4715,7 @@ async function run(){
   btn.disabled = false; btn.textContent = '물량 읽기';
 
   if (used){
-    document.getElementById('runNote').textContent = shortName(used) + ' 로 읽었습니다.'
-      + (liteUsed ? ' (답이 길어 카톡 원문은 받지 못했습니다 — 수량은 정상입니다)' : '');
-    if (liteUsed) msg('ckMsg','warn','캡쳐가 많아 <b>카톡 원문</b>은 받지 못했습니다. 수량은 정상으로 읽었습니다. 원문까지 남기려면 캡쳐를 <b>절반씩 나눠</b> 두 번 읽어주세요.');
+    document.getElementById('runNote').textContent = shortName(used) + ' 로 읽었습니다.';
     go('ck'); return;
   }
   let m = (err && err.message) || '알 수 없는 오류';
@@ -4866,43 +4842,29 @@ function addPerson(){
   document.getElementById('ckBody').hidden = false;
   drawGrid(); saveLast();
 }
-function drawRaw(){
+function rawGroups(rows, alias){
   const nk = n => String(n||'').replace(/\s+/g,'').toLowerCase();
-  const used = new Set();
-  const rowsFor = m => {
-    const key = nk(m.name);
-    return S.rawRows.map((r,i)=>({r,i})).filter(x => nk(x.r.name) === key && !used.has(x.i));
-  };
+  const order = [], byKey = {};
+  rows.forEach(r => {
+    const k = nk(r.name);
+    if (!byKey[k]){ byKey[k] = { nick:r.name, real:(alias[r.name]||r.name), items:[], raws:[] }; order.push(k); }
+    const g = byKey[k];
+    g.items.push(r);
+    const t = String(r.raw||'').trim();
+    if (t && g.raws.indexOf(t) < 0) g.raws.push(t);
+  });
+  return order.map(k => byKey[k]);
+}
+function drawRaw(){
   const chip = r => '<span class="mchip" style="color:'+colorOf(S.items.indexOf(r.item)>=0?r.item:ETC)+'">'+esc(r.item)+' <b>'+r.qty+'</b></span>'
     + (r.sure ? '' : '<span class="tag">불확실</span>');
-  let html = '';
-  if ((S.messages||[]).length){
-    html += '<div class="msg-head"><span>카톡 원문 (닉네임 그대로)</span><span>정리된 결과 (실명 · 물품 수량)</span></div>';
-    html += S.messages.map(m => {
-      const hits = rowsFor(m); hits.forEach(x => used.add(x.i));
-      const real = hits.length ? (S.alias[hits[0].r.name] || hits[0].r.name) : (S.alias[m.name] || '');
-      const right = hits.length
-        ? '<div class="rn">'+esc(real)+(real !== m.name ? ' <small>← '+esc(m.name)+'</small>' : '')+'</div>'
-          + '<div class="mchips">'+hits.map(x => chip(x.r)).join('')+'</div>'
-        : '<div class="rn muted2">'+(real ? esc(real) : '—')+'</div><div class="mchips"><span class="tag">인식된 수량 없음</span></div>';
-      return '<div class="msg"><div class="msg-l"><div class="msg-h"><b>'+esc(m.name||'?')+'</b>'
-        + (m.time ? ' <span>'+esc(m.time)+'</span>' : '') + '</div>'
-        + '<div class="msg-t">'+esc(m.text)+'</div></div>'
-        + '<div class="msg-r">'+right+'</div></div>';
-    }).join('');
-    const rest = S.rawRows.map((r,i)=>({r,i})).filter(x => !used.has(x.i));
-    if (rest.length){
-      html += '<div class="msg-head" style="margin-top:10px"><span>원문을 못 찾은 줄</span><span></span></div>'
-        + rest.map(x => '<div class="msg"><div class="msg-l"><div class="msg-h"><b>'+esc(x.r.name)+'</b></div><div class="msg-t">'+esc(x.r.raw)+'</div></div>'
-          + '<div class="msg-r"><div class="rn">'+esc(S.alias[x.r.name]||x.r.name)+'</div><div class="mchips">'+chip(x.r)+'</div></div></div>').join('');
-    }
-  } else if (S.rawRows.length){
-    html += '<p class="muted">이 표는 원문을 같이 저장하기 전에 읽은 것입니다. 다시 읽으면 카톡 원문이 그대로 보입니다.</p>'
-      + S.rawRows.map(r => '<div class="rawline"><b>'+esc(S.alias[r.name]||r.name)+'</b>'
-        + (r.area ? ' <span style="color:var(--ink-3)">'+esc(r.area)+'</span>' : '') + ' · ' + chip(r) + '<br>'+esc(r.raw)+'</div>').join('');
-  } else {
-    html = '<p class="muted">원문이 없습니다.</p>';
-  }
+  if (!S.rawRows.length){ document.getElementById('rawList').innerHTML = '<p class="muted">읽은 내용이 없습니다.</p>'; return; }
+  const gs = rawGroups(S.rawRows, S.alias);
+  let html = '<div class="msg-head"><span>카톡에 적힌 대로 (닉네임)</span><span>정리된 수량 (실명)</span></div>';
+  html += gs.map(g => '<div class="msg"><div class="msg-l"><div class="msg-h"><b>'+esc(g.nick)+'</b></div>'
+      + '<div class="msg-t">'+esc(g.raws.join('  /  ') || '—')+'</div></div>'
+      + '<div class="msg-r"><div class="rn">'+esc(g.real)+(g.real !== g.nick ? ' <small>← '+esc(g.nick)+'</small>' : '')+'</div>'
+      + '<div class="mchips">'+g.items.map(chip).join('')+'</div></div></div>').join('');
   document.getElementById('rawList').innerHTML = html;
 }
 
@@ -5049,17 +5011,16 @@ function saveToSettle(){
   });
   if (!n){ msg('stlMsg','warn','수량이 전부 0이라 저장할 게 없습니다.'); return; }
   const h = load(HISTORY_KEY, {}) || {};
-  /* 카톡 원문과 인식한 줄도 같이 남긴다 — 나중에 기사와 숫자를 맞춰볼 근거가 된다 */
-  const msgs = (S.messages||[]).map(m => ({ n:m.name, t:m.time, x:m.text }));
+  /* 카톡에 적힌 수량 대목도 같이 남긴다 — 나중에 기사와 숫자를 맞춰볼 근거가 된다 */
   const rows = (S.rawRows||[]).map(r => ({ n:r.name, i:r.item, q:r.qty, x:r.raw, u:r.sure===false?1:0 }));
-  h[date] = { grid, savedAt: Date.now(), msgs, rows, alias: Object.assign({}, S.alias) };
+  h[date] = { grid, savedAt: Date.now(), rows, alias: Object.assign({}, S.alias) };
   try{
     localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
   }catch(e){
-    delete h[date].msgs; delete h[date].rows;   /* 자리가 모자라면 원문을 빼고 수량만이라도 */
+    delete h[date].rows;   /* 자리가 모자라면 원문 조각을 빼고 수량만이라도 */
     try{ localStorage.setItem(HISTORY_KEY, JSON.stringify(h)); }
     catch(e2){ msg('stlMsg','err','저장 공간이 가득 차 저장하지 못했습니다. 정산 탭 📅 기록에서 예전 달을 지운 뒤 다시 시도하세요.'); return; }
-    msg('stlMsg','warn','저장 공간이 빠듯해 카톡 원문은 빼고 수량만 저장했습니다. 정산 탭 📅 기록에서 예전 달 원문을 지우면 여유가 생깁니다.');
+    msg('stlMsg','warn','저장 공간이 빠듯해 원문 조각은 빼고 수량만 저장했습니다. 정산 탭 📅 기록에서 예전 달 원문을 지우면 여유가 생깁니다.');
   }
   const d = new Date(date+'T00:00:00');
   const label = isNaN(d) ? date : (d.getMonth()+1)+'월 '+d.getDate()+'일('+DAYS[d.getDay()]+')';
@@ -5069,7 +5030,7 @@ function saveToSettle(){
 
 /* ---------- 임시 저장 ---------- */
 function saveLast(){
-  save(K.last, { date:document.getElementById('dateIn').value, people:S.people, grid:S.grid, rawRows:S.rawRows, messages:S.messages, flags:S.flags });
+  save(K.last, { date:document.getElementById('dateIn').value, people:S.people, grid:S.grid, rawRows:S.rawRows, flags:S.flags });
 }
 function restore(){
   const l = load(K.last, null);
@@ -5077,7 +5038,7 @@ function restore(){
   const d = new Date();
   const today = new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
   if (l.date !== today) return;
-  S.people = l.people; S.grid = l.grid||{}; S.rawRows = l.rawRows||[]; S.messages = l.messages||[]; S.flags = l.flags||{};
+  S.people = l.people; S.grid = l.grid||{}; S.rawRows = l.rawRows||[]; S.flags = l.flags||{};
   document.getElementById('ckEmpty').hidden = true;
   document.getElementById('ckBody').hidden = false;
   drawGrid(); drawRaw(); stlState();
