@@ -358,35 +358,27 @@ input[type="time"].time-hint{
 .st-search span{font-size:14px;opacity:.7;}
 .st-search .inp{border:none;background:transparent;padding:12px 0;font-size:15px;flex:1;border-radius:0;}
 .st-search button{border:none;background:var(--card3);color:var(--sub);width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:12px;font-family:inherit;}
-.st-filters{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;margin-bottom:10px;}
+.st-filters{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:0 2px 4px 0;margin-bottom:10px;scroll-padding-right:12px;}
 .st-filters::-webkit-scrollbar{display:none;}
 .st-filter{flex-shrink:0;display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:99px;border:1.5px solid var(--border);background:var(--card);color:var(--sub);font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;}
 .st-filter b{font-size:11px;background:var(--card3);padding:1px 7px;border-radius:99px;color:var(--text);}
 .st-filter.on{background:var(--teal);border-color:var(--teal);color:#04211c;}
 .st-filter.on b{background:rgba(0,0,0,.18);color:#04211c;}
-.st-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;}
-.st-tile{--pc:var(--blue2);position:relative;text-align:left;background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:11px 11px 10px;cursor:pointer;font-family:inherit;color:var(--text);min-width:0;transition:transform .1s;}
+.st-tiles{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+.st-tile{--pc:var(--blue2);position:relative;text-align:left;background:var(--card);border:1.5px solid var(--border);border-left:4px solid var(--pc);border-radius:13px;padding:10px 11px 9px;cursor:pointer;font-family:inherit;color:var(--text);min-width:0;transition:transform .1s,border-color .15s;}
 .st-tile:active{transform:scale(.97);}
-.st-tile.sent{border-color:#2d5a2d;background:linear-gradient(180deg,#14261a,var(--card) 70%);}
-.st-tile.warn{border-color:#6b4a10;}
-.st-tile-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;}
-.st-tile .st-av{width:34px;height:34px;font-size:14px;border-radius:10px;}
-.st-tile-marks{display:flex;gap:2px;font-size:12px;line-height:1;}
+.st-tile.sent{background:linear-gradient(90deg,rgba(45,90,45,.22),var(--card) 60%);}
+.st-tile.warn{border-top-color:#4a3410;border-right-color:#4a3410;border-bottom-color:#4a3410;}
+.st-tile-head{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+.st-tile-name{font-size:15px;font-weight:900;letter-spacing:-.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+.st-tile-marks{display:flex;gap:3px;font-size:11.5px;line-height:1;flex-shrink:0;}
 .st-tile-marks .ok{color:#7fd67f;font-weight:900;}
 .st-tile-marks .w{color:var(--amber2);}
-.st-tile-name{font-size:14px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.st-tile-pay{font-size:13px;font-weight:900;color:var(--teal3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.st-tile.warn .st-tile-pay{color:var(--amber2);}
-.st-tile-sub{font-size:10.5px;color:var(--dim);margin-top:2px;white-space:nowrap;}
-.st-tile-pay.txt{color:var(--text);font-size:11px;font-weight:700;white-space:normal;line-height:1.35;}
-.st-items{border:1.5px solid var(--border);border-radius:13px;background:var(--card);overflow:hidden;}
-.st-items summary{list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 13px;cursor:pointer;font-size:12.5px;font-weight:800;color:var(--sub);}
-.st-items summary::-webkit-details-marker{display:none;}
-.st-items summary b{color:var(--blue3);}
-.st-items summary span:last-child{font-size:11px;font-weight:600;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
-.st-items-body{padding:10px 13px 6px;border-top:1px solid var(--border);}
-.st-items-body .st-lock{margin-bottom:10px;}
-.st-phead{--pc:var(--blue2);display:flex;align-items:center;gap:10px;padding:12px 12px 12px 8px;border-radius:16px;border:1.5px solid var(--border);background:linear-gradient(90deg,color-mix(in srgb,var(--pc) 28%,var(--card)),var(--card) 75%);}
+.st-tile-val{font-size:15px;font-weight:900;color:var(--teal3);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.st-tile-val.ok{font-size:12.5px;font-weight:800;color:var(--sub);}
+.st-tile-val.no{font-size:12.5px;font-weight:800;color:var(--amber2);}
+.st-tile-sub{font-size:10.5px;color:var(--dim);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.st-phead{--pc:var(--blue2);display:flex;align-items:center;gap:6px;padding:13px 14px 13px 4px;border-radius:16px;border:1.5px solid var(--border);background:linear-gradient(90deg,color-mix(in srgb,var(--pc) 28%,var(--card)),var(--card) 75%);}
 .st-back{width:38px;height:44px;flex-shrink:0;border:none;background:transparent;color:var(--text);font-size:28px;font-weight:900;cursor:pointer;font-family:inherit;line-height:1;}
 .st-sentbtn{width:100%;margin-top:9px;padding:11px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px dashed var(--border2);background:transparent;color:var(--sub);cursor:pointer;font-family:inherit;}
 .st-sentbtn.on{border-style:solid;border-color:#2d5a2d;background:#1a2e1a;color:#7fd67f;}
@@ -3123,6 +3115,7 @@ const SETTLE_KEY='disp-settle', SETTLE_HISTORY_KEY='mv_history';
 const SETTLE_DEFAULT_ITEMS=['오네','책','딜리','주말딜리','새벽딜리'];
 const TAX_TYPES={ '3.3':'3.3% 공제', 'vat':'부가세 별도', 'none':'세금 없음' };
 const SETTLE_PAL=['#2563eb','#0d9488','#7c3aed','#d97706','#db2777','#0891b2','#65a30d','#dc2626'];
+const SETTLE_PAL_LIGHT=['#7cb0ff','#4fe3d0','#bda4ff','#fbbf24','#ff8fc4','#4fd8f0','#b6ee5c','#ff9494'];
 let settleStore=load(SETTLE_KEY,null);
 if(!settleStore||typeof settleStore!=='object') settleStore={};
 if(!settleStore.workers||typeof settleStore.workers!=='object') settleStore.workers={};
@@ -3493,7 +3486,9 @@ function settleCloseBar(c){
     ? `<div class="st-close on"><div><b>🔏 마감됨</b><small>${new Date(c.closedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})} 확정 · 단가를 바꿔도 이 달은 변하지 않아요</small></div><button onclick="settleReopenMonth()">마감 해제</button></div>`
     : `<div class="st-close"><div><b>🔓 진행 중</b><small>정산이 끝났으면 마감하세요. 단가·수량·지급액이 그대로 고정됩니다.</small></div><button onclick="settleCloseMonth()">🔏 이 달 마감</button></div>`;
 }
-function settleColorOf(name){ let h=0; for(const ch of name) h=(h*31+ch.charCodeAt(0))>>>0; return SETTLE_PAL[h%SETTLE_PAL.length]; }
+function settleHashOf(name){ let h=0; for(const ch of String(name)) h=(h*31+ch.charCodeAt(0))>>>0; return h; }
+function settleColorOf(name){ return SETTLE_PAL[settleHashOf(name)%SETTLE_PAL.length]; }
+function settleNameColorOf(name){ return SETTLE_PAL_LIGHT[settleHashOf(name)%SETTLE_PAL_LIGHT.length]; }
 function settleSearchBox(ph){
   return `<div class="st-search"><span>🔍</span><input type="search" id="st-q" class="inp" placeholder="${ph}" value="${esc(settleQuery)}" autocomplete="off" oninput="settleQueryInput(this.value)"><button id="st-qx" style="${settleQuery?'':'visibility:hidden'}" onclick="settleSetQuery('')">✕</button></div>`;
 }
@@ -3516,10 +3511,9 @@ function settleDashListHTML(){
   else if(settleFilter==='unsent') rows=rows.filter(r=>!sentMap[r.name]);
   const tiles=rows.map(r=>`
     <button class="st-tile ${r.noPrice?'warn':''} ${sentMap[r.name]?'sent':''}" style="--pc:${settleColorOf(r.name)}" onclick="settleOpenPerson('${esc(r.name)}')">
-      <div class="st-tile-top"><div class="st-av">${esc(r.name.slice(0,1))}</div>
-        <div class="st-tile-marks">${settleStore.pinned[r.name]?'<span>📌</span>':''}${sentMap[r.name]?'<span class="ok">✓</span>':''}${r.noPrice?'<span class="w">⚠</span>':''}</div></div>
-      <div class="st-tile-name">${esc(r.name)}</div>
-      <div class="st-tile-pay">${won(r.pay)}</div>
+      <div class="st-tile-head"><span class="st-tile-name" style="color:${settleNameColorOf(r.name)}">${esc(r.name)}</span>
+        <span class="st-tile-marks">${settleStore.pinned[r.name]?'<span>📌</span>':''}${sentMap[r.name]?'<span class="ok">✓</span>':''}${r.noPrice?'<span class="w">⚠</span>':''}</span></div>
+      <div class="st-tile-val ${r.noPrice?'no':''}">${r.noPrice?'단가 없음':won(r.pay)}</div>
       <div class="st-tile-sub">${r.days}일 · ${num(r.totalQty)}건</div>
     </button>`).join('');
   return `
@@ -3566,8 +3560,7 @@ function renderSettlePerson(name){
   const head=`
     <div class="st-phead" style="--pc:${pc}">
       <button class="st-back" onclick="settleClosePerson()">‹</button>
-      <div class="st-av">${esc(name.slice(0,1))}</div>
-      <div class="st-who"><div class="st-name">${nA}${settleStore.pinned[name]?' <small style="color:var(--amber2);font-size:11px">📌 고정</small>':''}</div>
+      <div class="st-who"><div class="st-name" style="color:${settleNameColorOf(name)};font-size:19px">${nA}${settleStore.pinned[name]?' <small style="color:var(--amber2);font-size:11px">📌 고정</small>':''}</div>
         <div class="st-meta"><span>${esc(settleMonthLabel(settleStore.month))}</span>${closed?'<span class="pill closed">🔏 마감</span>':''}${sentAt?`<span class="pill sent">✓ ${new Date(sentAt).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'})} 보냄</span>`:'<span class="pill">미발송</span>'}</div></div>
       ${r?`<div class="st-pay">${won(r.pay)}<small>지급액</small></div>`:''}
     </div>`;
@@ -3653,17 +3646,16 @@ function settlePriceListHTML(){
   else if(settleFilter==='pinned') names=names.filter(n=>settleStore.pinned[n]);
   const tiles=names.map(n=>{
     const w=settleStore.workers[n]||{prices:{},tax:'3.3'}; const prices=w.prices||{}; const ok=hasPrice(n);
-    const sum=items.filter(it=>Number(prices[it])>0).map(it=>esc(it)+' '+num(prices[it])).join(' · ');
+    const cntSet=items.filter(it=>Number(prices[it])>0).length;
     return `
     <button class="st-tile ${ok?'':'warn'}" style="--pc:${settleColorOf(n)}" onclick="settleOpenPerson('${esc(n)}')">
-      <div class="st-tile-top"><div class="st-av">${esc(n.slice(0,1))}</div>
-        <div class="st-tile-marks">${settleStore.pinned[n]?'<span>📌</span>':''}${ok?'':'<span class="w">⚠</span>'}</div></div>
-      <div class="st-tile-name">${esc(n)}</div>
-      <div class="st-tile-pay ${ok?'txt':''}">${ok?sum:'단가 없음'}</div>
+      <div class="st-tile-head"><span class="st-tile-name" style="color:${settleNameColorOf(n)}">${esc(n)}</span>
+        <span class="st-tile-marks">${settleStore.pinned[n]?'<span>📌</span>':''}${ok?'':'<span class="w">⚠</span>'}</span></div>
+      <div class="st-tile-val ${ok?'ok':'no'}">${ok?'단가 '+cntSet+'개 설정됨':'단가 없음'}</div>
       <div class="st-tile-sub">${esc(TAX_TYPES[TAX_TYPES[w.tax]?w.tax:'3.3'])}</div>
     </button>`; }).join('');
   return `
-    <div class="section-head"><div class="section-title">💵 기사 <b>${names.length}</b>${names.length!==allNames.length?'/'+allNames.length:''}명 · 이름을 누르면 단가 설정</div></div>
+    <div class="section-head"><div class="section-title">💵 기사 <b>${names.length}</b>${names.length!==allNames.length?'/'+allNames.length:''}명 · 이름을 누르면 단가를 보고 고칠 수 있어요</div></div>
     ${names.length?`<div class="st-tiles">${tiles}</div>`:(allNames.length?'<div class="st-empty">조건에 맞는 이름이 없습니다.</div>':'<div class="st-empty">아직 이름이 없습니다. 아래에서 직접 추가하거나 📦 물량 탭에서 저장하세요.</div>')}`;
 }
 function renderSettlePrices(){
