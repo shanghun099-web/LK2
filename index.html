@@ -337,6 +337,22 @@ input[type="time"].time-hint{
 .st-empty{background:var(--card);border:1.5px dashed var(--border2);border-radius:14px;padding:22px 16px;text-align:center;color:var(--sub);font-size:13.5px;line-height:1.7;margin-bottom:13px;}
 .st-empty b{color:var(--blue3);}
 .st-worker{background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:13px 13px 12px;margin-bottom:11px;}
+.st-worker.ro .inp{opacity:.55;}
+.st-worker.pinned{border-color:#6b4a10;background:linear-gradient(180deg,#221a0c,var(--card) 60%);}
+.st-name small{font-size:10.5px;font-weight:800;color:var(--amber2);margin-left:5px;vertical-align:middle;}
+.st-pin{width:34px;height:34px;flex-shrink:0;border-radius:9px;border:1.5px solid var(--border2);background:var(--card2);font-size:15px;cursor:pointer;opacity:.45;filter:grayscale(1);}
+.st-pin.on{opacity:1;filter:none;border-color:var(--amber2);background:#3a2a0a;}
+.st-lock,.st-close{display:flex;align-items:center;gap:10px;border-radius:13px;padding:11px 13px;margin-bottom:13px;border:1.5px solid #6b1d1d;background:linear-gradient(135deg,#2a0d0d,#1c1114);}
+.st-lock.open{border-color:#155244;background:linear-gradient(135deg,#0a2620,#0d1f1c);}
+.st-close{border-color:var(--border2);background:var(--card);}
+.st-close.on{border-color:#3b2a6b;background:linear-gradient(135deg,#1e1640,#171426);}
+.st-lock>div,.st-close>div{flex:1;min-width:0;}
+.st-lock b,.st-close b{display:block;font-size:13.5px;font-weight:900;color:var(--text);}
+.st-lock small,.st-close small{display:block;font-size:11px;color:var(--sub);margin-top:2px;line-height:1.5;}
+.st-lock button,.st-close button{flex-shrink:0;padding:10px 13px;border-radius:10px;font-size:12.5px;font-weight:900;border:none;cursor:pointer;font-family:inherit;background:var(--card3);color:var(--text);border:1.5px solid var(--border2);white-space:nowrap;}
+.st-lock:not(.open) button{background:var(--red);border-color:var(--red);color:#fff;}
+.st-close:not(.on) button{background:var(--purple);border-color:var(--purple);color:#fff;}
+.st-meta .pill.closed{color:var(--purple2);border-color:#3b2a6b;background:#1e1640;}
 .st-worker-top{display:flex;align-items:center;gap:8px;margin-bottom:11px;}
 .st-worker-top .st-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .st-worker-top select.inp{width:auto;flex-shrink:0;padding:8px 32px 8px 11px;font-size:13px;font-weight:800;border-radius:9px;}
@@ -1217,6 +1233,7 @@ function switchTab(t){
     if(t===MAIN_TAB&&st.sub){ try{ history.back(); return; }catch(e){} }   /* 항목 소비 → popstate 가 메인을 그림 */
     if(t!==MAIN_TAB){ try{ st.sub?history.replaceState({sub:t},''):history.pushState({sub:t},''); }catch(e){} }
   }
+  settleUnlocked = false;   /* 정산 단가 잠금 — 탭을 옮기면 다시 잠김 */
   customRosterText = null;
   customWeatherText = null;
   customVolumeText = null;
@@ -3068,6 +3085,9 @@ if(!settleStore||typeof settleStore!=='object') settleStore={};
 if(!settleStore.workers||typeof settleStore.workers!=='object') settleStore.workers={};
 if(!settleStore.month) settleStore.month=settleCurMonth();
 if(!settleStore.view) settleStore.view='table';
+if(!settleStore.closed||typeof settleStore.closed!=='object') settleStore.closed={};   /* 월 마감 스냅샷 { '2026-09': {at, rows, ...} } */
+if(!settleStore.pinned||typeof settleStore.pinned!=='object') settleStore.pinned={};   /* 개인별 단가 고정 { 이름: true } */
+let settleUnlocked=false;   /* 단가 잠금 — 화면을 벗어나면 다시 잠김 */
 
 function settleCurMonth(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 function saveSettle(){ localStorage.setItem(SETTLE_KEY, JSON.stringify(settleStore)); }
@@ -3079,6 +3099,7 @@ function settleItems(){ return settleRawItems().filter(i=>i!=='기타'); }
 /* 물품 목록은 물량 탭 설정(mv_items)과 같은 것을 쓴다 — 여기서 바꾸면 물량 탭 iframe 이 storage 이벤트로 따라온다 */
 function settleSaveItems(items){ localStorage.setItem('mv_items', JSON.stringify(items)); }
 function settleAddItem(){
+  if(settleNeedUnlock()) return;
   const el=document.getElementById('st-item'); const v=(el&&el.value||'').trim();
   if(!v){ showToast('물품 이름을 넣어주세요','err'); return; }
   const items=settleRawItems();
@@ -3087,6 +3108,7 @@ function settleAddItem(){
   items.push(v); settleSaveItems(items); showToast('📦 '+v+' 추가 — 물량 탭에도 반영됐어요'); render();
 }
 function settleDelItem(it){
+  if(settleNeedUnlock()) return;
   if(!confirm('"'+it+'" 물품을 목록에서 뺄까요?\n저장된 기록의 수량은 남지만 금액 계산에서는 빠집니다. 물량 탭에서도 빠집니다.')) return;
   const items=settleRawItems().filter(x=>x!==it);
   if(!items.filter(i=>i!=='기타').length){ showToast('물품은 하나 이상 있어야 해요','err'); return; }
@@ -3110,7 +3132,28 @@ function settleAllNames(){
   return Object.keys(set).sort((a,b)=>a.localeCompare(b,'ko'));
 }
 
+function settleIsClosed(month){ return !!settleStore.closed[month]; }
 function settleCalc(month){
+  const snap=settleStore.closed[month];
+  if(snap&&snap.rows){ return Object.assign({closed:true, closedAt:snap.at}, snap); }
+  return settleCalcLive(month);
+}
+function settleCloseMonth(){
+  const m=settleStore.month; const c=settleCalcLive(m);
+  if(!c.rows.length){ showToast('마감할 기록이 없어요','err'); return; }
+  const miss=c.rows.filter(r=>r.noPrice).length;
+  const q=settleMonthLabel(m)+' 정산을 마감할까요?\n\n· 지금 단가·수량·지급액이 그대로 저장됩니다\n· 이후 단가를 바꿔도 이 달은 변하지 않습니다\n· 날짜별 내역 수정도 잠깁니다'+(miss?'\n\n⚠ 단가가 비어 있는 기사가 '+miss+'명 있습니다. 그래도 마감할까요?':'');
+  if(!confirm(q)) return;
+  settleStore.closed[m]={ at:Date.now(), dates:c.dates, rows:c.rows, totalSales:c.totalSales, totalPay:c.totalPay };
+  settleEditName=null; saveSettle(); showToast('🔏 '+settleMonthLabel(m)+' 마감했어요'); render();
+}
+function settleReopenMonth(){
+  const m=settleStore.month; if(!settleIsClosed(m)) return;
+  if(!confirm(settleMonthLabel(m)+' 마감을 해제할까요?\n\n해제하면 지금 단가로 다시 계산되고, 이미 보낸 정산서와 숫자가 달라질 수 있습니다.')) return;
+  if(!confirm('정말 해제할까요? (실수 방지용 재확인)')) return;
+  delete settleStore.closed[m]; saveSettle(); showToast('🔓 마감을 해제했어요'); render();
+}
+function settleCalcLive(month){
   const h=settleHistory(); const groups=settleGroups();
   const dates=Object.keys(h).filter(d=>d.indexOf(month)===0).sort();
   const qty={}, days={}, daily={};
@@ -3143,9 +3186,10 @@ function settleCalc(month){
 /* 기사 카드 열림 상태 유지 + 날짜별 내역 수정 */
 const settleOpenSet=new Set(); let settleEditName=null;
 function settleToggle(name,open){ if(open) settleOpenSet.add(name); else settleOpenSet.delete(name); }
-function settleEdit(name){ settleEditName = settleEditName===name ? null : name; if(settleEditName) settleOpenSet.add(name); render(); }
+function settleEdit(name){ if(settleIsClosed(settleStore.month)){ showToast('🔏 마감된 달은 고칠 수 없어요 — 마감 해제 후 고치세요','err'); return; } settleEditName = settleEditName===name ? null : name; if(settleEditName) settleOpenSet.add(name); render(); }
 function settleMarkEdited(rec,name){ rec.edited=rec.edited||{}; rec.edited[name]=Date.now(); }
 function settleSetQty(name,date,item,v){
+  if(settleIsClosed(date.slice(0,7))){ showToast('🔏 마감된 달입니다','err'); return; }
   const h=settleHistory(); const rec=h[date]; if(!rec||!rec.grid) return;
   rec.grid[name]=rec.grid[name]||{};
   const n=parseInt(String(v).replace(/[^\d]/g,''),10);
@@ -3153,6 +3197,7 @@ function settleSetQty(name,date,item,v){
   settleMarkEdited(rec,name); saveSettleHistory(h); render();
 }
 function settleDelPersonDay(name,date){
+  if(settleIsClosed(date.slice(0,7))){ showToast('🔏 마감된 달입니다','err'); return; }
   if(!confirm(name+' · '+settleDateLabel(date)+' 기록을 지울까요?\n(다른 기사의 이 날짜 기록은 그대로 남습니다)')) return;
   const h=settleHistory(); const rec=h[date]; if(!rec||!rec.grid) return;
   delete rec.grid[name]; settleMarkEdited(rec,name);
@@ -3160,6 +3205,7 @@ function settleDelPersonDay(name,date){
   saveSettleHistory(h); render();
 }
 function settleAddDay(name){
+  if(settleIsClosed(settleStore.month)){ showToast('🔏 마감된 달입니다','err'); return; }
   const el=document.getElementById('st-addday'); const d=el&&el.value;
   if(!/^\d{4}-\d{2}-\d{2}$/.test(d||'')){ showToast('날짜를 고르세요','err'); return; }
   if(d.indexOf(settleStore.month)!==0){ showToast('이 달('+settleMonthLabel(settleStore.month)+') 날짜만 넣을 수 있어요','err'); return; }
@@ -3168,24 +3214,38 @@ function settleAddDay(name){
   h[d].grid[name]={}; settleMarkEdited(h[d],name); saveSettleHistory(h); render();
 }
 
-function settleView(v){ settleStore.view=v; saveSettle(); render(); }
+function settleView(v){ if(v!=='price') settleUnlocked=false; settleStore.view=v; saveSettle(); render(); }
+function settleToggleLock(){
+  if(settleUnlocked){ settleUnlocked=false; render(); return; }
+  if(!confirm('단가 잠금을 풀까요?\n\n고친 단가는 바로 저장됩니다. 다른 화면으로 가면 자동으로 다시 잠깁니다.')) return;
+  settleUnlocked=true; render();
+}
+function settleNeedUnlock(){ if(!settleUnlocked){ showToast('🔒 단가가 잠겨 있어요 — 위의 잠금 해제를 먼저 누르세요','err'); return true; } return false; }
+function settlePin(name){
+  if(settleStore.pinned[name]){ if(settleNeedUnlock()) return; delete settleStore.pinned[name]; showToast('📌 '+name+' 고정을 풀었어요'); }
+  else { settleStore.pinned[name]=true; showToast('📌 '+name+' 단가를 고정했어요'); }
+  saveSettle(); render();
+}
 function settleMonth(delta){
   const a=settleStore.month.split('-'); const d=new Date(parseInt(a[0],10), parseInt(a[1],10)-1+delta, 1);
   settleStore.month=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); saveSettle(); render();
 }
 function settleSetMonth(v){ if(/^\d{4}-\d{2}$/.test(v)){ settleStore.month=v; saveSettle(); render(); } }
-function settlePrice(name,item,v){ const w=settleWorker(name); const n=parseInt(String(v).replace(/[^\d]/g,''),10); if(n>0) w.prices[item]=n; else delete w.prices[item]; saveSettle(); }
-function settleTax(name,v){ settleWorker(name).tax=TAX_TYPES[v]?v:'3.3'; saveSettle(); }
+function settlePrice(name,item,v){ if(settleNeedUnlock()||settleStore.pinned[name]){ render(); return; } const w=settleWorker(name); const n=parseInt(String(v).replace(/[^\d]/g,''),10); if(n>0) w.prices[item]=n; else delete w.prices[item]; saveSettle(); }
+function settleTax(name,v){ if(settleNeedUnlock()||settleStore.pinned[name]){ render(); return; } settleWorker(name).tax=TAX_TYPES[v]?v:'3.3'; saveSettle(); }
 function settleAddWorker(){
   const el=document.getElementById('st-add'); const n=(el&&el.value||'').trim();
   if(!n){ showToast('이름을 넣어주세요','err'); return; }
   settleWorker(n); saveSettle(); render();
 }
 function settleDelWorker(name){
+  if(settleNeedUnlock()) return;
+  if(settleStore.pinned[name]){ showToast('📌 고정된 기사는 지울 수 없어요 — 고정을 먼저 풀어주세요','err'); return; }
   if(!confirm('"'+name+'" 단가 설정을 지울까요?\n(물량 기록은 그대로 남습니다)')) return;
   delete settleStore.workers[name]; saveSettle(); render();
 }
 function settleDelDay(d){
+  if(settleIsClosed(d.slice(0,7))){ showToast('🔏 마감된 달의 기록은 지울 수 없어요','err'); return; }
   if(!confirm(settleDateLabel(d)+' 기록을 지울까요?')) return;
   const h=settleHistory(); delete h[d]; saveSettleHistory(h); render();
 }
@@ -3352,18 +3412,22 @@ function renderSettleTable(){
     📦 물량 탭에서 숫자 확인 뒤 <b>💰 정산에 저장</b>을 누르면 여기에 쌓입니다.</div>`;
   const missing=c.rows.filter(r=>r.noPrice).length;
   const items=settleItems();
+  const closed=!!c.closed;
+  const closeBar=closed
+    ? `<div class="st-close on"><div><b>🔏 마감됨</b><small>${new Date(c.closedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})} 확정 · 단가를 바꿔도 이 달은 변하지 않아요</small></div><button onclick="settleReopenMonth()">마감 해제</button></div>`
+    : `<div class="st-close"><div><b>🔓 진행 중</b><small>정산이 끝났으면 마감하세요. 단가·수량·지급액이 그대로 고정됩니다.</small></div><button onclick="settleCloseMonth()">🔏 이 달 마감</button></div>`;
   const cards=c.rows.map((r,i)=>{
     const pc=SETTLE_PAL[i%SETTLE_PAL.length];
     const cols=items.filter(it=>r.daily.some(d=>d.qty[it]));
     const etcCols=[...new Set(r.daily.flatMap(d=>Object.keys(d.qty).filter(it=>items.indexOf(it)<0&&d.qty[it])))];
-    const editing=settleEditName===r.name;
+    const editing=!closed&&settleEditName===r.name;
     const nA=esc(r.name);
     const allCols=editing ? items.concat(etcCols) : cols.concat(etcCols);
     const m=settleStore.month;
     const dayTable=(r.daily.length||editing)?`
       <details class="st-days" ${editing?'open':''}>
         <summary><span>📅 날짜별 내역</span><span>${r.daily.length}일
-          <button class="st-edit ${editing?'done':''}" onclick="event.preventDefault();event.stopPropagation();settleEdit('${nA}')">${editing?'✔ 완료':'✏️ 수정'}</button></span></summary>
+          ${closed?'':`<button class="st-edit ${editing?'done':''}" onclick="event.preventDefault();event.stopPropagation();settleEdit('${nA}')">${editing?'✔ 완료':'✏️ 수정'}</button>`}</span></summary>
         ${editing?'<div class="st-edit-hint">숫자 칸을 눌러 고치면 바로 저장되고 지급액이 다시 계산됩니다. 🗑 은 이 기사의 그 날짜만 지웁니다.</div>':''}
         <div class="scroll"><table>
           <thead><tr><th>날짜</th>${allCols.map(it=>`<th>${esc(it)}</th>`).join('')}<th>합계</th></tr></thead>
@@ -3379,7 +3443,7 @@ function renderSettleTable(){
         <div class="st-av">${esc(r.name.slice(0,1))}</div>
         <div class="st-who">
           <div class="st-name">${esc(r.name)}</div>
-          <div class="st-meta"><span>${r.days}일 · ${num(r.totalQty)}건</span><span class="pill ${r.taxType==='vat'?'taxvat':r.taxType==='3.3'?'tax33':''}">${esc(TAX_TYPES[r.taxType])}</span></div>
+          <div class="st-meta"><span>${r.days}일 · ${num(r.totalQty)}건</span><span class="pill ${r.taxType==='vat'?'taxvat':r.taxType==='3.3'?'tax33':''}">${esc(TAX_TYPES[r.taxType])}</span>${closed?'<span class="pill closed">🔏 마감</span>':''}</div>
         </div>
         <div class="st-pay">${won(r.pay)}<small>지급액</small></div>
       </summary>
@@ -3409,13 +3473,14 @@ function renderSettleTable(){
     </details>`;
   }).join('');
   return `
+    ${closeBar}
     <div class="st-sum">
       <div><small>기록 · 기사</small><b>${c.dates.length}일 · ${c.rows.length}명</b></div>
       <div><small>물량 합계</small><b>${num(c.rows.reduce((s,r)=>s+r.totalQty,0))}건</b></div>
       <div><small>매출 합계</small><b>${won(c.totalSales)}</b></div>
       <div><small>지급 합계</small><b class="pay">${won(c.totalPay)}</b></div>
     </div>
-    ${missing?`<div class="st-warn" style="margin:0 0 12px">단가가 비어 있는 기사가 <b>${missing}명</b> 있습니다. 💵 단가 탭에서 채우면 금액이 계산됩니다.</div>`:''}
+    ${missing&&!closed?`<div class="st-warn" style="margin:0 0 12px">단가가 비어 있는 기사가 <b>${missing}명</b> 있습니다. 💵 단가 탭에서 채우면 금액이 계산됩니다.</div>`:''}
     <div class="section-head"><div class="section-title">👤 기사별 정산 <b>${c.rows.length}</b>명 · 이름을 누르면 상세</div></div>
     ${cards}
     <div class="actions" style="margin-top:6px">
@@ -3426,27 +3491,33 @@ function renderSettleTable(){
 
 function renderSettlePrices(){
   const names=settleAllNames(); const items=settleItems();
+  const locked=!settleUnlocked;
   const cards=names.map(n=>{
     const w=settleStore.workers[n]||{prices:{},tax:'3.3'}; const prices=w.prices||{}; const tax=TAX_TYPES[w.tax]?w.tax:'3.3';
-    const nA=esc(n);
+    const nA=esc(n); const pinned=!!settleStore.pinned[n]; const ro=locked||pinned;
     return `
-    <div class="st-worker">
+    <div class="st-worker ${ro?'ro':''} ${pinned?'pinned':''}">
       <div class="st-worker-top">
-        <div class="st-name">${esc(n)}</div>
-        <select class="inp" onchange="settleTax('${nA}',this.value)">
+        <button class="st-pin ${pinned?'on':''}" onclick="settlePin('${nA}')" title="${pinned?'고정 풀기':'단가 고정'}">📌</button>
+        <div class="st-name">${esc(n)}${pinned?' <small>고정</small>':''}</div>
+        <select class="inp" ${ro?'disabled':''} onchange="settleTax('${nA}',this.value)">
           ${Object.keys(TAX_TYPES).map(k=>`<option value="${k}" ${k===tax?'selected':''}>${TAX_TYPES[k]}</option>`).join('')}
         </select>
-        <button class="qty-del" onclick="settleDelWorker('${nA}')">🗑</button>
+        <button class="qty-del" ${ro?'disabled':''} onclick="settleDelWorker('${nA}')">🗑</button>
       </div>
       <div class="st-price-grid">
-        ${items.map(it=>`<div><label>${esc(it)} 단가(원)</label><input type="number" inputmode="numeric" class="inp" placeholder="0" value="${prices[it]||''}" onchange="settlePrice('${nA}','${esc(it)}',this.value)"></div>`).join('')}
+        ${items.map(it=>`<div><label>${esc(it)} 단가(원)</label><input type="number" inputmode="numeric" class="inp" placeholder="0" ${ro?'disabled':''} value="${prices[it]||''}" onchange="settlePrice('${nA}','${esc(it)}',this.value)"></div>`).join('')}
       </div>
     </div>`;
   }).join('');
+  const lockBar=locked
+    ? `<div class="st-lock"><div><b>🔒 단가 잠김</b><small>실수로 바뀌지 않게 잠겨 있어요. 고치려면 풀어주세요.</small></div><button onclick="settleToggleLock()">잠금 해제</button></div>`
+    : `<div class="st-lock open"><div><b>🔓 잠금 해제됨</b><small>다른 화면으로 가면 자동으로 다시 잠깁니다. 📌 고정된 기사는 그대로 잠겨 있어요.</small></div><button onclick="settleToggleLock()">잠그기</button></div>`;
   const full=items.length>=SETTLE_MAX_ITEMS;
-  const chips=items.map(it=>`<span class="chip">${esc(it)}<button class="chip-x" onclick="settleDelItem('${esc(it)}')" aria-label="${esc(it)} 빼기">×</button></span>`).join('')
-    + (full ? '' : `<span class="chip-add"><input type="text" id="st-item" placeholder="물품 추가" maxlength="10" onkeydown="if(event.key==='Enter')settleAddItem()"><button class="chip-plus" onclick="settleAddItem()" aria-label="물품 추가">＋</button></span>`);
+  const chips=items.map(it=>`<span class="chip">${esc(it)}${locked?'':`<button class="chip-x" onclick="settleDelItem('${esc(it)}')" aria-label="${esc(it)} 빼기">×</button>`}</span>`).join('')
+    + (full||locked ? '' : `<span class="chip-add"><input type="text" id="st-item" placeholder="물품 추가" maxlength="10" onkeydown="if(event.key==='Enter')settleAddItem()"><button class="chip-plus" onclick="settleAddItem()" aria-label="물품 추가">＋</button></span>`);
   return `
+    ${lockBar}
     <div class="section-head"><div class="section-title">📦 물품 목록 <b>${items.length}</b>/${SETTLE_MAX_ITEMS} · 물량 탭과 같이 씀</div></div>
     <div class="chips" style="margin-bottom:6px">${chips}</div>
     <p style="font-size:11.5px;color:var(--dim);margin:0 2px 16px;line-height:1.6">${full?'최대 '+SETTLE_MAX_ITEMS+'가지까지입니다. 빼려면 × 를 누르세요.':'이름에 \'딜\'이 들어가면 딜리 정산, 아니면 오네 정산으로 묶입니다. 추가한 물품은 물량 탭에서도 바로 읽습니다.'}</p>
@@ -3463,6 +3534,7 @@ function renderSettleDays(){
   const h=settleHistory(); const m=settleStore.month;
   const dates=Object.keys(h).filter(d=>d.indexOf(m)===0).sort().reverse();
   if(!dates.length) return `<div class="st-empty"><b>${esc(settleMonthLabel(m))}</b>에 저장된 날짜가 없습니다.</div>`;
+  const closedNote=settleIsClosed(m)?`<div class="st-warn" style="margin:0 0 12px">🔏 <b>${esc(settleMonthLabel(m))}</b>은 마감됐습니다. 여기 기록을 바꿔도 정산표에는 반영되지 않고, 삭제도 막혀 있어요.</div>`:'';
   const list=dates.map(d=>{
     const g=(h[d]&&h[d].grid)||{}; const names=Object.keys(g);
     let tot=0; names.forEach(n=>Object.keys(g[n]).forEach(it=>tot+=Number(g[n][it])||0));
@@ -3479,6 +3551,7 @@ function renderSettleDays(){
     </details>`;
   }).join('');
   return `
+    ${closedNote}
     <div class="section-head"><div class="section-title">📅 저장된 날짜 <b>${dates.length}</b>일 · 누르면 기사별 수량</div></div>
     ${list}`;
 }
@@ -4512,6 +4585,9 @@ function stlState(){
   const h = load(HISTORY_KEY, {}) || {}; const r = h[date];
   const when = r && r.savedAt ? new Date(r.savedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
   const edited = r && r.edited ? Object.keys(r.edited) : [];
+  let closedNote = '';
+  try{ const st = JSON.parse(localStorage.getItem('disp-settle')||'{}'); if (st.closed && st.closed[String(date).slice(0,7)]) closedNote = '<b>🔏 이 달은 정산이 마감됐습니다.</b> 저장해도 정산표에는 반영되지 않습니다 (정산 탭에서 마감 해제 후 다시 저장하세요).'; }catch(e){}
+  if (closedNote){ msg('stlState','warn', closedNote); return; }
   msg('stlState', edited.length ? 'warn' : 'ok', r
     ? '이 날짜는 이미 저장돼 있습니다 (기사 '+Object.keys(r.grid||{}).length+'명'+(when?', '+when:'')+'). 다시 누르면 덮어씁니다.'
       + (edited.length ? '<br><b>⚠ 정산 탭에서 직접 고친 기록이 있습니다</b> ('+edited.map(esc).join(', ')+'). 다시 저장하면 고친 내용이 지워집니다.' : '')
