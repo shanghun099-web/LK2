@@ -650,6 +650,8 @@ input[type="time"].time-hint{
 .bd-add button.ghost{background:transparent;color:var(--sub);border-color:var(--border2);}
 .bd-tip{font-size:11px;color:var(--dim);margin:8px 2px 0;line-height:1.6;text-align:center;}
 .bd-tip b{color:var(--sub);}
+.sch-rename{width:100%;margin-top:14px;padding:12px;border-radius:12px;border:1.5px solid #1d3a66;background:linear-gradient(135deg,#10243f,#13294a);color:var(--blue3);font-size:13.5px;font-weight:900;cursor:pointer;font-family:inherit;line-height:1.4;}
+.sch-rename small{display:block;font-size:10.5px;font-weight:600;color:var(--sub);margin-top:2px;}
 .sch-row2{display:flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:11px 13px;margin-bottom:6px;cursor:pointer;min-height:50px;}
 .sch-row2.off{background:rgba(239,68,68,.07);border-color:rgba(239,68,68,.35);}
 .sch-row2 .r-name{flex:1;font-size:15px;font-weight:800;}
@@ -706,7 +708,6 @@ body.tab-dragging .tabs{overflow-x:hidden;}
 
   <div class="tabs">
     <button class="tab active" id="tab-roster" onclick="switchTab('roster')">👥 출근명단</button>
-    <button class="tab" id="tab-dawn" onclick="switchTab('dawn')">🌅 새벽반</button>
     <button class="tab" id="tab-weather" onclick="switchTab('weather')">🌤️ 날씨</button>
     <button class="tab" id="tab-volume" onclick="switchTab('volume')">📦 물량</button>
     <button class="tab" id="tab-schedule" onclick="switchTab('schedule')">📅 근무/휴무</button>
@@ -849,7 +850,7 @@ const DAYS=['일','월','화','수','목','금','토'];
 const DOW_FULL=['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
 let tab='roster';
 const TAB_TITLES={roster:'출근명단 정리',dawn:'새벽반 명단',weather:'실시간 기상 감시 (강남구)',volume:'LK 배송물량표',schedule:'근무/휴무 현황',inbound:'간선 도착 · 입고',settle:'월별 정산',code:'출입코드 노트'};
-const ALL_TABS=['roster','dawn','weather','volume','schedule','inbound','settle','code'];
+const ALL_TABS=['roster','weather','volume','schedule','inbound','settle','code'];
 let customRosterText = null;
 let customWeatherText = null;
 let customVolumeText = null;
@@ -972,7 +973,8 @@ function initRoster(key){
 initRoster('main');
 initRoster('dawn');
 
-function cur(){return tab==='dawn'?rosters.dawn:rosters.main;}
+/* 출근명단도 근무/휴무 탭과 같은 반 선택(scheduleStore.shift)을 따른다 — 한쪽에서 바꾸면 다른 쪽도 같은 반 */
+function cur(){return (scheduleStore && scheduleStore.shift==='dawn')?rosters.dawn:rosters.main;}
 function saveTplFor(R){localStorage.setItem(R.lsKey,JSON.stringify(R.tpl));}
 
 let scheduleStore = load('disp-schedule', null);
@@ -1435,7 +1437,7 @@ function switchTab(t){
     const el=document.getElementById('tab-'+x);
     if(el) el.classList.toggle('active',x===t);
   });
-  document.getElementById('hTitle').textContent=TAB_TITLES[t];
+  document.getElementById('hTitle').textContent=tabTitle(t);
   render();
 }
 
@@ -2187,7 +2189,8 @@ function renderRoster(){
 
   const previewText = customRosterText !== null ? customRosterText : rosterText();
 
-  return `<div class="${R.theme}">
+  const workCnt = k => rosterUniqNames(rosters[k].work.zones.filter(z=>!z.isBackup)).length;
+  return `${shiftSwitchHTML({ day: workCnt('main'), dawn: workCnt('dawn') })}<div class="${R.theme}">
     <div class="dow-bar">${dowBtns}</div>
     ${banner}
     <div class="row2" style="margin-bottom:13px">
@@ -2275,7 +2278,7 @@ function rosterText(){
   const _backNames=rosterUniqNames(back).filter(function(n){return _workNames.indexOf(n)<0;});
   const workTotal=_workNames.length;
   const backTotal=_backNames.length;
-  const tplKey = tab==='dawn'?'dawn':'roster';
+  const tplKey = schShift()==='dawn'?'dawn':'roster';
   return tidyLines(formatTemplate(getTemplate(tplKey), {
     emoji: R.emoji,
     date: fmtKDate(R.work.date),
@@ -2451,7 +2454,21 @@ function unsetOff(w, shift){
   toggleWorkerStatus(w, scheduleStore.selectedDate, shift);
 }
 
-function schSetShift(sh){ scheduleStore.shift = sh; schFilter = 'all'; schQuery = ''; saveSchedule(); render(); }
+function tabTitle(t){ return t==='roster' ? (schShift()==='dawn' ? '새벽반 출근명단' : '출근명단 정리') : (TAB_TITLES[t]||''); }
+/* 반 전환 — 출근명단·근무/휴무 두 탭이 같이 움직인다 */
+function schSetShift(sh){
+  scheduleStore.shift = sh; schFilter = 'all'; schQuery = ''; customRosterText = null;
+  saveSchedule();
+  const h = document.getElementById('hTitle'); if (h) h.textContent = tabTitle(tab);
+  render();
+}
+function shiftSwitchHTML(counts){
+  const sh = schShift();
+  return `<div class="sch-shift-sw">
+    <button class="${sh==='day'?'on day':''}" onclick="schSetShift('day')">🚚 당일배송반 <b>${counts.day}</b></button>
+    <button class="${sh==='dawn'?'on dawn':''}" onclick="schSetShift('dawn')">🌅 새벽반 <b>${counts.dawn}</b></button>
+  </div>`;
+}
 function schSetMin(delta){
   const sh = schShift();
   scheduleStore.minStaff[sh] = Math.max(0, Math.min(99, schMin(sh) + delta));
@@ -2503,6 +2520,27 @@ function schDelWorker(w){
   delete scheduleStore.fixedOff[fixedKey(sh, w)];
   saveSchedule(); showToast('🗑 '+w+' 님을 지웠어요');
   if (schPerson === w) schClosePerson(); else render();
+}
+function schRenameWorker(w){
+  const sh = schShift();
+  const n = (prompt(w+' 님의 새 이름을 입력하세요.\n지정해둔 휴무·고정 휴무 요일과 '+SHIFT_NAME[sh]+' 출근명단(요일별 기본 명단 포함)이 함께 바뀝니다.', w) || '').trim();
+  if (!n || n === w) return;
+  if (scheduleStore.dayWorkers.indexOf(n) >= 0 || scheduleStore.dawnWorkers.indexOf(n) >= 0){ showToast('이미 있는 이름이에요 — 다른 이름을 넣어주세요','err'); return; }
+  const a = schList(sh), i = a.indexOf(w); if (i >= 0) a[i] = n;
+  const pre = (sh === 'dawn' ? 'DAWN_' : 'DAY_');
+  Object.keys(scheduleStore.statusMap).forEach(k => {
+    if (k.indexOf(pre + w + '_') === 0){ scheduleStore.statusMap[pre + n + '_' + k.slice((pre + w + '_').length)] = scheduleStore.statusMap[k]; delete scheduleStore.statusMap[k]; }
+  });
+  const fk = fixedKey(sh, w); if (scheduleStore.fixedOff[fk]){ scheduleStore.fixedOff[fixedKey(sh, n)] = scheduleStore.fixedOff[fk]; delete scheduleStore.fixedOff[fk]; }
+  saveSchedule();
+  /* 출근명단: 오늘 명단 + 요일별 기본 명단 */
+  const R = sh === 'dawn' ? rosters.dawn : rosters.main; let hit = 0;
+  const swap = zones => (zones||[]).forEach(z => { z.people = (z.people||[]).map(p => { if (String(p).trim() === w){ hit++; return n; } return p; }); });
+  swap(R.work.zones); R.tpl.forEach(t => swap(t.zones)); saveTplFor(R);
+  customRosterText = null;
+  if (schPerson === w){ schPerson = n; try{ history.replaceState({ sub:'schedule', schPerson:n }, ''); }catch(e){} }
+  showToast('✏️ '+w+' → '+n+(hit?' · 출근명단 '+hit+'곳도 바꿨어요':''));
+  render();
 }
 function schMoveWorker(w, from, to, silent){
   if (!silent && !confirm(w+' 님을 '+SHIFT_NAME[to]+'으로 옮길까요?\n지정해둔 휴무와 고정 휴무 요일도 같이 옮겨집니다.')) return;
@@ -2719,7 +2757,8 @@ function schPersonHTML(w){
     <div class="sch-ind-offlist" style="margin-top:8px"><b>${m+1}월 휴무일 (${st.offCount}일)</b><br>
       ${st.offDays.length ? st.offDays.map(o => `${m+1}/${o.day}(${DAYS[dowOf(o.iso)]})`).join(', ') : '지정된 휴무일이 없습니다.'}
     </div>
-    <div class="st-actions" style="margin-top:14px">
+    <button class="sch-rename" onclick="schRenameWorker('${esc(w)}')">✏️ 이름 바꾸기 <small>임시 이름(신규1 등)을 실제 이름으로 · 휴무 기록과 출근명단이 함께 바뀜</small></button>
+    <div class="st-actions" style="margin-top:8px">
       <button onclick="schMoveWorker('${esc(w)}','${sh}','${other}')">🔁 ${SHIFT_NAME[other]}으로 옮기기</button>
       <button style="color:#f0a0a0;border-color:#6b1d1d" onclick="schDelWorker('${esc(w)}')">🗑 명단에서 삭제</button>
     </div>`;
@@ -2735,11 +2774,7 @@ function renderSchedule() {
   const a = new Date(wk[0]+'T00:00:00'), b = new Date(wk[6]+'T00:00:00');
   const title = isMonth ? `${d0.getFullYear()}년 ${d0.getMonth()+1}월` : `${a.getMonth()+1}.${a.getDate()} ~ ${b.getMonth()+1}.${b.getDate()}`;
 
-  const shiftSw = `
-    <div class="sch-shift-sw">
-      <button class="${sh==='day'?'on day':''}" onclick="schSetShift('day')">🚚 당일배송반 <b>${scheduleStore.dayWorkers.length}</b></button>
-      <button class="${sh==='dawn'?'on dawn':''}" onclick="schSetShift('dawn')">🌅 새벽반 <b>${scheduleStore.dawnWorkers.length}</b></button>
-    </div>`;
+  const shiftSw = shiftSwitchHTML({ day: scheduleStore.dayWorkers.length, dawn: scheduleStore.dawnWorkers.length });
   const nav = `
     <div class="sch-nav-bar">
       <button class="sch-nav-btn" onclick="${isMonth?'shiftMonth(-1)':'shiftWeek(-1)'}">◀</button>
@@ -3189,7 +3224,7 @@ function copyText(text){
 let dlgAction=null, dlgRosterKey=null;
 function askClearDow(){
   dlgAction='clearDow';
-  dlgRosterKey=tab==='dawn'?'dawn':'main';
+  dlgRosterKey=schShift()==='dawn'?'dawn':'main';
   const R=rosters[dlgRosterKey];
   document.getElementById('dlg-title').textContent='이 요일 기본 삭제';
   document.getElementById('dlg-msg').textContent=`${DOW_FULL[R.workDow]} ${R.label} 기본 명단을 비웁니다.`;
@@ -4028,7 +4063,7 @@ function render(){
   c.style.display = '';
   c.classList.remove('noscroll');
 
-  if(tab==='roster'||tab==='dawn') c.innerHTML=renderRoster();
+  if(tab==='roster') c.innerHTML=renderRoster();
   else if(tab==='weather') c.innerHTML=renderWeather();
   else if(tab==='schedule'){ const ow=document.getElementById('bd-wrap'); if(ow) schBoardLeft=ow.scrollLeft; c.innerHTML=renderSchedule(); schAfterRender(); }
   else if(tab==='inbound') c.innerHTML=renderInbound();
@@ -4046,6 +4081,7 @@ window.addEventListener('message', function(e) {
   else if (e.data.type === 'copy') copyText(e.data.text);
 });
 
+document.getElementById('hTitle').textContent=tabTitle(tab);
 render();
 initTabDND();
 settlePurgeOldMsgs();   /* 카톡 원문은 최근 3개월치만 두고 그 전 달은 수량만 남긴다 */
