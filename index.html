@@ -442,6 +442,16 @@ input[type="time"].time-hint{
 .st-daybody .msg-t{font-size:13px;color:var(--sub);white-space:pre-wrap;word-break:break-word;line-height:1.5;margin-top:2px;}
 .st-nomsg{font-size:12px;color:var(--dim);padding:8px 0 6px;line-height:1.6;}
 .st-dayrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);}
+.imp-card{background:var(--card);border:1.5px solid #1d3a66;border-radius:16px;padding:14px;}
+.imp-title{font-size:15px;font-weight:900;color:var(--blue3);}
+.imp-title small{display:block;font-size:11px;font-weight:600;color:var(--dim);margin-top:2px;word-break:break-all;}
+.imp-items{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.imp-items span{font-size:12px;font-weight:700;color:var(--sub);background:var(--card2);border:1px solid var(--border);border-radius:99px;padding:4px 10px;}
+.imp-items b{color:var(--teal3);}
+.imp-sec{font-size:12px;font-weight:800;color:var(--sub);margin:12px 2px 7px;}
+.imp-name{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.imp-name span{flex:0 0 84px;font-size:13.5px;font-weight:900;color:var(--amber2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.imp-name .inp{flex:1;padding:9px 10px;font-size:13.5px;}
 .st-dayrow:last-child{border-bottom:none;}
 .st-dayrow div{flex:1;min-width:0;}
 .st-dayrow b{display:block;font-size:13.5px;font-weight:900;color:var(--blue3);}
@@ -3468,7 +3478,7 @@ function settleAddDay(name){
 
 let settleDayItem='';   /* 기록 탭에서 보고 있는 물품 ('' = 전체 합계) */
 function settleDayPick(it){ settleDayItem=it; render(); }
-function settleView(v){ settleUnlocked=false; settleDayItem=''; settleStore.view=v; settlePerson=null; settleFilter='all'; settleQuery=''; saveSettle(); render(); }
+function settleView(v){ settleImport=null; settleUnlocked=false; settleDayItem=''; settleStore.view=v; settlePerson=null; settleFilter='all'; settleQuery=''; saveSettle(); render(); }
 function settleOpenPerson(name){
   settlePerson=name; settleUnlocked=false; settleEditName=null;
   try{ history.pushState({sub:'settle',person:name},''); }catch(e){}
@@ -3978,9 +3988,11 @@ function renderSettlePrices(){
 }
 
 function renderSettleDays(){
+  if(settleImport) return settleImportPreviewHTML();
   const h=settleHistory(); const m=settleStore.month; const items=settleItems();
   const dates=Object.keys(h).filter(d=>d.indexOf(m)===0).sort();
-  if(!dates.length) return `<div class="st-empty"><b>${esc(settleMonthLabel(m))}</b>에 저장된 날짜가 없습니다.<br>📦 물량 탭에서 <b>💰 정산에 저장</b>을 누르면 여기에 쌓입니다.</div>`;
+  if(!dates.length) return `<div class="st-empty"><b>${esc(settleMonthLabel(m))}</b>에 저장된 날짜가 없습니다.<br>📦 물량 탭에서 <b>💰 정산에 저장</b>을 누르거나, 예전에 정리한 엑셀 파일을 들여오세요.</div>
+    ${settleImportButtonHTML(true)}`;
   const closed=settleIsClosed(m);
   const pick=items.indexOf(settleDayItem)>=0 ? settleDayItem : '';
   const mx=settleDaysMatrix(pick||null);
@@ -4019,9 +4031,11 @@ function renderSettleDays(){
     ${table}
     <p class="st-mxhint">표를 옆으로 밀면 나머지 날짜가 보입니다. <span class="ed-mark">✎</span> 는 정산에서 직접 고친 칸입니다.</p>
     <div class="actions" style="margin-top:14px">
-      <button class="btn btn-share" onclick="settleExportDays()">📥 엑셀 내보내기</button>
-      <button class="btn btn-copy" onclick="settleCopyDays()">📋 표 복사</button>
+      <button class="btn btn-copy" onclick="settleExportDays()">📥 엑셀 내보내기</button>
+      <button class="btn btn-copy" onclick="settleImportPick()">📤 엑셀 들여오기</button>
     </div>
+    <button class="st-sentbtn" style="margin-top:8px" onclick="settleCopyDays()">📋 표 복사 (엑셀에 붙여넣기)</button>
+    <input type="file" id="st-import-file" accept=".csv,.xlsx,.xls,text/csv" style="display:none" onchange="settleImportFile(this)">
     <details class="st-days" style="margin-top:16px">
       <summary><span>📅 날짜별 저장 기록 · 누르면 원문 확인</span><span>${dates.length}일 ▾</span></summary>
       <div>${delList}</div>
@@ -4071,6 +4085,158 @@ function settlePurgeOldMsgs(){
   const n=Object.keys(months).length;
   if(n) saveSettleHistory(h);
   return n;
+}
+/* ===== 📤 엑셀 들여오기 — 앱이 내보낸 "물량 기록" 양식(이름 × 날짜, 물품별 블록)을 다시 읽는다 =====
+   CSV(UTF-8·한글 엑셀의 EUC-KR 둘 다)와 xlsx 를 받는다. 바로 저장하지 않고 미리보기에서 이름 연결·덮어쓰기 방식을 고른 뒤 저장. */
+let settleImport = null;   /* { month, dates:{iso:{name:{item:qty}}}, unknownItems:[], names:[], map:{파일이름:앱이름|''}, mode:'replace'|'fill', file } */
+function settleImportButtonHTML(standalone){
+  return `<button class="btn btn-copy" style="width:100%;${standalone?'margin-top:4px':''}" onclick="settleImportPick()">📤 엑셀 들여오기 (예전에 정리한 달)</button>
+    <input type="file" id="st-import-file" accept=".csv,.xlsx,.xls,text/csv" style="display:none" onchange="settleImportFile(this)">
+    <p class="st-mxhint" style="text-align:center">📥 엑셀 내보내기로 받은 파일과 같은 양식이면 됩니다 (이름 × 날짜, 물품별 표).</p>`;
+}
+function settleImportPick(){ const el=document.getElementById('st-import-file'); if(el){ el.value=''; el.click(); } }
+function settleLoadXLSX(){
+  if(window.XLSX) return Promise.resolve(window.XLSX);
+  return new Promise((res,rej)=>{
+    const sc=document.createElement('script');
+    sc.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    sc.onload=()=>res(window.XLSX); sc.onerror=()=>rej(new Error('엑셀 읽기 도구를 불러오지 못했어요 — 인터넷 연결을 확인하거나 CSV 로 저장해서 올려주세요'));
+    document.head.appendChild(sc);
+  });
+}
+function settleCsvRows(text){
+  const rows=[]; let row=[], cell='', q=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(q){ if(ch==='"'){ if(text[i+1]==='"'){ cell+='"'; i++; } else q=false; } else cell+=ch; }
+    else if(ch==='"') q=true;
+    else if(ch===','){ row.push(cell); cell=''; }
+    else if(ch==='\n'){ row.push(cell); rows.push(row); row=[]; cell=''; }
+    else if(ch!=='\r') cell+=ch;
+  }
+  if(cell!==''||row.length){ row.push(cell); rows.push(row); }
+  return rows;
+}
+async function settleImportFile(input){
+  const f=input.files&&input.files[0]; if(!f) return;
+  try{
+    let rows=[];
+    if(/\.xlsx?$/i.test(f.name)){
+      const X=await settleLoadXLSX();
+      const wb=X.read(await f.arrayBuffer(),{type:'array'});
+      wb.SheetNames.forEach(n=>{ rows=rows.concat(X.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:false,defval:''})); rows.push([]); });
+    } else {
+      const buf=await f.arrayBuffer(); let text;
+      try{ text=new TextDecoder('utf-8',{fatal:true}).decode(buf); }catch(e){ text=new TextDecoder('euc-kr').decode(buf); }   /* 한글 엑셀이 저장한 CSV 는 EUC-KR */
+      rows=settleCsvRows(text.replace(/^﻿/,''));
+    }
+    const parsed=settleParseRows(rows.map(r=>r.map(c=>String(c==null?'':c).trim())));
+    if(!Object.keys(parsed.dates).length){ showToast('파일에서 수량을 찾지 못했어요 — 📥 내보내기 양식인지 확인해 주세요','err'); return; }
+    const known=new Set(settleAllNames());
+    const names=[...new Set(Object.values(parsed.dates).flatMap(g=>Object.keys(g)))].sort((a,b)=>a.localeCompare(b,'ko'));
+    const map={}; names.forEach(n=>{ map[n]=known.has(n)?n:''; });
+    settleImport=Object.assign(parsed,{names,map,mode:'replace',file:f.name});
+    settleStore.month=parsed.month; saveSettle(); render();
+    const c=document.getElementById('content'); if(c) c.scrollTop=0;
+  }catch(e){ showToast(e.message||'파일을 읽지 못했어요','err'); }
+}
+/* 표에서 물품 블록을 찾는다: [물품 이름] 줄 → [이름, 날짜들…, 합계] 머리 줄 → 기사 줄들 → [합계] 줄 */
+function settleParseRows(rows){
+  const items=settleItems();
+  let year=null, mon=null;
+  for(const r of rows.slice(0,6)){ const m=(r.join(' ')).match(/(\d{4})\s*년\s*(\d{1,2})\s*월/); if(m){ year=+m[1]; mon=+m[2]; break; } }
+  if(!year){ const a=settleStore.month.split('-'); year=+a[0]; mon=+a[1]; }
+  const dateOf=t=>{
+    t=String(t).replace(/\s+/g,'');
+    let m=t.match(/^(\d{4})[-./년](\d{1,2})[-./월](\d{1,2})/); if(m) return [+m[1],+m[2],+m[3]];
+    m=t.match(/^(\d{1,2})[-./월](\d{1,2})/); if(m) return [year,+m[1],+m[2]];
+    m=t.match(/^(\d{1,2})일?(\(.\))?$/); if(m) return [year,mon,+m[1]];
+    return null;
+  };
+  const iso=(y,m,d)=>`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  const out={}, unknownItems=new Set(); let lastLabel='';
+  for(let i=0;i<rows.length;i++){
+    const r=rows[i], first=r[0]||'', filled=r.filter(x=>x!=='').length;
+    if(filled===1 && first && !/^\d/.test(first)){ lastLabel=first; continue; }
+    if(!/^(이름|기사|성명)$/.test(first)) continue;
+    const cols=r.map((t,k)=>k===0?null:dateOf(t));
+    if(!cols.some(Boolean)) continue;
+    const label=lastLabel.replace(/\s+/g,'');
+    if(/^전체/.test(label)) continue;                    /* 전체 합계 블록은 물품별 블록에서 다시 계산되므로 건너뜀 */
+    const item=items.find(it=>it.replace(/\s+/g,'')===label);
+    if(!item){ if(label) unknownItems.add(lastLabel); continue; }
+    for(let j=i+1;j<rows.length;j++){
+      const rr=rows[j], nm=(rr[0]||'').trim();
+      if(!nm || /^합계$/.test(nm)) break;
+      cols.forEach((dt,k)=>{
+        if(!dt) return;
+        const q=parseInt(String(rr[k]||'').replace(/[^\d-]/g,''),10);
+        if(!(q>0)) return;
+        const d=iso(dt[0],dt[1],dt[2]);
+        out[d]=out[d]||{}; out[d][nm]=out[d][nm]||{};
+        out[d][nm][item]=(out[d][nm][item]||0)+q;
+      });
+    }
+  }
+  const ds=Object.keys(out).sort();
+  const month=ds.length ? ds[0].slice(0,7) : `${year}-${String(mon).padStart(2,'0')}`;
+  return { month, dates:out, unknownItems:[...unknownItems] };
+}
+function settleImportSet(k,v){ if(!settleImport) return; if(k==='mode') settleImport.mode=v; else settleImport.map[k]=v; render(); }
+function settleImportCancel(){ settleImport=null; render(); }
+function settleImportPreviewHTML(){
+  const I=settleImport, h=settleHistory(), items=settleItems();
+  const months=[...new Set(Object.keys(I.dates).map(d=>d.slice(0,7)))];
+  const dates=Object.keys(I.dates).sort(), overlap=dates.filter(d=>h[d]);
+  const tot={}; dates.forEach(d=>Object.values(I.dates[d]).forEach(g=>Object.keys(g).forEach(it=>tot[it]=(tot[it]||0)+g[it])));
+  const known=settleAllNames(), unknown=I.names.filter(n=>known.indexOf(n)<0);
+  const closed=months.filter(settleIsClosed);
+  const nameRows=unknown.map(n=>`<div class="imp-name"><span>${esc(n)}</span>
+      <select class="inp" onchange="settleImportSet('${esc(n)}',this.value)">
+        <option value="" ${!I.map[n]?'selected':''}>＋ 새 기사로 추가</option>
+        ${known.map(k=>`<option value="${esc(k)}" ${I.map[n]===k?'selected':''}>→ ${esc(k)}</option>`).join('')}
+      </select></div>`).join('');
+  return `
+    <div class="imp-card">
+      <div class="imp-title">📤 들여오기 미리보기 <small>${esc(I.file)}</small></div>
+      <div class="st-sum" style="margin:10px 0">
+        <div><small>달</small><b>${months.map(settleMonthLabel).join(', ')}</b></div>
+        <div><small>날짜 · 기사</small><b>${dates.length}일 · ${I.names.length}명</b></div>
+      </div>
+      <div class="imp-items">${items.filter(it=>tot[it]).map(it=>`<span>${esc(it)} <b>${num(tot[it])}</b>건</span>`).join('')}</div>
+      ${I.unknownItems.length?`<div class="st-warn">물품 목록에 없는 표는 건너뜁니다: <b>${I.unknownItems.map(esc).join(', ')}</b> — 넣으려면 💵 단가 탭 물품 목록에 먼저 추가하세요.</div>`:''}
+      ${closed.length?`<div class="st-warn">🔏 <b>${closed.map(settleMonthLabel).join(', ')}</b>은 마감된 달이라 들여올 수 없습니다. 마감을 먼저 해제하세요.</div>`:''}
+      ${unknown.length?`<div class="imp-sec">👤 앱에 없는 이름 ${unknown.length}명 — 기존 기사와 같은 사람이면 골라주세요</div>${nameRows}`:'<div class="imp-sec" style="color:#4ade80">✓ 파일의 이름이 모두 앱에 있는 기사와 맞습니다</div>'}
+      <div class="imp-sec">📅 이미 저장된 날짜 ${overlap.length}일</div>
+      <div class="set-tabs" style="margin-bottom:6px">
+        <button class="set-tab ${I.mode==='replace'?'active':''}" onclick="settleImportSet('mode','replace')">파일로 덮어쓰기</button>
+        <button class="set-tab ${I.mode==='fill'?'active':''}" onclick="settleImportSet('mode','fill')">빈 날짜만 채우기</button>
+      </div>
+      <p class="st-mxhint">${I.mode==='replace'?'겹치는 '+overlap.length+'일은 파일 내용으로 바뀝니다 (그날의 카톡 원문 기록은 지워짐).':'이미 저장된 '+overlap.length+'일은 그대로 두고, 나머지 '+(dates.length-overlap.length)+'일만 넣습니다.'}</p>
+      <div class="actions" style="margin-top:12px">
+        <button class="btn btn-copy" onclick="settleImportCancel()">취소</button>
+        <button class="btn btn-share" ${closed.length?'disabled style="opacity:.4"':''} onclick="settleImportApply()">✅ 가져오기</button>
+      </div>
+    </div>`;
+}
+function settleImportApply(){
+  const I=settleImport; if(!I) return;
+  const months=[...new Set(Object.keys(I.dates).map(d=>d.slice(0,7)))];
+  if(months.some(settleIsClosed)){ showToast('🔏 마감된 달은 들여올 수 없어요','err'); return; }
+  const h=settleHistory(); let put=0, skip=0;
+  Object.keys(I.dates).sort().forEach(d=>{
+    if(I.mode==='fill' && h[d]){ skip++; return; }
+    const grid={};
+    Object.keys(I.dates[d]).forEach(n=>{
+      const to=I.map[n]||n; grid[to]=grid[to]||{};
+      Object.keys(I.dates[d][n]).forEach(it=>{ grid[to][it]=(grid[to][it]||0)+I.dates[d][n][it]; });
+    });
+    h[d]={ grid, savedAt:Date.now(), imported:I.file };
+    put++;
+  });
+  if(!saveSettleHistory(h)) return;
+  settleImport=null; render();
+  showToast('📤 '+put+'일치를 들여왔어요'+(skip?' · 이미 있던 '+skip+'일은 그대로':''));
 }
 function settleCopyDays(){
   const items=settleItems(); const all=settleDaysMatrix(null);
