@@ -3685,7 +3685,6 @@ function settleExportDays(){
   settleDownloadCSV(toCSV(out), m+'_물량기록.csv');
 }
 function settleCopyAll(){ const c=settleCalc(settleStore.month); if(!c.rows.length){ showToast('정산할 기록이 없어요','err'); return; } copyText(settleTSV()); }
-function settleShareAll(){ const c=settleCalc(settleStore.month); if(!c.rows.length){ showToast('정산할 기록이 없어요','err'); return; } shareText(c.rows.map(settlePersonText).join('\n\n')); }
 
 function renderSettle(){
   const m=settleStore.month, v=settleStore.view;
@@ -3771,10 +3770,9 @@ function renderSettleTable(){
     ${cnt.noprice&&!closed&&settleFilter==='all'?`<div class="st-warn" style="margin:0 0 12px">단가가 비어 있는 기사가 <b>${cnt.noprice}명</b> 있습니다. 이름을 누르면 그 자리에서 단가를 넣을 수 있어요.</div>`:''}
     <div id="st-list">${settleDashListHTML()}</div>
     <div class="actions" style="margin-top:14px">
-      <button class="btn btn-share" onclick="settleShareAll()">💬 전체 문구 공유</button>
       <button class="btn btn-copy" onclick="settleExportSheet()">📥 엑셀 내보내기</button>
+      <button class="btn btn-copy" onclick="settleCopyAll()">📋 정산 내역 표 복사</button>
     </div>
-    <button class="st-sentbtn" style="margin-top:8px" onclick="settleCopyAll()">📋 정산 내역 표 복사 (엑셀에 붙여넣기)</button>
     ${settleResetBtn()}`;
 }
 function settleResetBtn(){
