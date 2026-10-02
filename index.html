@@ -167,6 +167,30 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
 
 .btn-add-zone{width:100%;padding:13px;border:1.5px dashed var(--border2);border-radius:13px;background:transparent;color:var(--sub);font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:14px;transition:all 0.15s;}
 .btn-add-zone:active{background:var(--card);border-color:var(--blue2);color:var(--blue3);}
+.add-zone-row{display:flex;gap:8px;}
+.add-zone-row .btn-add-zone:first-child{flex:1.4;}
+.add-zone-row .btn-add-zone:last-child{flex:1;}
+.zone-div{display:flex;gap:8px;align-items:center;padding:9px 11px;border-style:dashed;background:transparent;}
+.zone-div .zone-name{color:var(--sub);}
+.zdiv-bar{color:var(--dim);font-weight:900;flex-shrink:0;}
+.zone-nums-row{display:flex;align-items:center;gap:8px;margin:-2px 0 10px;}
+.zone-nums-row span{font-size:12px;font-weight:700;color:var(--sub);flex-shrink:0;}
+.zone-nums{flex:1;min-width:0;background:var(--card2);border:1.5px solid var(--border2);border-radius:10px;padding:8px 11px;font-size:14px;color:var(--text);outline:none;font-family:inherit;-webkit-appearance:none;}
+.zone-nums:focus{border-color:var(--blue2);}
+.chip-memo{font-size:12px;font-weight:600;color:var(--sub);margin-left:-2px;}
+.chip-new{font-size:11px;font-weight:800;color:#0e1116;background:var(--teal3,#5eead4);border-radius:5px;padding:1px 5px;}
+.chip-dup{border-color:var(--amber2,#f59e0b);}
+.chip-sel{border-color:var(--blue2);background:rgba(59,130,246,.16);}
+.zone-warn{font-size:11.5px;font-weight:700;color:var(--amber2,#f59e0b);margin:8px 0 0 2px;}
+.pedit{margin-top:10px;background:var(--card2);border:1.5px solid var(--blue2);border-radius:12px;padding:10px;display:grid;gap:8px;}
+.pedit-lb{display:grid;gap:4px;font-size:12px;font-weight:700;color:var(--sub);}
+.pedit-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.pedit-ck{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:700;color:var(--text);}
+.pedit-ck input{width:20px;height:20px;}
+.zone-tools{display:flex;align-items:center;gap:6px;margin-top:9px;flex-wrap:wrap;}
+.zone-tools button{border:1px solid var(--border2);background:transparent;color:var(--sub);border-radius:8px;padding:6px 10px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;min-height:32px;}
+.zone-tools button:active{background:var(--card2);color:var(--blue3);}
+.zone-tip{font-size:11px;color:var(--dim);margin-left:auto;}
 
 .qty-head{display:grid;grid-template-columns:1fr 92px 84px 38px;gap:7px;padding:0 4px 7px;font-size:10px;color:var(--dim);font-weight:700;letter-spacing:0.3px;}
 .qty-head span:nth-child(2),.qty-head span:nth-child(3){text-align:center;}
@@ -883,6 +907,8 @@ let tab='roster';
 const TAB_TITLES={roster:'출근명단 정리',dawn:'새벽반 명단',weather:'실시간 기상 감시 (강남구)',volume:'LK 배송물량표',schedule:'근무/휴무 현황',inbound:'간선 도착 · 입고',settle:'월별 정산',code:'출입코드 노트'};
 const ALL_TABS=['roster','weather','volume','schedule','inbound','settle','code'];
 let customRosterText = null;
+let rosterSel = null;       /* 출근명단에서 고치는 중인 사람 [구역, 순번] */
+let rosterNumsOpen = {};    /* 번호 칸을 연 구역 */
 let customWeatherText = null;
 let customVolumeText = null;
 let customScheduleText = null;
@@ -957,7 +983,63 @@ const DEFAULT_ZONES=[
 ];
 
 function blankTpl(title){return {title:title,zones:[],saved:false};}
-function deepZones(zs){return (Array.isArray(zs)?zs:[]).map(z=>({emoji:(z&&z.emoji)||'📍',name:(z&&z.name)||'',people:[...((z&&Array.isArray(z.people))?z.people:[])],isBackup:!!(z&&z.isBackup)}));}
+/* 출근명단 사람 = "이름" 또는 "이름(메모)" 문자열. 메모 = 추가로 맡는 곳, "신규" 표시도 괄호 안에 */
+function parenOpen(s){s=String(s||'');return (s.match(/[(（]/g)||[]).length>(s.match(/[)）]/g)||[]).length;}
+/* 예전 입력이 괄호 안 · 에서 끊겨 "노창식(+선경" "우성)" 처럼 저장된 것을 다시 붙임 */
+function fixPeople(arr){
+  const out=[];
+  (Array.isArray(arr)?arr:[]).forEach(p=>{
+    if(typeof p!=='string'||!p.trim())return;
+    p=p.trim();
+    if(out.length&&parenOpen(out[out.length-1]))out[out.length-1]+='·'+p; else out.push(p);
+  });
+  return out;
+}
+/* 이름 여러 개 입력 → 띄어쓰기·쉼표·가운뎃점으로 나누되 괄호 안은 안 나눔 */
+function splitNames(text){
+  const toks=[];let cur='',depth=0;
+  for(const ch of String(text||'')){
+    if(ch==='('||ch==='（')depth++;
+    if(ch===')'||ch==='）')depth=Math.max(0,depth-1);
+    if(depth===0&&/[\s,、·，]/.test(ch)){if(cur.trim())toks.push(cur.trim());cur='';continue;}
+    cur+=ch;
+  }
+  if(cur.trim())toks.push(cur.trim());
+  const out=[];
+  toks.forEach(t=>{ if(/^[(（]/.test(t)&&out.length)out[out.length-1]+=t; else out.push(t); });
+  return out;
+}
+function personParse(s){
+  const str=String(s==null?'':s).trim();
+  const m=/^([^(（]*)[(（](.*)[)）]$/.exec(str);
+  let n=str,memo='';
+  if(m){n=m[1].trim();memo=m[2].trim();}
+  let nw=(n==='신규');
+  if(memo==='신규'){nw=true;memo='';}
+  else if(/^신규\s*[·,]\s*/.test(memo)){nw=true;memo=memo.replace(/^신규\s*[·,]\s*/,'');}
+  return {n:n||'신규',m:memo,nw:nw||!n};
+}
+function personStr(o){
+  const n=String(o.n||'').trim()||'신규';
+  const tags=[];
+  if(o.nw&&n!=='신규')tags.push('신규');
+  if(o.m&&String(o.m).trim())tags.push(String(o.m).trim());
+  return tags.length?`${n}(${tags.join('·')})`:n;
+}
+function normNums(s){return String(s||'').split(/[\s,，·、]+/).map(x=>x.trim()).filter(Boolean).join('·');}
+/* "송파 B구역(104,105,106)" → 이름 "송파 B구역" + 번호 "104·105·106" */
+function splitZoneNums(name){
+  const m=/^(.*?)\s*[(（]([^()（）]*\d[^()（）]*)[)）]\s*$/.exec(String(name||''));
+  return (m&&m[1].trim())?{name:m[1].trim(),nums:normNums(m[2])}:null;
+}
+function cleanZone(z){
+  z=z||{};
+  let name=typeof z.name==='string'?z.name:'';
+  let nums=typeof z.nums==='string'?normNums(z.nums):'';
+  if(!nums&&!z.isDiv){const sp=splitZoneNums(name);if(sp){name=sp.name;nums=sp.nums;}}
+  return {emoji:(typeof z.emoji==='string'&&z.emoji)?z.emoji:'📍',name,nums,people:z.isDiv?[]:fixPeople(z.people),isBackup:!z.isDiv&&!!z.isBackup,isDiv:!!z.isDiv};
+}
+function deepZones(zs){return (Array.isArray(zs)?zs:[]).map(cleanZone);}
 function load(k,def){try{const v=JSON.parse(localStorage.getItem(k));return (v===null||v===undefined)?def:v;}catch(e){return def;}}
 
 const rosters={
@@ -973,12 +1055,7 @@ function sanitizeRosterArr(arr,defTitle){
     if(t&&typeof t==='object'&&!Array.isArray(t)){
       base[i]={
         title:typeof t.title==='string'?t.title:defTitle,
-        zones:Array.isArray(t.zones)?t.zones.map(z=>({
-          emoji:(z&&typeof z.emoji==='string'&&z.emoji)?z.emoji:'📍',
-          name:(z&&typeof z.name==='string')?z.name:'',
-                   people:(z&&Array.isArray(z.people))?z.people.filter(p=>typeof p==='string'&&p.trim()):[],
-          isBackup:!!(z&&z.isBackup)
-        })):[],
+        zones:Array.isArray(t.zones)?t.zones.map(cleanZone):[],
         saved:!!t.saved
       };
     }
@@ -1144,11 +1221,11 @@ function offCountOn(iso) {
 function syncScheduleWorkers() {
   customScheduleText = null;
   const daySet = new Set();
-  rosters.main.work.zones.forEach(z => z.people.forEach(p => p && daySet.add(p.trim())));
+  rosters.main.work.zones.forEach(z => z.people.forEach(p => { p = rosterBaseName(p); if (p && p !== '신규') daySet.add(p); }));
   scheduleStore.dayWorkers = Array.from(daySet).filter(Boolean);
 
   const dawnSet = new Set();
-  rosters.dawn.work.zones.forEach(z => z.people.forEach(p => p && dawnSet.add(p.trim())));
+  rosters.dawn.work.zones.forEach(z => z.people.forEach(p => { p = rosterBaseName(p); if (p && p !== '신규') dawnSet.add(p); }));
   scheduleStore.dawnWorkers = Array.from(dawnSet).filter(Boolean);
 
   saveSchedule();
@@ -2203,7 +2280,20 @@ function renderRoster(){
       : `<b>${DOW_FULL[R.workDow]}</b> ${R.label}은 저장된 기본이 없어요. 명단을 짜고 아래에서 기본으로 저장하세요.`}</span>
   </div>`;
 
-  const zonesHtml=R.work.zones.map((z,zi)=>`
+  const dupNames=rosterDupNames(R.work.zones.filter(z=>!z.isDiv));
+  const sel=(rosterSel&&R.work.zones[rosterSel[0]]&&R.work.zones[rosterSel[0]].people[rosterSel[1]]!=null)?rosterSel:null;
+  const zonesHtml=R.work.zones.map((z,zi)=>{
+    if(z.isDiv) return `
+    <div class="zone zone-div">
+      <span class="zdiv-bar">━━</span>
+      <input class="zone-name" value="${esc(z.name)}" placeholder="묶음 이름 (예: 송파)" onchange="setZone(${zi},'name',this.value)">
+      <span class="zdiv-bar">━━</span>
+      <button class="zone-del" onclick="delZone(${zi})">🗑</button>
+    </div>`;
+    const ppl=z.people.map(personParse);
+    const zDups=dupNames.filter(n=>ppl.some(o=>o.n===n));
+    const ed=(sel&&sel[0]===zi)?ppl[sel[1]]:null;
+    return `
     <div class="zone" style="${z.isBackup?'border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.05);':''}">
       <div class="zone-top">
         <input class="zone-emoji" value="${esc(z.emoji||'📍')}" maxlength="2" onchange="setZone(${zi},'emoji',this.value)">
@@ -2211,12 +2301,28 @@ function renderRoster(){
         <button class="zone-del" title="백업 지정" style="${z.isBackup?'background:rgba(245,158,11,.18);color:var(--amber2)':''}" onclick="toggleZoneBackup(${zi})">🆘</button>
                <button class="zone-del" onclick="delZone(${zi})">🗑</button>
       </div>
-           ${(()=>{return zoneLineText(z,getCompactMode()).indexOf('\n')>=0?`<div style="font-size:10.5px;color:var(--blue3);font-weight:700;margin:-4px 0 8px 2px;">↩️ 인원이 많아 카톡에서 2줄로 나눠 보냅니다</div>`:''})()}
+      ${(z.nums||rosterNumsOpen[zi])?`<div class="zone-nums-row"><span>구역 번호</span><input id="znum-${zi}" class="zone-nums" value="${esc(z.nums.replace(/·/g,', '))}" placeholder="예: 104, 105, 106" inputmode="text" onchange="setZoneNums(${zi},this.value)"></div>`:''}
+           ${zoneMainLines(z,getCompactMode()).length>1?`<div style="font-size:10.5px;color:var(--blue3);font-weight:700;margin:-4px 0 8px 2px;">↩️ 인원이 많아 카톡에서 2줄로 나눠 보냅니다</div>`:''}
       <div class="chips">
-        ${z.people.map((p,pi)=>`<span class="chip">${esc(p)}<button class="chip-x" onclick="delPerson(${zi},${pi})">✕</button></span>`).join('')}
-        <span class="chip-add"><input id="padd-${zi}" placeholder="+ 이름 (여러 명 띄어쓰기)" onkeydown="if(event.key==='Enter'){event.preventDefault();addPerson(${zi},this.value,true);this.value='';}" onblur="if(this.value.trim()){addPerson(${zi},this.value);this.value='';}"></span>
+        ${ppl.map((o,pi)=>`<span class="chip${zDups.indexOf(o.n)>=0?' chip-dup':''}${ed&&sel[1]===pi?' chip-sel':''}" onclick="selPerson(${zi},${pi})">${esc(o.n)}${o.m?`<span class="chip-memo">${esc(o.m)}</span>`:''}${o.nw?'<span class="chip-new">신규</span>':''}<button class="chip-x" onclick="event.stopPropagation();delPerson(${zi},${pi})">✕</button></span>`).join('')}
+        <span class="chip-add"><input id="padd-${zi}" placeholder="+ 이름 (여러 명 띄어쓰기)" onkeydown="if(event.key==='Enter'){event.preventDefault();const v=this.value;this.value='';addPerson(${zi},v,true);}" onblur="const v=this.value;this.value='';if(v.trim())addPerson(${zi},v);"></span>
       </div>
-    </div>`).join('');
+      ${zDups.length?`<div class="zone-warn">⚠️ ${esc(zDups.join(', '))} — 다른 구역에도 있어요</div>`:''}
+      ${ed?`<div class="pedit">
+        <label class="pedit-lb">이름<input class="inp" value="${esc(ed.n)}" oninput="setPersonField(${zi},${sel[1]},'n',this.value)"></label>
+        <label class="pedit-lb">메모 · 추가로 맡는 곳<input class="inp" value="${esc(ed.m)}" placeholder="예: 선경·우성 / 4동·딜" oninput="setPersonField(${zi},${sel[1]},'m',this.value)"></label>
+        <div class="pedit-row">
+          <label class="pedit-ck"><input type="checkbox" ${ed.nw?'checked':''} ${ed.n==='신규'?'disabled':''} onchange="setPersonField(${zi},${sel[1]},'nw',this.checked)"> 신규</label>
+          <button class="mini-btn" onclick="closePersonEdit()">✓ 완료</button>
+        </div>
+      </div>`:''}
+      <div class="zone-tools">
+        <button onclick="addNewSlot(${zi})">＋ 신규 자리</button>
+        ${(z.nums||rosterNumsOpen[zi])?'':`<button onclick="openZoneNums(${zi})">＋ 구역 번호</button>`}
+        ${ppl.length&&!ed?'<span class="zone-tip">이름을 누르면 메모</span>':''}
+      </div>
+    </div>`;
+  }).join('');
 
   const previewText = customRosterText !== null ? customRosterText : rosterText();
 
@@ -2252,14 +2358,17 @@ function renderRoster(){
       </div>
     </details>
     <div class="section-head">
-      <div class="section-title">구역 <b>${R.work.zones.filter(z=>!z.isBackup).length}</b>개 · 근무 <b>${rosterUniqNames(R.work.zones.filter(z=>!z.isBackup)).length}</b>명 · 🆘 백업 <b>${rosterUniqNames(R.work.zones.filter(z=>z.isBackup)).length}</b>명</div>
+      <div class="section-title">구역 <b>${R.work.zones.filter(z=>!z.isBackup&&!z.isDiv).length}</b>개 · 근무 <b>${rosterUniqNames(R.work.zones.filter(z=>!z.isBackup)).length}</b>명${rosterNewCount(R.work.zones)?` (신규 ${rosterNewCount(R.work.zones)})`:''} · 🆘 백업 <b>${rosterUniqNames(R.work.zones.filter(z=>z.isBackup)).length}</b>명</div>
     </div>
     ${zonesHtml}
-    <button class="btn-add-zone" onclick="addZone()">＋ 구역 추가</button>
-    
+    <div class="add-zone-row">
+      <button class="btn-add-zone" onclick="addZone()">＋ 구역 추가</button>
+      <button class="btn-add-zone" onclick="addDivider()">━ 구분선 (예: 송파)</button>
+    </div>
+
     <div class="preview-wrap">
       <div class="preview-label">카톡 미리보기 (직접 편집 가능)</div>
-      <textarea class="kakao-bubble${previewText?'':' empty'}" oninput="customRosterText=this.value; autoResizePreviews();" placeholder="구역과 이름을 입력하면 여기에 미리보기가 나옵니다.">${esc(previewText)}</textarea>
+      <textarea id="roster-pv" class="kakao-bubble${previewText?'':' empty'}" oninput="customRosterText=this.value; autoResizePreviews();" placeholder="구역과 이름을 입력하면 여기에 미리보기가 나옵니다.">${esc(previewText)}</textarea>
       <div class="actions">
         <button class="btn btn-share" onclick="shareText(customRosterText !== null ? customRosterText : rosterText())">💬 공유하기</button>
         <button class="btn btn-copy" onclick="copyText(customRosterText !== null ? customRosterText : rosterText())">📋 복사</button>
@@ -2287,15 +2396,29 @@ function rosterUniqNames(zones){
     var ppl=(zones[a]&&zones[a].people)||[];
     for(var b=0;b<ppl.length;b++){
       var nm=rosterBaseName(ppl[b]);
+      /* '신규' 자리는 이름이 같아도 자리마다 1명 */
+      if(nm==='신규'){out.push('신규#'+out.length);continue;}
       if(nm&&!Object.prototype.hasOwnProperty.call(seen,nm)){seen[nm]=1;out.push(nm);}
     }
   }
   return out;
 }
+/* 신규 인원: '신규' 자리 + 이름 옆에 신규 표시한 사람(중복 이름은 1번) */
+function rosterNewCount(zones){
+  const seen={};let c=0;
+  zones.forEach(z=>(z.people||[]).forEach(p=>{const o=personParse(p);if(!o.nw)return;if(o.n==='신규'){c++;return;}if(!seen[o.n]){seen[o.n]=1;c++;}}));
+  return c;
+}
+/* 두 구역 이상에 들어간 이름 (구역 안 같은 이름·신규 제외) */
+function rosterDupNames(zones){
+  const cnt={};
+  zones.forEach(z=>{const s={};(z.people||[]).forEach(p=>{const n=rosterBaseName(p);if(!n||n==='신규'||s[n])return;s[n]=1;cnt[n]=(cnt[n]||0)+1;});});
+  return Object.keys(cnt).filter(n=>cnt[n]>1);
+}
 function rosterText(){
   const R=cur();
-  const active=R.work.zones.filter(z=>z.name.trim()&&z.people.length);
-  if(!active.length) return '';
+  const active=R.work.zones.filter(z=>z.isDiv||(z.name.trim()&&z.people.length));
+  if(!active.some(z=>!z.isDiv)) return '';
 
   const compact=getCompactMode();
   const line=z=> zoneLineText(z, compact);
@@ -2309,6 +2432,10 @@ function rosterText(){
   const _backNames=rosterUniqNames(back).filter(function(n){return _workNames.indexOf(n)<0;});
   const workTotal=_workNames.length;
   const backTotal=_backNames.length;
+  const newCnt=rosterNewCount(active);
+  const detail=[];
+  if(backTotal) detail.push(`근무 ${workTotal}`,`백업 ${backTotal}`);
+  if(newCnt) detail.push(`신규 ${newCnt} 포함`);
   const tplKey = schShift()==='dawn'?'dawn':'roster';
   return tidyLines(formatTemplate(getTemplate(tplKey), {
     emoji: R.emoji,
@@ -2319,13 +2446,26 @@ function rosterText(){
     backup_block: backupStr ? `━━━━━━━━━━━━\n${backupStr}` : '',
     work_total: workTotal,
     backup_total: backTotal,
-    total_detail: backTotal ? ` (근무 ${workTotal} · 백업 ${backTotal})` : '',
+    total_detail: detail.length ? ` (${detail.join(' · ')})` : '',
     total: workTotal + backTotal
   }));
 }
-function setZone(zi,key,v){customRosterText=null;cur().work.zones[zi][key]=key==='name'?v.trim():v;render();}
-function delZone(zi){customRosterText=null;cur().work.zones.splice(zi,1);render();}
-function addZone(){customRosterText=null;cur().work.zones.push({emoji:'📍',name:'',people:[],isBackup:false});render();}
+function setZone(zi,key,v){
+  customRosterText=null;
+  const z=cur().work.zones[zi]; if(!z) return;
+  if(key==='name'){
+    v=v.trim();
+    const sp=(!z.isDiv&&!z.nums)?splitZoneNums(v):null;
+    if(sp){ z.name=sp.name; z.nums=sp.nums; render(); showToast('구역 번호는 번호 칸으로 옮겼어요'); return; }
+  }
+  z[key]=v;
+  render();
+}
+function setZoneNums(zi,v){customRosterText=null;const z=cur().work.zones[zi];if(!z)return;z.nums=normNums(v);if(!z.nums)delete rosterNumsOpen[zi];render();}
+function openZoneNums(zi){rosterNumsOpen[zi]=1;render();const el=document.getElementById('znum-'+zi);if(el)el.focus();}
+function delZone(zi){customRosterText=null;rosterSel=null;rosterNumsOpen={};cur().work.zones.splice(zi,1);render();}
+function addZone(){customRosterText=null;cur().work.zones.push({emoji:'📍',name:'',nums:'',people:[],isBackup:false,isDiv:false});render();}
+function addDivider(){customRosterText=null;cur().work.zones.push({emoji:'',name:'',nums:'',people:[],isBackup:false,isDiv:true});render();}
 
 function toggleZoneBackup(zi){
   customRosterText=null;
@@ -2338,8 +2478,9 @@ function toggleZoneBackup(zi){
 function getCompactMode(){ return localStorage.getItem('disp-roster-compact')==='1'; }
 function setCompactMode(v){ localStorage.setItem('disp-roster-compact', v?'1':'0'); customRosterText=null; render(); }
 
-/* 카톡 한 줄에 들어가는 대략적 폭 (한글 2 · 영문/기호 1 · 이모지 2) */
-const KAKAO_LINE_LIMIT = 38;
+/* 카톡 한 줄에 들어가는 대략적 폭 (한글 2 · 영문/기호 1 · 이모지 2)
+   폰 카톡 한 줄 ≈ 36 (📍 개포: 이름 4명이 꽉 참) — 넘으면 카톡이 아무 데서나 줄을 바꿔서 앱이 먼저 나눔 */
+const KAKAO_LINE_LIMIT = 36;
 function lineWidth(s){
   let w = 0;
   for (const ch of String(s || '')) {
@@ -2357,33 +2498,44 @@ const ZONE_EMOJIS = Object.keys(ZONE_SEPS).map(k=>ZONE_SEPS[k].emoji);
 function getZoneSep(){ const v=localStorage.getItem('disp-roster-sep'); return ZONE_SEPS[v]?v:'pin'; }
 function setZoneSep(v){ localStorage.setItem('disp-roster-sep', v); customRosterText=null; render(); }
 
-function zoneLineText(z, compact){
+/* 머리 + 이름들 → 한 줄, 길면 "└ " 다음 줄부터 나눔 */
+function wrapNames(head, names, sep){
+  const one = `${head} ${names.join(sep)}`;
+  if (lineWidth(one) <= KAKAO_LINE_LIMIT) return [one];
+  const lines = [head.replace(/[:|·]\s*$/, '').trim()];
+  let cur = '';
+  names.forEach(p => {
+    const pre = lines.length === 1 ? '└ ' : '　 ';
+    const next = cur ? cur + sep + p : p;
+    if (cur && lineWidth(pre + next) > KAKAO_LINE_LIMIT) { lines.push(pre + cur); cur = p; }
+    else cur = next;
+  });
+  if (cur) lines.push((lines.length === 1 ? '└ ' : '　 ') + cur);
+  return lines;
+}
+function personLabel(o){ return (o.nw && o.n !== '신규') ? o.n + '(신규)' : o.n; }
+/* 구역 한 덩어리:
+   📍 대치: 권현정·김복영·김명숙      ← 메모 없는 사람
+   　 (104·105·106)                   ← 구역 번호
+   　 + 노창식 → 선경·우성            ← 메모(추가로 맡는 곳) 있는 사람 */
+function zoneMainLines(z, compact){
   const st = ZONE_SEPS[getZoneSep()] || ZONE_SEPS.pin;
   const custom = (z.emoji && ZONE_EMOJIS.indexOf(z.emoji) < 0) ? z.emoji : '';
   const emoji = z.isBackup ? (z.emoji || '🆘') : (custom || st.emoji);
   const head = `${emoji} ${z.name}:`;
-  const nameSep = compact ? '·' : ', ';
-  const one = `${head} ${z.people.join(nameSep)}`;
-  if (lineWidth(one) <= KAKAO_LINE_LIMIT) return one;
-
-  const lines = [head.replace(/[:|·]\s*$/, '').trim()];
-  let cur = '';
-  z.people.forEach(p => {
-    const pre = lines.length === 1 ? '└ ' : '　 ';
-    const next = cur ? cur + nameSep + p : p;
-    if (cur && lineWidth(pre + next) > KAKAO_LINE_LIMIT) {
-      lines.push(pre + cur);
-      cur = p;
-    } else {
-      cur = next;
-    }
-  });
-  if (cur) lines.push((lines.length === 1 ? '└ ' : '　 ') + cur);
+  const main = z.people.map(personParse).filter(o => !o.m).map(personLabel);
+  return main.length ? wrapNames(head, main, compact ? '·' : ', ') : [head.replace(/:\s*$/, '')];
+}
+function zoneLineText(z, compact){
+  if (z.isDiv) return z.name.trim() ? `━━ ${z.name.trim()} ━━` : '━━━━━━━━';
+  const lines = zoneMainLines(z, compact);
+  if (z.nums) lines.push(`　 (${z.nums})`);
+  z.people.map(personParse).filter(o => o.m).forEach(o => lines.push(`　 + ${personLabel(o)} → ${o.m.replace(/^\+\s*/, '')}`));
   return lines.join('\n');
 }
 
 function addPerson(zi,v,keepFocus){
-  const names=String(v||'').split(/[\s,、·]+/).map(s=>s.trim()).filter(Boolean);
+  const names=splitNames(v);
   if(!names.length)return;
   const z=cur().work.zones[zi]; if(!z)return;
   customRosterText=null;
@@ -2391,29 +2543,47 @@ function addPerson(zi,v,keepFocus){
   render();
   if(keepFocus){const el=document.getElementById('padd-'+zi);if(el)el.focus();}
 }
+function addNewSlot(zi){const z=cur().work.zones[zi];if(!z)return;customRosterText=null;z.people.push('신규');render();}
+/* 사람 칩 눌러 고치기 — 입력 중엔 다시 그리지 않고 미리보기만 갱신 */
+function selPerson(zi,pi){rosterSel=(rosterSel&&rosterSel[0]===zi&&rosterSel[1]===pi)?null:[zi,pi];render();}
+function setPersonField(zi,pi,key,v){
+  const z=cur().work.zones[zi]; if(!z||z.people[pi]==null) return;
+  const o=personParse(z.people[pi]);
+  if(key==='n'){const n=String(v||'').trim().replace(/[()（）]/g,'');if(!n)return;o.n=n;if(n==='신규')o.nw=true;}
+  else if(key==='m') o.m=String(v||'').trim().replace(/^[(（]|[)）]$/g,'');
+  else if(key==='nw') o.nw=!!v||o.n==='신규';
+  z.people[pi]=personStr(o);
+  customRosterText=null;
+  const ta=document.getElementById('roster-pv');
+  if(ta){ta.value=rosterText();ta.classList.toggle('empty',!ta.value);autoResizePreviews();}
+}
+function closePersonEdit(){rosterSel=null;render();}
 function applyBulkRoster(text){
   const lines=String(text||'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
   if(!lines.length){showToast('붙여넣은 내용이 없어요','err');return;}
   const zones=[];
   lines.forEach(l=>{
+    /* "-----" "━━ 송파 ━━" 같은 줄은 구분선 */
+    const dv=/^[-━─=~_]{2,}\s*(.*?)\s*[-━─=~_]*$/.exec(l);
+    if(dv){ if(zones.length) zones.push({emoji:'',name:dv[1].trim(),nums:'',people:[],isBackup:false,isDiv:true}); return; }
     let name,rest;
     const c=l.split(/\s*[:：]\s*/);
     if(c.length>=2){name=c[0].trim();rest=c.slice(1).join(':');}
     else{const p=l.split(/\s+/);name=p.shift()||'';rest=p.join(' ');}
-    name=name.replace(/^[📍🔹🚩🆘•\-]+\s*/,'').trim();
-    const people=rest.split(/[\s,、·]+/).map(s=>s.trim()).filter(Boolean);
-    if(name)zones.push({emoji:'📍',name,people,isBackup:false});
+    name=name.replace(/^[📍🔹🚩🆘•\-]+\s*/u,'').trim();
+    if(name)zones.push(cleanZone({emoji:'📍',name,people:splitNames(rest),isBackup:false}));
   });
-  if(!zones.length){showToast('구역을 인식하지 못했어요','err');return;}
+  while(zones.length&&zones[zones.length-1].isDiv) zones.pop();
+  if(!zones.some(z=>!z.isDiv)){showToast('구역을 인식하지 못했어요','err');return;}
   const R=cur();
   const backups=R.work.zones.filter(z=>z.isBackup);
   R.work.zones=zones.concat(backups);
-  customRosterText=null;
+  customRosterText=null;rosterSel=null;rosterNumsOpen={};
   rosterPanels.bulk=false;
   render();
-  showToast(`✅ ${zones.length}개 구역 · ${zones.reduce((s,z)=>s+z.people.length,0)}명 반영`);
+  showToast(`✅ ${zones.filter(z=>!z.isDiv).length}개 구역 · ${zones.reduce((s,z)=>s+z.people.length,0)}명 반영`);
 }
-function delPerson(zi,pi){customRosterText=null;cur().work.zones[zi].people.splice(pi,1);render();}
+function delPerson(zi,pi){customRosterText=null;rosterSel=null;cur().work.zones[zi].people.splice(pi,1);render();}
 
 function saveAsTpl(){
   const R=cur();
@@ -2423,7 +2593,7 @@ function saveAsTpl(){
 }
 function reloadTpl(){
   const R=cur();
-  customRosterText=null;
+  customRosterText=null;rosterSel=null;rosterNumsOpen={};
   R.work.title=R.tpl[R.workDow].title;
   R.work.zones=deepZones(R.tpl[R.workDow].zones);
   render();showToast('기본 명단으로 되돌렸어요');
@@ -2431,7 +2601,7 @@ function reloadTpl(){
 
 function selectDow(d){
   const R=cur();
-  customRosterText = null;
+  customRosterText = null; rosterSel = null; rosterNumsOpen = {};
   R.workDow=d;
   R.work.title=R.tpl[d].title;
   R.work.zones=deepZones(R.tpl[d].zones);
@@ -2488,7 +2658,7 @@ function unsetOff(w, shift){
 function tabTitle(t){ return t==='roster' ? (schShift()==='dawn' ? '새벽반 출근명단' : '출근명단 정리') : (TAB_TITLES[t]||''); }
 /* 반 전환 — 출근명단·근무/휴무 두 탭이 같이 움직인다 */
 function schSetShift(sh){
-  scheduleStore.shift = sh; schFilter = 'all'; schQuery = ''; customRosterText = null;
+  scheduleStore.shift = sh; schFilter = 'all'; schQuery = ''; customRosterText = null; rosterSel = null; rosterNumsOpen = {};
   saveSchedule();
   const h = document.getElementById('hTitle'); if (h) h.textContent = tabTitle(tab);
   render();
@@ -2566,7 +2736,7 @@ function schRenameWorker(w){
   saveSchedule();
   /* 출근명단: 오늘 명단 + 요일별 기본 명단 */
   const R = sh === 'dawn' ? rosters.dawn : rosters.main; let hit = 0;
-  const swap = zones => (zones||[]).forEach(z => { z.people = (z.people||[]).map(p => { if (String(p).trim() === w){ hit++; return n; } return p; }); });
+  const swap = zones => (zones||[]).forEach(z => { z.people = (z.people||[]).map(p => { const o = personParse(p); if (o.n === w){ hit++; o.n = n; return personStr(o); } return p; }); });
   swap(R.work.zones); R.tpl.forEach(t => swap(t.zones)); saveTplFor(R);
   customRosterText = null;
   if (schPerson === w){ schPerson = n; try{ history.replaceState({ sub:'schedule', schPerson:n }, ''); }catch(e){} }
@@ -2591,8 +2761,8 @@ function schImportRoster(){
   const sh = schShift(), R = sh === 'dawn' ? rosters.dawn : rosters.main;
   const a = schList(sh), other = schList(sh === 'day' ? 'dawn' : 'day'); let n = 0;
   R.work.zones.forEach(z => z.people.forEach(p => {
-    p = String(p||'').trim();
-    if (p && a.indexOf(p) < 0 && other.indexOf(p) < 0){ a.push(p); n++; }
+    p = rosterBaseName(p);
+    if (p && p !== '신규' && a.indexOf(p) < 0 && other.indexOf(p) < 0){ a.push(p); n++; }
   }));
   saveSchedule();
   showToast(n ? '👥 '+SHIFT_NAME[sh]+'에 '+n+'명을 새로 불러왔어요' : '새로 불러올 사람이 없어요');
