@@ -180,6 +180,7 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
 .chip-memo{font-size:12px;font-weight:600;color:var(--sub);margin-left:-2px;}
 .chip-new{font-size:11px;font-weight:800;color:#0e1116;background:var(--teal3,#5eead4);border-radius:5px;padding:1px 5px;}
 .chip-dup{border-color:var(--amber2,#f59e0b);}
+.chip-slot{border-style:dashed;border-color:var(--teal3);color:var(--teal3);}
 .chip-sel{border-color:var(--blue2);background:rgba(59,130,246,.16);}
 .zone-warn{font-size:11.5px;font-weight:700;color:var(--amber2,#f59e0b);margin:8px 0 0 2px;}
 .pedit{margin-top:10px;background:var(--card2);border:1.5px solid var(--blue2);border-radius:12px;padding:10px;display:grid;gap:8px;}
@@ -2304,7 +2305,7 @@ function renderRoster(){
       ${(z.nums||rosterNumsOpen[zi])?`<div class="zone-nums-row"><span>구역 번호</span><input id="znum-${zi}" class="zone-nums" value="${esc(z.nums.replace(/·/g,', '))}" placeholder="예: 104, 105, 106" inputmode="text" onchange="setZoneNums(${zi},this.value)"></div>`:''}
            ${zoneMainLines(z,getCompactMode()).length>1?`<div style="font-size:10.5px;color:var(--blue3);font-weight:700;margin:-4px 0 8px 2px;">↩️ 인원이 많아 카톡에서 2줄로 나눠 보냅니다</div>`:''}
       <div class="chips">
-        ${ppl.map((o,pi)=>`<span class="chip${zDups.indexOf(o.n)>=0?' chip-dup':''}${ed&&sel[1]===pi?' chip-sel':''}" onclick="selPerson(${zi},${pi})">${esc(o.n)}${o.m?`<span class="chip-memo">${esc(o.m)}</span>`:''}${o.nw?'<span class="chip-new">신규</span>':''}<button class="chip-x" onclick="event.stopPropagation();delPerson(${zi},${pi})">✕</button></span>`).join('')}
+        ${ppl.map((o,pi)=>`<span class="chip${zDups.indexOf(o.n)>=0?' chip-dup':''}${ed&&sel[1]===pi?' chip-sel':''}${o.n==='신규'?' chip-slot':''}" onclick="selPerson(${zi},${pi})">${esc(o.n)}${o.m?`<span class="chip-memo">${esc(o.m)}</span>`:''}${o.nw&&o.n!=='신규'?'<span class="chip-new">신규</span>':''}<button class="chip-x" onclick="event.stopPropagation();delPerson(${zi},${pi})">✕</button></span>`).join('')}
         <span class="chip-add"><input id="padd-${zi}" placeholder="+ 이름 (여러 명 띄어쓰기)" onkeydown="if(event.key==='Enter'){event.preventDefault();const v=this.value;this.value='';addPerson(${zi},v,true);}" onblur="const v=this.value;this.value='';if(v.trim())addPerson(${zi},v);"></span>
       </div>
       ${zDups.length?`<div class="zone-warn">⚠️ ${esc(zDups.join(', '))} — 다른 구역에도 있어요</div>`:''}
