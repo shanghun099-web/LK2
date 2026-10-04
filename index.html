@@ -258,6 +258,13 @@ input[type="time"].time-hint{
 .btn-share{background:var(--kakao);color:var(--kakao-text);}
 .btn-copy{background:var(--card3);color:var(--text);border:1.5px solid var(--border2);}
 
+.pv-seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;background:var(--card2);border:1.5px solid var(--border2);border-radius:13px;margin-bottom:12px;}
+.pv-seg button{padding:11px 4px;border:none;border-radius:10px;background:transparent;color:var(--sub);font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;min-height:44px;}
+.pv-seg button.on{background:var(--blue);color:#fff;}
+.dawn-theme .pv-seg button.on{background:var(--amber);}
+.roster-img canvas{display:block;width:100%;height:auto;border-radius:14px;box-shadow:0 2px 14px rgba(0,0,0,.35);cursor:zoom-in;}
+.roster-img-empty{background:#f0f0f0;color:#888;border-radius:14px;padding:30px 16px;text-align:center;font-size:13.5px;}
+.pv-note{margin-top:9px;font-size:12px;color:var(--amber2);font-weight:700;line-height:1.5;}
 .btn-save-tpl{width:100%;padding:13px;border:1.5px solid #1d3a66;border-radius:12px;background:linear-gradient(135deg,#10243f,#13294a);color:var(--blue3);font-size:13.5px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:10px;transition:transform 0.1s;}
 .btn-save-tpl:active{transform:scale(0.98);}
 
@@ -2326,6 +2333,7 @@ function renderRoster(){
   }).join('');
 
   const previewText = customRosterText !== null ? customRosterText : rosterText();
+  const imgView = getRosterView()==='img';
 
   const workCnt = k => rosterUniqNames(rosters[k].work.zones.filter(z=>!z.isBackup)).length;
   return `${shiftSwitchHTML({ day: workCnt('main'), dawn: workCnt('dawn') })}<div class="${R.theme}">
@@ -2368,12 +2376,25 @@ function renderRoster(){
     </div>
 
     <div class="preview-wrap">
+      <div class="pv-seg">
+        <button class="${imgView?'':'on'}" onclick="setRosterView('text')">💬 카톡 글</button>
+        <button class="${imgView?'on':''}" onclick="setRosterView('img')">🖼 이미지</button>
+      </div>
+      <div ${imgView?'hidden':''}>
       <div class="preview-label">카톡 미리보기 (직접 편집 가능)</div>
       <textarea id="roster-pv" class="kakao-bubble${previewText?'':' empty'}" oninput="customRosterText=this.value; autoResizePreviews();" placeholder="구역과 이름을 입력하면 여기에 미리보기가 나옵니다.">${esc(previewText)}</textarea>
       <div class="actions">
         <button class="btn btn-share" onclick="shareText(customRosterText !== null ? customRosterText : rosterText())">💬 공유하기</button>
         <button class="btn btn-copy" onclick="copyText(customRosterText !== null ? customRosterText : rosterText())">📋 복사</button>
       </div>
+      </div>
+      ${imgView?`<div class="preview-label">이미지 미리보기 · 누르면 크게 보기</div>
+      <div id="roster-img" class="roster-img" onclick="rosterImgZoom()"></div>
+      ${customRosterText!==null?'<div class="pv-note">✏️ 카톡 글에서 직접 고친 내용은 이미지에 들어가지 않아요. 이미지는 위 명단 그대로 만들어집니다.</div>':''}
+      <div class="actions">
+        <button class="btn btn-share" onclick="rosterImgShare()">🖼 이미지 보내기</button>
+        <button class="btn btn-copy" onclick="rosterImgSave()">💾 사진 저장</button>
+      </div>`:''}
       <button class="btn-save-tpl" onclick="saveAsTpl()">📌 이 명단을 ${DOW_FULL[R.workDow]} ${R.label} 기본으로 저장</button>
     </div>
     <div style="height:10px"></div>
@@ -2535,6 +2556,214 @@ function zoneLineText(z, compact){
   return lines.join('\n');
 }
 
+/* ── 출근명단 이미지 ──
+   카톡 글은 폰마다 줄이 제멋대로 꺾여서, 같은 내용을 표로 정돈된 그림으로도 만든다.
+   카톡 글을 직접 고친 내용은 반영하지 않음 */
+function getRosterView(){ try{ return localStorage.getItem('disp-roster-view')==='img'?'img':'text'; }catch(e){ return 'text'; } }
+function setRosterView(v){ try{ localStorage.setItem('disp-roster-view', v); }catch(e){} render(); }
+function rosterDocDate(iso){ const d=new Date(iso+'T00:00:00'); return d.getFullYear()+'. '+(d.getMonth()+1)+'. '+d.getDate()+'.('+DAYS[d.getDay()]+')'; }
+function rosterImgData(){
+  const R=cur();
+  const active=R.work.zones.filter(z=>z.isDiv||(z.name.trim()&&z.people.length));
+  if(!active.some(z=>!z.isDiv)) return null;
+  const norm=active.filter(z=>!z.isBackup), back=active.filter(z=>z.isBackup);
+  const work=rosterUniqNames(norm);
+  const backN=rosterUniqNames(back).filter(n=>work.indexOf(n)<0).length;
+  return {
+    dawn: schShift()==='dawn', date: fmtKDate(R.work.date), title: R.work.title||R.defTitle,
+    shift: schShift()==='dawn'?'새벽반':'당일배송반', dateFull: rosterDocDate(R.work.date),
+    norm, back, work: work.length, backN, newCnt: rosterNewCount(active),
+    zoneCnt: norm.filter(z=>!z.isDiv).length
+  };
+}
+/* 깔끔형 — 색은 포인트 한 가지(당일 파랑 / 새벽 주황) + 신규 초록만. 흰 바탕에 구역 이름이 제목처럼 크게,
+   그 아래 이름이 4칸 자리에 정렬. 줄무늬·색 점·요약 칸 없이 여백과 가는 선으로만 나눔.
+   새벽반은 구역마다 사람이 적어서 '구역 (번호) | 이름' 한 줄 표 (사용자 결정 2026-10-05) */
+function rosterCardCanvas(d, dpr){
+  const W=600, P=34, IN=W-P*2, F="'Noto Sans KR',sans-serif";
+  const AC=d.dawn?'#C2410C':'#1D4ED8', SOFT=d.dawn?'#FFEDD5':'#DBEAFE', GR='#15803D', INK='#111827', SUB='#6b7280', LN='#e5e7eb';
+  const NS=4, CW=IN/NS, LH=32;
+  const pass=(x,draw)=>{
+    const font=(sz,w)=>{ x.font=w+' '+sz+'px '+F; };
+    const tw=(t,sz,w)=>{ font(sz,w); return x.measureText(t).width; };
+    const T=(t,X,Y,o)=>{ if(!draw) return; o=o||{}; font(o.s||15,o.w||500); x.fillStyle=o.c||INK; x.textAlign=o.a||'left'; x.textBaseline='middle'; x.fillText(t,X,Y); };
+    const hr=(X,Y,w,c,h)=>{ if(!draw) return; x.fillStyle=c||LN; x.fillRect(X,Y,w,h||1); };
+    const rr=(X,Y,w,h,r,fill)=>{ if(!draw) return; x.beginPath(); x.moveTo(X+r,Y); x.arcTo(X+w,Y,X+w,Y+h,r); x.arcTo(X+w,Y+h,X,Y+h,r); x.arcTo(X,Y+h,X,Y,r); x.arcTo(X,Y,X+w,Y,r); x.closePath(); x.fillStyle=fill; x.fill(); };
+    const wrap=(t,maxW,sz,w)=>{
+      font(sz,w); const out=[]; let line='';
+      const toks=String(t).match(/[^\s·,]+[\s·,]*|[\s·,]+/g)||[''];
+      toks.forEach(tok=>{
+        if(x.measureText(line+tok).width<=maxW){ line+=tok; return; }
+        if(line.trim()){ out.push(line.trim()); line=''; }
+        for(const ch of tok){ if(line&&x.measureText(line+ch).width>maxW){ out.push(line.trim()); line=''; } line+=ch; }
+      });
+      if(line.trim()) out.push(line.trim());
+      return out.length?out:[''];
+    };
+    const total=d.work+d.backN;
+    /* 머리 — 흰 바탕, 굵은 검정 제목, 총 인원만 포인트 색 */
+    const totW=tw(total+'명',32,900);
+    let ts=27; while(ts>16&&tw(d.title,ts,900)>IN-totW-24) ts--;
+    T(d.dateFull+'  ·  '+d.shift,P,46,{s:14,w:700,c:SUB});
+    T(d.title,P,84,{s:ts,w:900});
+    T('총 인원',W-P,48,{s:12,w:700,c:SUB,a:'right'});
+    T(total+'명',W-P,84,{s:32,w:900,c:AC,a:'right'});
+    const det=['근무 '+d.work+'명']; if(d.backN) det.push('백업 '+d.backN+'명'); if(d.newCnt) det.push('신규 '+d.newCnt+'명');
+    det.unshift('구역 '+d.zoneCnt+'개');
+    T(det.join('   '),P,120,{s:13,w:600,c:SUB});
+    let y=140; hr(P,y,IN,INK,2); y+=6;
+
+    const label=(t,c)=>{ y+=16; const w=tw(t,13,800); T(t,P,y+8,{s:13,w:800,c:c||SUB}); hr(P+w+10,y+8,IN-w-10,'#d1d5db'); y+=20; };
+    const nameAt=(o,X,Y)=>{
+      if(o.n==='신규'){ T('신규',X,Y,{s:18,w:800,c:GR}); return; }
+      T(o.n,X,Y,{s:18,w:500});
+      if(o.nw) T('신규',X+tw(o.n,18,500)+4,Y+1,{s:12,w:800,c:GR});
+    };
+
+    let first=true;
+    const zoneBlock=z=>{
+      const ppl=z.people.map(personParse);
+      if(!first) hr(P,y,IN,LN);
+      first=false;
+      y+=16;
+      /* 구역 이름 줄: 이름 (번호) 를 한 덩어리로 같은 색 · 그 뒤 인원 회색. 너무 길면 번호는 다음 줄 */
+      const zc=z.isBackup?'#B45309':AC, nm=z.name.trim(), nmW=tw(nm,20,900);
+      const nt=z.nums?'('+z.nums+')':'', ntW=nt?tw(nt,17,700):0, cnt=rosterUniqNames([z]).length+'명';
+      T(nm,P,y+12,{s:20,w:900,c:zc});
+      if(nt&&nmW+8+ntW+10+tw(cnt,14,700)<=IN){
+        T(nt,P+nmW+8,y+13,{s:17,w:700,c:zc});
+        T(cnt,P+nmW+8+ntW+10,y+13,{s:14,w:700,c:SUB});
+      } else {
+        T(cnt,P+nmW+10,y+13,{s:14,w:700,c:SUB});
+        if(nt){ y+=24; T(nt,P,y+12,{s:17,w:700,c:zc}); }
+      }
+      y+=30;
+      /* 메모(추가로 맡는 곳)는 이름 바로 뒤 색 꼬리표 — 꼬리표가 길면 그 사람이 칸을 여러 개 차지하고,
+         한 줄을 넘으면 꼬리표 안에서 줄을 바꿈 */
+      let c=0,r=0;
+      const pos=[], rowH=[LH];
+      ppl.forEach(o=>{
+        const nw=tw(o.n,18,500)+(o.nw&&o.n!=='신규'?32:0);
+        let tag=null, w=nw+14;
+        if(o.m){
+          const mt=o.m.replace(/^\+\s*/,''), maxT=IN-nw-26;
+          const lines=tw(mt,15,700)+18<=maxT?[mt]:wrap(mt,maxT-18,15,700);
+          const tW=Math.max(...lines.map(t=>tw(t,15,700)))+18;
+          tag={lines,w:tW,h:lines.length*20+8,x:nw+8};
+          w=nw+8+tW+14;
+        }
+        const span=Math.min(NS,Math.ceil(w/CW));
+        if(c+span>NS){ r++; c=0; rowH.push(LH); }
+        if(tag) rowH[r]=Math.max(rowH[r],tag.h+8);
+        pos.push({o,c,r,tag}); c+=span;
+      });
+      const rowY=[]; let acc=0; rowH.forEach((h,i)=>{ rowY[i]=acc; acc+=h; });
+      pos.forEach(p=>{
+        const X=P+p.c*CW, Y=y+rowY[p.r]+rowH[p.r]/2;
+        nameAt(p.o,X,Y);
+        if(p.tag){ const t=p.tag, tx=X+t.x, ty=Y-t.h/2;
+          rr(tx,ty,t.w,t.h,8,SOFT);
+          t.lines.forEach((ln,i)=>T(ln,tx+9,ty+4+10+i*20,{s:15,w:700,c:AC}));
+        }
+      });
+      y+=acc;
+      y+=10;
+    };
+    /* 한 줄 표 — 새벽반이고 모든 구역의 이름이 구역 옆 한 줄에 들어가면 '구역 (번호) | 이름' 한 줄씩.
+       당일배송반은 늘, 새벽반도 한 구역이라도 넘치면 위의 구역 제목 + 이름 칸 모양 */
+    const zs=d.norm.concat(d.back).filter(z=>!z.isDiv);
+    const setW=z=>tw(z.name.trim(),17,800)+(z.nums?8+tw('('+z.nums+')',15,700):0);
+    const ZC=Math.min(300,Math.max(96,...zs.map(z=>setW(z)+24)));
+    const inl=z=>z.people.map(personParse).map(o=>{
+      const nw=tw(o.n,18,500)+(o.nw&&o.n!=='신규'?32:0);
+      return {o,nw,mt:o.m?o.m.replace(/^\+\s*/,''):'',w:nw+(o.m?8+tw(o.m.replace(/^\+\s*/,''),15,700)+18:0)};
+    });
+    const lineW=z=>inl(z).reduce((a,it,i)=>a+it.w+(i?22:0),0);
+    const compact=d.dawn&&zs.every(z=>ZC+lineW(z)<=IN);
+    const zoneLine=z=>{
+      if(!first) hr(P,y,IN,LN);
+      first=false;
+      /* 구역 (번호) 를 한 세트로 — 칸에 안 들어가면 번호를 이름 아래 줄로 */
+      const zc=z.isBackup?'#B45309':AC, nt=z.nums?'('+z.nums+')':'';
+      const zl=tw(z.name.trim(),17,800)+22>ZC?wrap(z.name.trim(),ZC-22,17,800):[z.name.trim()];
+      const same=nt&&zl.length===1&&setW(z)+24<=ZC;
+      const lines=zl.length+(nt&&!same?1:0);
+      const h=Math.max(46,lines*22+20), cy=y+h/2, top=cy-(lines-1)*11;
+      zl.forEach((t,i)=>T(t,P,top+i*22+1,{s:17,w:800,c:zc}));
+      if(same) T(nt,P+tw(zl[0],17,800)+8,top+1,{s:15,w:700,c:zc});
+      else if(nt) T(nt,P,top+zl.length*22+1,{s:15,w:700,c:zc});
+      let X=P+ZC;
+      inl(z).forEach(it=>{
+        nameAt(it.o,X,cy+1);
+        if(it.mt){ const tx=X+it.nw+8, tW=tw(it.mt,15,700)+18; rr(tx,cy-13,tW,26,8,SOFT); T(it.mt,tx+9,cy+1,{s:15,w:700,c:AC}); }
+        X+=it.w+22;
+      });
+      y+=h;
+    };
+    const one=compact?zoneLine:zoneBlock;
+    if(compact) y+=4;
+    d.norm.forEach(z=>{ if(z.isDiv){ label(z.name.trim()||'─'); first=true; return; } one(z); });
+    if(d.back.length){ label('백업 인원','#B45309'); first=true; d.back.forEach(one); }
+    y+=6; hr(P,y,IN,INK,2); y+=22;
+    T(todayISO().replace(/-/g,'.')+' 작성',W-P,y,{s:12,w:500,c:'#9ca3af',a:'right'});
+    return y+30;
+  };
+  const m=document.createElement('canvas').getContext('2d');
+  const H=Math.ceil(pass(m,false));
+  const c=document.createElement('canvas'); dpr=dpr||3;
+  c.width=W*dpr; c.height=H*dpr;
+  const x=c.getContext('2d'); x.scale(dpr,dpr);
+  x.fillStyle='#fff'; x.fillRect(0,0,W,H);
+  pass(x,true);
+  return c;
+}
+let rosterFontWait=null;
+function rosterImgRefresh(){
+  const box=document.getElementById('roster-img'); if(!box) return;
+  const d=rosterImgData();
+  if(!d){ box.innerHTML='<div class="roster-img-empty">구역과 이름을 입력하면 여기에 이미지가 나옵니다.</div>'; return; }
+  box.innerHTML=''; box.appendChild(rosterCardCanvas(d));
+  /* 처음엔 한글 글꼴이 늦게 와서 기본 글꼴로 그려질 수 있음 — 받은 뒤 한 번 다시 그림 */
+  if(!rosterFontWait&&document.fonts&&document.fonts.load){
+    rosterFontWait=Promise.all([document.fonts.load("700 18px 'Noto Sans KR'"),document.fonts.load("500 16px 'Noto Sans KR'")]).then(()=>rosterImgRefresh()).catch(()=>{});
+  }
+}
+async function rosterImgBlob(){
+  const d=rosterImgData(); if(!d){ showToast('명단이 비어 있어요','err'); return null; }
+  try{ if(document.fonts&&document.fonts.load) await document.fonts.load("700 18px 'Noto Sans KR'"); }catch(e){}
+  const c=rosterCardCanvas(d);
+  return new Promise(res=>c.toBlob(res,'image/png'));
+}
+function rosterImgName(){ const R=cur(); return R.work.date+'_'+(schShift()==='dawn'?'새벽반':'출근')+'명단.png'; }
+function rosterImgZoom(){
+  const d=rosterImgData(); if(!d) return;
+  const c=rosterCardCanvas(d);
+  c.style.cssText='width:100%;max-width:600px;height:auto;border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.6);display:block;margin:0 auto;';
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);overflow:auto;padding:16px 12px 30px;';
+  const tip=document.createElement('div');
+  tip.style.cssText='color:#cbd5e1;font-size:13px;text-align:center;margin-bottom:10px;';
+  tip.textContent='화면을 누르면 닫힙니다';
+  ov.appendChild(tip); ov.appendChild(c);
+  ov.onclick=()=>ov.remove();
+  document.body.appendChild(ov);
+}
+async function rosterImgShare(){
+  const blob=await rosterImgBlob(); if(!blob) return;
+  const file=new File([blob],rosterImgName(),{type:'image/png'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file]}); showToast('💬 공유 메뉴를 열었어요'); return; }
+    catch(e){ if(e&&e.name==='AbortError') return; }
+  }
+  rosterImgDownload(blob);
+}
+async function rosterImgSave(){ const blob=await rosterImgBlob(); if(blob) rosterImgDownload(blob); }
+function rosterImgDownload(blob){
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=rosterImgName(); document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  showToast('🖼 이미지를 저장했어요 — 카톡에서 사진으로 보내세요');
+}
+
 function addPerson(zi,v,keepFocus){
   const names=splitNames(v);
   if(!names.length)return;
@@ -2557,6 +2786,7 @@ function setPersonField(zi,pi,key,v){
   customRosterText=null;
   const ta=document.getElementById('roster-pv');
   if(ta){ta.value=rosterText();ta.classList.toggle('empty',!ta.value);autoResizePreviews();}
+  rosterImgRefresh();
 }
 function closePersonEdit(){rosterSel=null;render();}
 function applyBulkRoster(text){
@@ -4488,6 +4718,7 @@ function render(){
   else if(tab==='inbound') c.innerHTML=renderInbound();
   else if(tab==='settle') c.innerHTML=renderSettle();
   else c.innerHTML=renderRoster();
+  rosterImgRefresh();
 
   setTimeout(autoResizePreviews, 10);
 }
