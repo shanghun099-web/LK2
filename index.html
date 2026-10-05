@@ -2392,7 +2392,7 @@ function renderRoster(){
       <div id="roster-img" class="roster-img" onclick="rosterImgZoom()"></div>
       ${customRosterText!==null?'<div class="pv-note">✏️ 카톡 글에서 직접 고친 내용은 이미지에 들어가지 않아요. 이미지는 위 명단 그대로 만들어집니다.</div>':''}
       <div class="actions">
-        <button class="btn btn-share" onclick="rosterImgShare()">🖼 이미지 보내기</button>
+        <button class="btn btn-share" onclick="rosterImgShare()">💬 카톡 공유하기</button>
         <button class="btn btn-copy" onclick="rosterImgSave()">💾 사진 저장</button>
       </div>`:''}
       <button class="btn-save-tpl" onclick="saveAsTpl()">📌 이 명단을 ${DOW_FULL[R.workDow]} ${R.label} 기본으로 저장</button>
@@ -2630,6 +2630,15 @@ function rosterCardCanvas(d, dpr){
       if(o.nw) T('신규',X+tw(o.n,NM,500)+5,Y+2,{s:16,w:800,c:GR});
     };
     const nameW=o=>tw(o.n,NM,500)+(o.nw&&o.n!=='신규'?tw('신규',16,800)+7:0);
+    /* 모든 구역 앞 같은 핀 하나 — 포인트 색으로 직접 그림 (📍 이모지는 폰마다 모양이 달라 안 씀, 사용자 결정 2026-10-05) */
+    const pinW=sz=>Math.round(sz*0.62)+8;
+    const pin=(X,Y,sz,c)=>{
+      if(!draw) return;
+      const r=sz*0.25, cx=X+sz*0.31, cy=Y-r*0.55;
+      x.fillStyle=c; x.beginPath(); x.arc(cx,cy,r,0,Math.PI*2); x.fill();
+      x.beginPath(); x.moveTo(cx-r*0.9,cy+r*0.45); x.lineTo(cx,cy+r*2.2); x.lineTo(cx+r*0.9,cy+r*0.45); x.closePath(); x.fill();
+      x.fillStyle='#fff'; x.beginPath(); x.arc(cx,cy,r*0.42,0,Math.PI*2); x.fill();
+    };
 
     let first=true;
     /* 당일 모양 — 구역 (번호) 제목 줄 + 이름 4칸. 메모는 이름 바로 뒤 색 꼬리표 */
@@ -2640,13 +2649,15 @@ function rosterCardCanvas(d, dpr){
       y+=22;
       const zc=z.isBackup?'#B45309':AC, nm=z.name.trim(), nmW=tw(nm,NM,900);
       const nt=z.nums?'('+z.nums+')':'', ntW=nt?tw(nt,22,700):0, cnt=rosterUniqNames([z]).length+'명';
-      T(nm,P,y+16,{s:NM,w:900,c:zc});
-      if(nt&&nmW+10+ntW+12+tw(cnt,19,700)<=IN){
-        T(nt,P+nmW+10,y+17,{s:22,w:700,c:zc});
-        T(cnt,P+nmW+10+ntW+12,y+17,{s:19,w:700,c:SUB});
+      const ZX=P+pinW(NM);
+      pin(P,y+16,NM,zc);
+      T(nm,ZX,y+16,{s:NM,w:900,c:zc});
+      if(nt&&ZX-P+nmW+10+ntW+12+tw(cnt,19,700)<=IN){
+        T(nt,ZX+nmW+10,y+17,{s:22,w:700,c:zc});
+        T(cnt,ZX+nmW+10+ntW+12,y+17,{s:19,w:700,c:SUB});
       } else {
-        T(cnt,P+nmW+12,y+17,{s:19,w:700,c:SUB});
-        if(nt){ y+=32; T(nt,P,y+16,{s:22,w:700,c:zc}); }
+        T(cnt,ZX+nmW+12,y+17,{s:19,w:700,c:SUB});
+        if(nt){ y+=32; T(nt,ZX,y+16,{s:22,w:700,c:zc}); }
       }
       y+=44;
       let c=0,r=0;
@@ -2680,9 +2691,10 @@ function rosterCardCanvas(d, dpr){
     /* 새벽 모양 — 구역 (번호) | 이름 한 줄. 구역+번호가 길면 모든 줄에서 번호를 구역 아래로 (줄 모양 통일) */
     const zs=d.norm.concat(d.back).filter(z=>!z.isDiv);
     const ZS=26, NSZ=21, ZCAP=290;
-    const zW=z=>tw(z.name.trim(),ZS,900), nW=z=>z.nums?tw('('+z.nums+')',NSZ,700):0;
+    const PW=pinW(ZS);
+    const zW=z=>PW+tw(z.name.trim(),ZS,900), nW=z=>z.nums?tw('('+z.nums+')',NSZ,700):0;
     const sameLine=zs.every(z=>zW(z)+(z.nums?10+nW(z):0)+28<=ZCAP);
-    const ZC=Math.min(ZCAP,Math.max(110,...zs.map(z=>(sameLine?zW(z)+(z.nums?10+nW(z):0):Math.max(zW(z),nW(z)))+28)));
+    const ZC=Math.min(ZCAP,Math.max(110,...zs.map(z=>(sameLine?zW(z)+(z.nums?10+nW(z):0):Math.max(zW(z),PW+nW(z)))+28)));
     const inl=z=>z.people.map(personParse).map(o=>{
       const nw=nameW(o), mt=o.m?o.m.replace(/^\+\s*/,''):'';
       return {o,nw,mt,w:nw+(mt?10+tw(mt,21,700)+20:0)};
@@ -2693,14 +2705,14 @@ function rosterCardCanvas(d, dpr){
       if(!first) hr(P,y,IN,LN);
       first=false;
       const zc=z.isBackup?'#B45309':AC, nt=z.nums?'('+z.nums+')':'';
-      const zl=zW(z)+28>ZC?wrap(z.name.trim(),ZC-28,ZS,900):[z.name.trim()];
+      const zl=zW(z)+28>ZC?wrap(z.name.trim(),ZC-28-PW,ZS,900):[z.name.trim()];
       const same=sameLine&&zl.length===1;
       const lines=zl.map(t=>({t,s:ZS,w:900})).concat(nt&&!same?[{t:nt,s:NSZ,w:700}]:[]);
       const lh=l=>l.s===ZS?34:28;
       const blockH=lines.reduce((a,l)=>a+lh(l),0);
       const h=Math.max(64,blockH+22), cy=y+h/2;
       let ly=cy-blockH/2;
-      lines.forEach(l=>{ T(l.t,P,ly+lh(l)/2+1,{s:l.s,w:l.w,c:zc}); ly+=lh(l); });
+      lines.forEach((l,i)=>{ if(!i) pin(P,ly+lh(l)/2+1,ZS,zc); T(l.t,P+PW,ly+lh(l)/2+1,{s:l.s,w:l.w,c:zc}); ly+=lh(l); });
       if(same&&nt) T(nt,P+zW(z)+10,cy+2,{s:NSZ,w:700,c:zc});
       let X=P+ZC;
       inl(z).forEach(it=>{
