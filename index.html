@@ -4436,7 +4436,7 @@ function renderSettleSum(){
       <div class="paste-inner">
         <div class="paste-mode" style="margin-bottom:8px">${[['one','🟦 오네 합산표'],['deli','🟩 딜리 합산표']].map(([k,l])=>`<button class="paste-mode-btn ${settleSumGrp===k?'active':''}" onclick="settleSumGrp='${k}';settleSumPasteOpen=true;render()">${l}</button>`).join('')}</div>
         <div class="paste-hint">엑셀에서 <b>이름부터 숫자 칸까지</b> 긁어 복사한 뒤 붙여넣으세요. 칸 순서:<br><b>${S[settleSumGrp].map(it=>esc(settleSumLabel(it))).join(' · ')}</b><br>맨 위 칸 이름 줄, 맨 끝 종합·합계 칸은 있어도 됩니다. 이름 뒤 <code>_N</code> 은 떼고 읽어요.</div>
-        <textarea class="paste-ta" id="st-sum-paste" placeholder="고경준&#9;102&#9;0&#9;0&#9;0&#9;27"></textarea>
+        <textarea class="paste-ta" id="st-sum-paste" placeholder="홍길동&#9;102&#9;0&#9;0&#9;0&#9;27"></textarea>
         <div class="paste-btns"><button class="mini-btn" style="border-color:#155244;color:var(--teal3)" onclick="settleSumPaste()">↩️ 반영하기</button></div>
       </div></details>`;
   return modeBar
