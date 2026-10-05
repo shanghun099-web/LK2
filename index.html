@@ -2701,16 +2701,19 @@ function rosterCardCanvas(d, dpr){
     };
     /* 새벽 모양 — 구역 (번호) | 이름 한 줄. 구역+번호가 길면 모든 줄에서 번호를 구역 아래로 (줄 모양 통일) */
     const zs=d.norm.concat(d.back).filter(z=>!z.isDiv);
-    const ZS=26, NSZ=21, ZCAP=290;
+    const ZS=26, NSZ=21;
     const PW=pinW(ZS);
     const zW=z=>PW+tw(z.name.trim(),ZS,900), nW=z=>z.nums?tw('('+z.nums+')',NSZ,700):0;
-    const sameLine=zs.every(z=>zW(z)+(z.nums?10+nW(z):0)+28<=ZCAP);
-    const ZC=Math.min(ZCAP,Math.max(110,...zs.map(z=>(sameLine?zW(z)+(z.nums?10+nW(z):0):Math.max(zW(z),PW+nW(z)))+28)));
     const inl=z=>z.people.map(personParse).map(o=>{
       const nw=nameW(o), mt=o.m?o.m.replace(/^\+\s*/,''):'';
       return {o,nw,mt,w:nw+(mt?10+tw(mt,21,700)+20:0)};
     });
     const lineW=z=>inl(z).reduce((a,it,i)=>a+it.w+(i?28:0),0);
+    /* 구역 칸 폭: 이름 칸은 가장 긴 이름 줄만큼만 남기고 나머지 빈자리를 구역 칸에 줌 (최소 290)
+       → 긴 구역·번호가 덜 꺾이고 글씨 크기는 그대로 (2026-10-06 사용자 요청 "옆으로 늘려") */
+    const ZCAP=Math.max(290,IN-Math.max(0,...zs.map(lineW))-8);
+    const sameLine=zs.every(z=>zW(z)+(z.nums?10+nW(z):0)+28<=ZCAP);
+    const ZC=Math.min(ZCAP,Math.max(110,...zs.map(z=>(sameLine?zW(z)+(z.nums?10+nW(z):0):Math.max(zW(z),PW+nW(z)))+28)));
     const compact=d.dawn&&zs.every(z=>ZC+lineW(z)<=IN);
     const zoneLine=z=>{
       if(!first) hr(P,y,IN,LN);
