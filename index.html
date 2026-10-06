@@ -330,6 +330,14 @@ input[type="time"].time-hint{
 .st-summx thead th.g-one{color:#93c5fd;}
 .st-summx thead th.g-deli{color:#5eead4;}
 .st-summx td{padding:5px 4px;}
+.st-summx td.tot.bad{color:#ff9b9b;background:rgba(239,68,68,.14);}
+.st-sumok{background:rgba(13,148,136,.12);border:1px solid #155244;color:var(--teal3);border-radius:10px;padding:8px 11px;font-size:12.5px;margin:0 0 12px;line-height:1.5;}
+.st-sumrep{background:var(--card);border:1.5px solid var(--border2);border-radius:12px;padding:11px 13px;margin:0 0 12px;font-size:12.5px;line-height:1.6;color:var(--text);}
+.st-sumrep b.h{display:block;font-size:13px;margin-bottom:3px;}
+.st-sumrep .w{color:var(--amber2);}
+.st-sumrep .ok{color:var(--teal3);}
+.st-sumrep button{margin-top:8px;padding:7px 12px;border:1px solid var(--border2);border-radius:9px;background:var(--card3);color:var(--text);font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;}
+.st-sumfile{width:100%;margin:0 0 10px;padding:12px;min-height:46px;border:1.5px dashed var(--border2);border-radius:11px;background:var(--card2);color:var(--blue3);font-size:13.5px;font-weight:800;font-family:inherit;cursor:pointer;}
 .st-sumitems{margin:4px 0 8px;}
 .st-sumitems-h{font-size:12px;font-weight:800;color:var(--sub);margin:0 2px 6px;}
 .st-sum{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:13px;}
@@ -4407,6 +4415,7 @@ function renderSettleTable(){
 let settleSumGrp='one';          /* 붙여넣기에서 고른 업체 */
 let settleSumPasteOpen=false;
 let settleSumNames=[], settleSumCols=[];   /* 표 칸 번호 → 이름·칸 (입력 칸 onchange 용) */
+let settleSumReport=null;        /* 마지막 붙여넣기·파일 넣기 결과 {results, notes} — 확인 누를 때까지 남김 */
 function renderSettleSum(){
   const m=settleStore.month, on=settleSumOn(m), closed=settleIsClosed(m);
   const modeBar=`<div class="st-summode">
@@ -4425,17 +4434,20 @@ function renderSettleSum(){
   const grpTot=k=>S[k].reduce((a,it)=>a+colTot(it),0);
   const groups=[['one','오네',S.one],['deli','딜리',S.deli]];
   const ro=closed?'disabled':'';
+  const badNames=new Set(settleSumChecks(m).map(b=>b.n));
   const table=`<div class="st-mxwrap"><table class="st-mx st-summx">
       <thead><tr><th class="cn" rowspan="2">이름</th>${groups.map(([k,l,its])=>its.length?`<th colspan="${its.length}" class="g-${k}">${l}</th>`:'').join('')}<th class="tot" rowspan="2">합계</th></tr>
         <tr>${groups.map(([k,l,its])=>its.map(it=>`<th class="g-${k}">${esc(settleSumLabel(it))}</th>`).join('')).join('')}</tr></thead>
-      <tbody>${names.map((n,ri)=>`<tr><td class="cn">${esc(n)}</td>${all.map((it,ci)=>`<td><input type="number" inputmode="numeric" class="st-cell" ${ro} value="${cell(n,it)||''}" placeholder="·" onchange="settleSumSet(${ri},${ci},this.value)"></td>`).join('')}<td class="tot" id="sumr-${ri}">${num(rowTot(n))}</td></tr>`).join('')}</tbody>
+      <tbody>${names.map((n,ri)=>`<tr><td class="cn">${esc(n)}</td>${all.map((it,ci)=>`<td><input type="number" inputmode="numeric" class="st-cell" ${ro} value="${cell(n,it)||''}" placeholder="·" onchange="settleSumSet(${ri},${ci},this.value)"></td>`).join('')}<td class="tot${badNames.has(n)?' bad':''}" id="sumr-${ri}">${num(rowTot(n))}</td></tr>`).join('')}</tbody>
       <tfoot><tr><td class="cn">합계</td>${all.map((it,ci)=>`<td id="sumc-${ci}">${num(colTot(it))}</td>`).join('')}<td class="tot" id="sumall">${num(names.reduce((a,n)=>a+rowTot(n),0))}</td></tr></tfoot>
     </table></div>`;
   const paste=closed?'':`<details class="paste-box" style="margin:0 0 12px" ${settleSumPasteOpen?'open':''} ontoggle="settleSumPasteOpen=this.open">
       <summary>📥 엑셀에서 붙여넣기 (업체 합산표)</summary>
       <div class="paste-inner">
         <div class="paste-mode" style="margin-bottom:8px">${[['one','🟦 오네 합산표'],['deli','🟩 딜리 합산표']].map(([k,l])=>`<button class="paste-mode-btn ${settleSumGrp===k?'active':''}" onclick="settleSumGrp='${k}';settleSumPasteOpen=true;render()">${l}</button>`).join('')}</div>
-        <div class="paste-hint">엑셀에서 <b>이름부터 숫자 칸까지</b> 긁어 복사한 뒤 붙여넣으세요. 칸 순서:<br><b>${S[settleSumGrp].map(it=>esc(settleSumLabel(it))).join(' · ')}</b><br>맨 위 칸 이름 줄, 맨 끝 종합·합계 칸은 있어도 됩니다. 이름 뒤 <code>_N</code> 은 떼고 읽어요.</div>
+        <button class="st-sumfile" onclick="settleSumFilePick()">📂 엑셀 파일 통째로 고르기 <small style="display:block;font-weight:600;color:var(--sub);font-size:11px;margin-top:2px">오네·딜리 합산 시트를 알아서 찾아 한 번에 넣어요</small></button>
+        <input type="file" id="st-sum-file" accept=".xlsx,.xls" style="display:none" onchange="settleSumFile(this)">
+        <div class="paste-hint">또는 엑셀에서 <b>칸 이름 줄부터 숫자 칸까지</b> 긁어 복사해 붙여넣으세요. 칸 이름(당일·반품…)을 보고 맞추고, 칸 이름이 없으면 이 순서로 읽어요:<br><b>${S[settleSumGrp].map(it=>esc(settleSumLabel(it))).join(' · ')}</b><br>종합·합계 칸은 앱 합계와 맞는지 비교만 해요. 이름 뒤 <code>_N</code> 은 떼고 읽어요.</div>
         <textarea class="paste-ta" id="st-sum-paste" placeholder="홍길동&#9;102&#9;0&#9;0&#9;0&#9;27"></textarea>
         <div class="paste-btns"><button class="mini-btn" style="border-color:#155244;color:var(--teal3)" onclick="settleSumPaste()">↩️ 반영하기</button></div>
       </div></details>`;
@@ -4447,7 +4459,7 @@ function renderSettleSum(){
         <div><small>🟦 오네</small><b>${num(grpTot('one'))}건</b></div>
         <div><small>🟩 딜리</small><b>${num(grpTot('deli'))}건</b></div>
       </div>`
-    + paste + table
+    + paste + settleSumReportHTML() + `<div id="sum-check">${settleSumCheckHTML(settleSumChecks(m))}</div>` + table
     + `<p class="st-mxhint">표를 옆으로 밀면 나머지 칸이 보입니다. 숫자를 넣으면 바로 저장되고 📊 정산표·정산서에 반영돼요. 칸 이름은 💵 단가 탭에서 바꿀 수 있어요.</p>`
     + (closed?'':`<div class="dispatch-row" style="grid-template-columns:1fr 78px;margin-top:12px">
         <input type="text" id="st-sum-add" class="inp" placeholder="표에 이름 추가" onkeydown="if(event.key==='Enter')settleSumAddName()">
@@ -4482,32 +4494,141 @@ function settleSumSet(ri,ci,v){
   set('sumr-'+ri, num(settleSumCols.reduce((a,y)=>a+c(n,y),0)));
   set('sumc-'+ci, num(settleSumNames.reduce((a,x)=>a+c(x,it),0)));
   set('sumall', num(settleSumNames.reduce((a,x)=>a+settleSumCols.reduce((b,y)=>b+c(x,y),0),0)));
+  const bad=settleSumChecks(m), badN=new Set(bad.map(b=>b.n));
+  const rc=document.getElementById('sumr-'+ri); if(rc) rc.classList.toggle('bad', badN.has(n));
+  const box=document.getElementById('sum-check'); if(box) box.innerHTML=settleSumCheckHTML(bad);
 }
-/* 엑셀에서 복사한 합산표 → 이 업체 칸에. 이름 칸 다음 숫자를 칸 순서대로, 칸 이름 줄·합계 줄은 건너뜀 */
+/* 업체 합산표 읽기 — 붙여넣기와 파일 넣기가 같이 씀 (2026-10-06)
+   · 칸 이름 줄이 있으면 칸 이름으로 맞춤: 두 줄 머리(당배 / 일반·도서·이형)는 위 칸 이름을 오른쪽으로 이어 붙여 "당배 일반"
+   · 칸 이름이 하나도 안 맞으면(칸 이름 줄이 없으면) 예전처럼 칸 순서대로, 순서 다음 숫자 하나 더 있으면 그건 종합
+   · 종합·합계 칸은 넣지 않고 앱 합계와 비교만 (check) — 다르면 빨간 표시 */
+const SETTLE_TOTAL_HEAD=/^(종합|합계|총계|소계|총합|총|계|total)$/i;
+function settleNormHead(t){ return String(t||'').replace(/\([^)]*\)|（[^）]*）/g,'').replace(/[\s·,.\-_/]/g,'').replace(/^딜리/,'').replace(/배송$/,'').toLowerCase(); }
+function settleSumParseTable(text,grp){
+  const its=settleStore.sumItems[grp];
+  const clean=c=>String(c==null?'':c).replace(/[,\s원건]/g,'');
+  const isNum=c=>/^-?\d+$/.test(clean(c));
+  const toNum=c=>isNum(c)?parseInt(clean(c),10):NaN;
+  const first=cells=>{ let i=0; while(i<cells.length&&!String(cells[i]).trim()) i++; return i; };
+  const isData=cells=>{ const i=first(cells), n=String(cells[i]||'').trim(); return !!n&&!isNum(n)&&cells.slice(i+1).some(isNum); };
+  const all=String(text||'').split(/\r?\n/).filter(l=>l.trim()).map(l=>l.indexOf('\t')>=0?l.split('\t'):l.trim().split(/\s+/));
+  const head=[], data=[];
+  all.forEach(cells=>{ if(isData(cells)) data.push(cells); else if(!data.length) head.push(cells); });
+  const nameCol=data.length?first(data[0]):0;
+  const width=Math.max(0,...all.map(c=>c.length));
+  const labels=[];
+  for(let c=0;c<width;c++){
+    const parts=[];
+    head.forEach((h,hi)=>{
+      let v=String(h[c]||'').trim();
+      if(!v&&head.slice(hi+1).some(x=>String(x[c]||'').trim())){ for(let k=c-1;k>nameCol;k--){ const t=String(h[k]||'').trim(); if(t){ v=t; break; } } }
+      if(v) parts.push(v);
+    });
+    labels[c]=parts.join(' ');
+  }
+  const norm=labels.map(settleNormHead);
+  let totalCol=-1; const colOf={}, used=new Set();
+  if(head.length){
+    norm.forEach((h,c)=>{ if(c>nameCol&&totalCol<0&&SETTLE_TOTAL_HEAD.test(h)) totalCol=c; });
+    const free=c=>c>nameCol&&!used.has(c)&&c!==totalCol&&norm[c];
+    its.forEach(it=>{ const k=settleNormHead(it); const c=norm.findIndex((h,ci)=>free(ci)&&h===k); if(c>=0){ colOf[it]=c; used.add(c); } });
+    its.forEach(it=>{ if(it in colOf) return; const k=settleNormHead(it); if(k.length<2) return;
+      const c=norm.findIndex((h,ci)=>free(ci)&&h.length>=2&&(h.indexOf(k)>=0||k.indexOf(h)>=0)); if(c>=0){ colOf[it]=c; used.add(c); } });
+  }
+  const byHead=Object.keys(colOf).length>0;   /* 칸 이름이 하나라도 맞으면 이름으로 — 모르는 칸이 순서로 엉뚱한 칸에 들어가지 않게 */
+  const missing=byHead?its.filter(it=>!(it in colOf)):[];
+  const extra=byHead?labels.filter((l,c)=>c>nameCol&&l&&!used.has(c)&&c!==totalCol):[];
+  const rows=[];
+  data.forEach(cells=>{
+    const i=first(cells);
+    const name=String(cells[i]||'').trim().replace(/_[A-Za-z0-9]+$/,'').replace(/\s+/g,'');
+    if(!name||SETTLE_TOTAL_HEAD.test(name)) return;
+    const vals={};
+    its.forEach((it,k)=>{ const c=byHead?colOf[it]:i+1+k; if(c==null) return; const q=toNum(cells[c]); vals[it]=q>0?q:0; });
+    const tc=byHead?totalCol:i+1+its.length;
+    const t=tc>=0?toNum(cells[tc]):NaN;
+    rows.push({name,vals,total:isNaN(t)?null:t});
+  });
+  return {rows,byHead,missing,extra};
+}
+function settleSumApply(grp,P){
+  const m=settleStore.month, S=settleStore.sums[m];
+  const Q=S.qty=S.qty||{}; S.check=S.check||{};
+  const known=new Set(settleAllNames()); const done=[], added=[];
+  P.rows.forEach(r=>{
+    const n=r.name; Q[n]=Q[n]||{};
+    Object.keys(r.vals).forEach(it=>{ if(r.vals[it]>0) Q[n][it]=r.vals[it]; else delete Q[n][it]; });
+    if(!Object.keys(Q[n]).length) delete Q[n];
+    S.check[n]=S.check[n]||{};
+    if(r.total!=null) S.check[n][grp]=r.total; else delete S.check[n][grp];
+    if(!Object.keys(S.check[n]).length) delete S.check[n];
+    done.push(n); if(!known.has(n)){ added.push(n); known.add(n); }
+  });
+  added.forEach(n=>settleWorker(n));
+  return {grp,done,added,missing:P.missing,extra:P.extra,byHead:P.byHead};
+}
+/* 업체 표의 종합과 앱이 더한 합계가 다른 기사 */
+function settleSumChecks(m){
+  const S=settleStore.sums[m]; if(!S||!S.check) return [];
+  const Q=S.qty||{}, I=settleStore.sumItems, out=[];
+  Object.keys(S.check).forEach(n=>['one','deli'].forEach(g=>{
+    const t=S.check[n][g]; if(t==null) return;
+    const a=I[g].reduce((x,it)=>x+(Number((Q[n]||{})[it])||0),0);
+    if(a!==t) out.push({n,g,t,a});
+  }));
+  return out;
+}
+function settleSumCheckHTML(bad){
+  const S=settleStore.sums[settleStore.month]; const cnt=S&&S.check?Object.keys(S.check).length:0;
+  if(!bad.length) return cnt?`<div class="st-sumok">✅ 업체 표의 <b>종합</b>과 앱 합계가 모두 맞아요 (${cnt}명 비교)</div>`:'';
+  return `<div class="st-warn" style="margin:0 0 12px">⚠️ 업체 표의 <b>종합</b>과 앱 합계가 다른 기사 <b>${bad.length}</b>명 — 칸이 밀렸거나 빠진 숫자가 없는지 확인해 주세요. 표에서 빨간 합계 칸이에요.<br>${bad.map(b=>`<b>${esc(b.n)}</b> ${b.g==='one'?'오네':'딜리'}: 업체 ${num(b.t)} · 앱 ${num(b.a)}`).join('<br>')}</div>`;
+}
+function settleSumReportHTML(){
+  const R=settleSumReport; if(!R) return '';
+  const L=s=>s==='one'?'🟦 오네':'🟩 딜리';
+  const lines=R.results.map(r=>`<b class="h">${L(r.grp)}${r.sheet?' · "'+esc(r.sheet)+'" 시트':''} — ${r.done.length}명 반영 <span style="font-weight:600;color:var(--sub)">(${r.byHead?'칸 이름으로 맞춤':'칸 순서대로 읽음'})</span></b>`
+    + (r.added.length?`<div class="w">• 처음 보는 이름 ${r.added.length}명: ${r.added.map(esc).join(', ')} — 오타가 아닌지 확인</div>`:'')
+    + (r.missing.length?`<div class="w">• 표에서 못 찾은 칸: ${r.missing.map(x=>esc(settleSumLabel(x))).join(', ')} — 이 칸 숫자는 그대로 뒀어요</div>`:'')
+    + (r.extra.length?`<div class="w">• 앱에 없는 칸: ${r.extra.map(esc).join(', ')} — 숫자를 넣지 않았어요 (필요하면 💵 단가 탭에서 칸 추가)</div>`:'')).join('');
+  const notes=R.notes.map(n=>`<div class="w">• ${esc(n)}</div>`).join('');
+  return `<div class="st-sumrep">${lines}${notes}${!lines&&!notes?'읽은 내용이 없어요.':''}<button onclick="settleSumReport=null;render()">확인했어요</button></div>`;
+}
+/* 붙여넣기 */
 function settleSumPaste(){
   const m=settleStore.month; if(settleIsClosed(m)) return;
   const ta=document.getElementById('st-sum-paste'); const text=ta?ta.value:'';
   if(!text.trim()){ showToast('붙여넣은 내용이 없어요','err'); return; }
-  const its=settleStore.sumItems[settleSumGrp];
-  const Q=settleStore.sums[m].qty=settleStore.sums[m].qty||{};
-  const known=new Set(settleAllNames()); const done=[], added=[];
-  text.split(/\r?\n/).forEach(line=>{
-    if(!line.trim()) return;
-    const cells=line.indexOf('\t')>=0 ? line.split('\t') : line.trim().split(/\s+/);
-    let i=0; while(i<cells.length&&!String(cells[i]).trim()) i++;
-    const name=String(cells[i]||'').trim().replace(/_[A-Za-z0-9]+$/,'').replace(/\s+/g,'');
-    if(!name||/^-?[\d,]+$/.test(name)||/^(합계|총계|소계|계|종합|총합)$/.test(name)) return;
-    const nums=cells.slice(i+1).map(c=>String(c).replace(/[,\s원건]/g,''));
-    if(!nums.some(c=>/^\d+$/.test(c))) return;   /* 칸 이름 줄(SM·성함·당배…) */
-    Q[name]=Q[name]||{};
-    its.forEach((it,k)=>{ const q=parseInt(nums[k],10); if(q>0) Q[name][it]=q; else delete Q[name][it]; });
-    if(!Object.keys(Q[name]).length) delete Q[name];
-    done.push(name); if(!known.has(name)){ added.push(name); known.add(name); }
-  });
-  if(!done.length){ showToast('읽은 줄이 없어요 — 이름과 숫자가 같이 있는지 확인해 주세요','err'); return; }
-  added.forEach(n=>settleWorker(n));
-  saveSettle(); settleSumPasteOpen=false; render();
-  showToast('✅ '+(settleSumGrp==='one'?'오네':'딜리')+' '+done.length+'명 반영'+(added.length?' · 새 이름 '+added.length+'명: '+added.join(', '):''), added.length?'err':undefined);
+  const P=settleSumParseTable(text,settleSumGrp);
+  if(!P.rows.length){ showToast('읽은 줄이 없어요 — 이름과 숫자가 같이 있는지 확인해 주세요','err'); return; }
+  const r=settleSumApply(settleSumGrp,P);
+  saveSettle(); settleSumReport={results:[r],notes:[]}; settleSumPasteOpen=false; render();
+  showToast('✅ '+(r.grp==='one'?'오네':'딜리')+' '+r.done.length+'명 반영');
+}
+/* 엑셀 파일 통째로 — 시트 이름에 오네/딜리가 있는 합산 시트를 찾고, 일자별·내역 시트는 건너뜀 */
+function settleSumFilePick(){ const el=document.getElementById('st-sum-file'); if(el){ el.value=''; el.click(); } }
+async function settleSumFile(inp){
+  const f=inp&&inp.files&&inp.files[0]; if(!f) return;
+  const m=settleStore.month; if(settleIsClosed(m)||!settleSumOn(m)) return;
+  try{
+    showToast('📂 '+f.name+' 읽는 중…');
+    const X=await settleLoadXLSX();
+    const wb=X.read(await f.arrayBuffer(),{type:'array'});
+    const sheets=wb.SheetNames.map(n=>({name:n,text:X.utils.sheet_to_csv(wb.Sheets[n],{FS:'\t',blankrows:false})}));
+    const pick=sheets.map(sh=>({sh,grp:/딜리/.test(sh.name)?'deli':/오네|cj|씨제이/i.test(sh.name)?'one':null,raw:/일자별|내역|원본|상세/.test(sh.name)}));
+    let targets=pick.filter(x=>x.grp&&!x.raw);
+    const notes=[];
+    pick.filter(x=>x.raw).forEach(x=>notes.push('"'+x.sh.name+'" 시트는 일자별 원본이라 건너뛰었어요'));
+    if(!targets.length&&sheets.length===1) targets=[{sh:sheets[0],grp:settleSumGrp}];
+    if(!targets.length) notes.push('시트 이름에 "오네"나 "딜리"가 없어 어느 업체 표인지 몰라요 — 시트 이름을 바꾸거나 복사해서 붙여넣어 주세요');
+    const results=[];
+    targets.forEach(x=>{
+      const P=settleSumParseTable(x.sh.text,x.grp);
+      if(!P.rows.length){ notes.push('"'+x.sh.name+'" 시트에서 기사 숫자를 못 찾았어요 — 칸에 숫자가 아니라 그림(사진)이 붙어 있을 수 있어요'); return; }
+      results.push(Object.assign(settleSumApply(x.grp,P),{sheet:x.sh.name}));
+    });
+    saveSettle(); settleSumReport={results,notes}; settleSumPasteOpen=false; render();
+    showToast(results.length?'✅ '+results.map(r=>(r.grp==='one'?'오네':'딜리')+' '+r.done.length+'명').join(' · ')+' 반영':'넣은 숫자가 없어요 — 아래 안내를 확인해 주세요', results.length?undefined:'err');
+  }catch(e){ showToast((e&&e.message)||'파일을 읽지 못했어요','err'); }
 }
 function settleSumAddName(){
   const el=document.getElementById('st-sum-add'); const n=(el&&el.value||'').trim().replace(/\s+/g,'');
