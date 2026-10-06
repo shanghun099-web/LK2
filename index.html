@@ -4549,7 +4549,7 @@ function settleSumParseTable(text,grp){
     const t=tc>=0?toNum(cells[tc]):NaN;
     rows.push({name,vals,total:isNaN(t)?null:t});
   });
-  return {rows,byHead,missing,extra};
+  return {rows,byHead,missing,extra,matched:Object.keys(colOf).length};
 }
 function settleSumApply(grp,P){
   const m=settleStore.month, S=settleStore.sums[m];
@@ -4586,7 +4586,7 @@ function settleSumCheckHTML(bad){
 function settleSumReportHTML(){
   const R=settleSumReport; if(!R) return '';
   const L=s=>s==='one'?'🟦 오네':'🟩 딜리';
-  const lines=R.results.map(r=>`<b class="h">${L(r.grp)}${r.sheet?' · "'+esc(r.sheet)+'" 시트':''} — ${r.done.length}명 반영 <span style="font-weight:600;color:var(--sub)">(${r.byHead?'칸 이름으로 맞춤':'칸 순서대로 읽음'})</span></b>`
+  const lines=R.results.map(r=>`<b class="h">${r.sheet?'"'+esc(r.sheet)+'" 시트 → ':''}${L(r.grp)} — ${r.done.length}명 반영 <span style="font-weight:600;color:var(--sub)">(${r.how?r.how+' · ':''}${r.byHead?'칸 이름으로 맞춤':'칸 순서대로 읽음'})</span></b>`
     + (r.added.length?`<div class="w">• 처음 보는 이름 ${r.added.length}명: ${r.added.map(esc).join(', ')} — 오타가 아닌지 확인</div>`:'')
     + (r.missing.length?`<div class="w">• 표에서 못 찾은 칸: ${r.missing.map(x=>esc(settleSumLabel(x))).join(', ')} — 이 칸 숫자는 그대로 뒀어요</div>`:'')
     + (r.extra.length?`<div class="w">• 앱에 없는 칸: ${r.extra.map(esc).join(', ')} — 숫자를 넣지 않았어요 (필요하면 💵 단가 탭에서 칸 추가)</div>`:'')).join('');
@@ -4605,6 +4605,22 @@ function settleSumPaste(){
   showToast('✅ '+(r.grp==='one'?'오네':'딜리')+' '+r.done.length+'명 반영');
 }
 /* 엑셀 파일 통째로 — 시트 이름에 오네/딜리가 있는 합산 시트를 찾고, 일자별·내역 시트는 건너뜀 */
+/* 시트 하나가 무엇인지 — 시트 이름이 Sheet1·Sheet2 여도 안의 칸 이름으로 판단 (2026-10-06 사용자 요청)
+   · 운송장·주소·주문번호·박스 이름 같은 칸이 있거나 이름에 일자별·내역이 있으면 원본 → 건너뜀
+   · 칸 이름이 오네 칸(당배·트레·애플…)과 더 많이 맞으면 오네, 딜리 칸(당일·반품·토요·일요…)과 더 많이 맞으면 딜리
+   · 칸 이름으로 못 가르면 시트 이름(오네·딜리)으로, 그래도 모르면 모름 */
+const SETTLE_RAW_HEAD=/운송장|송장번호|주문번호|주소|전화번호|박스\s*이름|박스명/;
+function settleSheetKind(sh){
+  if(!String(sh.text||'').trim()) return {empty:true,hinted:/오네|딜리|합산/.test(sh.name)};
+  const top=sh.text.split(/\r?\n/).slice(0,6).join(' ');
+  if(/일자별|내역|원본|상세/.test(sh.name)||SETTLE_RAW_HEAD.test(top)) return {raw:true};
+  const so=settleSumParseTable(sh.text,'one').matched, sd=settleSumParseTable(sh.text,'deli').matched;
+  if(so>sd) return {grp:'one',how:'칸 이름 보고 판단'};
+  if(sd>so) return {grp:'deli',how:'칸 이름 보고 판단'};
+  const byName=/딜리/.test(sh.name)?'deli':/오네|cj|씨제이/i.test(sh.name)?'one':null;
+  if(byName) return {grp:byName,how:'시트 이름 보고 판단'};
+  return {};
+}
 function settleSumFilePick(){ const el=document.getElementById('st-sum-file'); if(el){ el.value=''; el.click(); } }
 async function settleSumFile(inp){
   const f=inp&&inp.files&&inp.files[0]; if(!f) return;
@@ -4614,17 +4630,20 @@ async function settleSumFile(inp){
     const X=await settleLoadXLSX();
     const wb=X.read(await f.arrayBuffer(),{type:'array'});
     const sheets=wb.SheetNames.map(n=>({name:n,text:X.utils.sheet_to_csv(wb.Sheets[n],{FS:'\t',blankrows:false})}));
-    const pick=sheets.map(sh=>({sh,grp:/딜리/.test(sh.name)?'deli':/오네|cj|씨제이/i.test(sh.name)?'one':null,raw:/일자별|내역|원본|상세/.test(sh.name)}));
-    let targets=pick.filter(x=>x.grp&&!x.raw);
+    const pick=sheets.map(sh=>Object.assign({sh},settleSheetKind(sh)));
     const notes=[];
-    pick.filter(x=>x.raw).forEach(x=>notes.push('"'+x.sh.name+'" 시트는 일자별 원본이라 건너뛰었어요'));
-    if(!targets.length&&sheets.length===1) targets=[{sh:sheets[0],grp:settleSumGrp}];
-    if(!targets.length) notes.push('시트 이름에 "오네"나 "딜리"가 없어 어느 업체 표인지 몰라요 — 시트 이름을 바꾸거나 복사해서 붙여넣어 주세요');
+    pick.filter(x=>x.raw).forEach(x=>notes.push('"'+x.sh.name+'" 시트는 택배 하나하나 적힌 원본이라 건너뛰었어요'));
+    pick.filter(x=>x.empty&&x.hinted).forEach(x=>notes.push('"'+x.sh.name+'" 시트에 칸 숫자가 없어요 — 표를 그림(사진)으로 붙여 둔 것 같아요. 칸에 숫자를 넣은 표로 바꿔 주세요'));
+    let targets=pick.filter(x=>x.grp);
+    const unknown=pick.filter(x=>!x.raw&&!x.grp&&!x.empty);
+    /* 시트가 하나뿐이고 칸 이름도 없으면 붙여넣기에서 골라 둔 업체로 */
+    if(!targets.length&&unknown.length===1){ unknown[0].grp=settleSumGrp; unknown[0].how='고른 업체로'; targets=unknown.splice(0,1); }
+    unknown.forEach(x=>notes.push('"'+x.sh.name+'" 시트는 칸 이름이 없어 오네인지 딜리인지 몰라 건너뛰었어요 — 이 시트만 복사해서 붙여넣어 주세요'));
     const results=[];
     targets.forEach(x=>{
       const P=settleSumParseTable(x.sh.text,x.grp);
       if(!P.rows.length){ notes.push('"'+x.sh.name+'" 시트에서 기사 숫자를 못 찾았어요 — 칸에 숫자가 아니라 그림(사진)이 붙어 있을 수 있어요'); return; }
-      results.push(Object.assign(settleSumApply(x.grp,P),{sheet:x.sh.name}));
+      results.push(Object.assign(settleSumApply(x.grp,P),{sheet:x.sh.name,how:x.how}));
     });
     saveSettle(); settleSumReport={results,notes}; settleSumPasteOpen=false; render();
     showToast(results.length?'✅ '+results.map(r=>(r.grp==='one'?'오네':'딜리')+' '+r.done.length+'명').join(' · ')+' 반영':'넣은 숫자가 없어요 — 아래 안내를 확인해 주세요', results.length?undefined:'err');
