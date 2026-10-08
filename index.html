@@ -262,6 +262,7 @@ input[type="time"].time-hint{
 .pv-seg button{padding:11px 4px;border:none;border-radius:10px;background:transparent;color:var(--sub);font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;min-height:44px;}
 .pv-seg button.on{background:var(--blue);color:#fff;}
 .dawn-theme .pv-seg button.on{background:var(--amber);}
+.pv-seg-sm button{padding:8px 4px;font-size:13px;min-height:40px;}
 .roster-img canvas{display:block;width:100%;height:auto;border-radius:14px;box-shadow:0 2px 14px rgba(0,0,0,.35);cursor:zoom-in;}
 .roster-img-empty{background:#f0f0f0;color:#888;border-radius:14px;padding:30px 16px;text-align:center;font-size:13.5px;}
 .pv-note{margin-top:9px;font-size:12px;color:var(--amber2);font-weight:700;line-height:1.5;}
@@ -2415,7 +2416,11 @@ function renderRoster(){
         <button class="btn btn-copy" onclick="copyText(customRosterText !== null ? customRosterText : rosterText())">📋 복사</button>
       </div>
       </div>
-      ${imgView?`<div class="preview-label">이미지 미리보기 · 누르면 크게 보기</div>
+      ${imgView?`<div class="pv-seg pv-seg-sm">
+        <button class="${getRosterCols()===2?'':'on'}" onclick="setRosterCols(1)">📄 1단 · 길게</button>
+        <button class="${getRosterCols()===2?'on':''}" onclick="setRosterCols(2)">📰 2단 · 넓게 (카톡 선명)</button>
+      </div>
+      <div class="preview-label">이미지 미리보기 · 누르면 크게 보기</div>
       <div id="roster-img" class="roster-img" onclick="rosterImgZoom()"></div>
       ${customRosterText!==null?'<div class="pv-note">✏️ 카톡 글에서 고친 내용이 아직 명단에 반영되지 않았어요.</div><button class="btn-apply" onclick="applyRosterEdit()">✅ 고친 글을 명단에 반영</button>':''}
       <div class="actions">
@@ -2589,6 +2594,8 @@ function zoneLineText(z, compact){
    카톡 글을 직접 고친 내용은 반영하지 않음 */
 function getRosterView(){ try{ return localStorage.getItem('disp-roster-view')==='img'?'img':'text'; }catch(e){ return 'text'; } }
 function setRosterView(v){ try{ localStorage.setItem('disp-roster-view', v); }catch(e){} render(); }
+function getRosterCols(){ try{ return localStorage.getItem('disp-roster-cols')==='2'?2:1; }catch(e){ return 1; } }
+function setRosterCols(n){ try{ localStorage.setItem('disp-roster-cols', String(n)); }catch(e){} render(); }
 function rosterDocDate(iso){ const d=new Date(iso+'T00:00:00'); return d.getFullYear()+'. '+(d.getMonth()+1)+'. '+d.getDate()+'.('+DAYS[d.getDay()]+')'; }
 function rosterImgData(){
   const R=cur();
@@ -2601,10 +2608,10 @@ function rosterImgData(){
     dawn: schShift()==='dawn', date: fmtKDate(R.work.date), title: R.work.title||R.defTitle,
     shift: schShift()==='dawn'?'새벽반':'당일배송반', dateFull: rosterDocDate(R.work.date),
     norm, back, work: work.length, backN, newCnt: rosterNewCount(active),
-    zoneCnt: norm.filter(z=>!z.isDiv).length
+    zoneCnt: norm.filter(z=>!z.isDiv).length, cols: getRosterCols()
   };
 }
-/* 출근명단 이미지 — LK로지스 로고 + 큰 글씨 (카톡에서 폰 화면 폭으로 볼 때 이름이 16pt 이상 되도록 600폭에 27px)
+/* 출근명단 이미지 — LK로지스 로고 + 큰 글씨 (카톡에서 폰 화면 폭으로 볼 때 이름이 16pt 이상 되도록 600폭에 27px, 2단은 940폭)
    흰 바탕 · 회사 남색/하늘색 줄 · 포인트 색 하나(당일 파랑 / 새벽 주황) · 신규 초록.
    당일배송반 = 구역 (번호) 제목 + 이름 4칸 정렬, 메모는 이름 옆 꼬리표
    새벽반 = '구역 (번호) | 이름' 한 줄 표 (사용자 결정 2026-10-05), 한 구역이라도 넘치면 당일 모양 */
@@ -2612,13 +2619,16 @@ const rosterLogo={mark:new Image(),text:new Image()};
 rosterLogo.mark.src='logo-lk-mark.png';
 rosterLogo.text.src='logo-lk-text.png';
 [rosterLogo.mark,rosterLogo.text].forEach(i=>{ i.onload=()=>rosterImgRefresh(); });
+/* 2단(d.cols===2): 길면 카톡이 긴 변 기준으로 통째로 줄여(세로 5800 → 1/5) 흐려져서,
+   구역을 두 칸에 나눠 담아 정사각형에 가깝게 만든 모양 (2026-10-08 사용자 요청, 1단과 골라 씀) */
 function rosterCardCanvas(d, dpr){
-  const W=600, P=30, IN=W-P*2, F="'Noto Sans KR',sans-serif";
+  const two=d.cols===2, W=two?940:600, GAP=40, CIN=two?(W-60-GAP)/2:W-60, F="'Noto Sans KR',sans-serif";
   const NAVY='#013C73', SKY='#1296E0';
   const AC=d.dawn?'#C2410C':'#0A5FA8', SOFT=d.dawn?'#FFEDD5':'#E1EFFA', GR='#15803D', INK='#111827', SUB='#4b5563', LN='#e5e7eb';
-  const NS=4, CW=IN/NS, LH=46, NM=27;
+  const NS=two?3:4, LH=46, NM=27;
   const okImg=i=>i.complete&&i.naturalWidth>0;
   const pass=(x,draw)=>{
+    let P=30, IN=W-60;
     const font=(sz,w)=>{ x.font=w+' '+sz+'px '+F; };
     const tw=(t,sz,w)=>{ font(sz,w); return x.measureText(t).width; };
     const T=(t,X,Y,o)=>{ if(!draw) return; o=o||{}; font(o.s||15,o.w||500); x.fillStyle=o.c||INK; x.textAlign=o.a||'left'; x.textBaseline='middle'; x.fillText(t,X,Y); };
@@ -2670,6 +2680,7 @@ function rosterCardCanvas(d, dpr){
       x.fillStyle='#fff'; x.beginPath(); x.arc(cx,cy,r*0.42,0,Math.PI*2); x.fill();
     };
 
+    IN=CIN; const CW=IN/NS;
     let first=true;
     /* 당일 모양 — 구역 (번호) 제목 줄 + 이름 4칸. 메모는 이름 바로 뒤 색 꼬리표 */
     const zoneBlock=z=>{
@@ -2757,8 +2768,23 @@ function rosterCardCanvas(d, dpr){
     };
     const one=compact?zoneLine:zoneBlock;
     if(compact) y+=6;
-    d.norm.forEach(z=>{ if(z.isDiv){ label(z.name.trim()||'─'); first=true; return; } one(z); });
-    if(d.back.length){ label('백업 인원','#B45309'); first=true; d.back.forEach(one); }
+    const items=d.norm.map(z=>z.isDiv?{lab:z.name.trim()||'─'}:{z});
+    if(d.back.length){ items.push({lab:'백업 인원',c:'#B45309'}); d.back.forEach(z=>items.push({z})); }
+    const run=it=>{ if(it.lab){ label(it.lab,it.c); first=true; } else one(it.z); };
+    if(!two) items.forEach(run);
+    else {
+      /* 덩어리마다 높이를 재서 두 칸 높이가 가장 비슷해지는 곳에서 나눔 (구분선 제목이 왼쪽 끝에 홀로 남지 않게) */
+      const hs=items.map(it=>{ const sd=draw, sf=first, sy=y; draw=false; first=true; y=0; run(it); const h=y; draw=sd; first=sf; y=sy; return h; });
+      const sum=hs.reduce((a,h)=>a+h,0);
+      let k=items.length, best=Infinity, acc=0;
+      for(let i=1;i<items.length;i++){ acc+=hs[i-1]; const m=Math.max(acc,sum-acc); if(m<best){ best=m; k=i; } }
+      while(k>1&&k<items.length&&items[k-1].lab) k--;
+      const y0=y; let yEnd=y0;
+      [items.slice(0,k),items.slice(k)].forEach((col,ci)=>{ P=30+ci*(CIN+GAP); y=y0; first=true; col.forEach(run); yEnd=Math.max(yEnd,y); });
+      P=30; IN=W-60; y=yEnd;
+      if(k<items.length) hr(P+CIN+GAP/2,y0+14,1,LN,yEnd-y0-14);
+    }
+    IN=W-60;
 
     /* 꼬리 */
     y+=10; hr(P,y,IN,NAVY,3); hr(P,y,96,SKY,3); y+=32;
@@ -2794,11 +2820,11 @@ async function rosterImgBlob(){
   const c=rosterCardCanvas(d);
   return new Promise(res=>c.toBlob(res,'image/png'));
 }
-function rosterImgName(){ const R=cur(); return R.work.date+'_'+(schShift()==='dawn'?'새벽반':'출근')+'명단.png'; }
+function rosterImgName(){ const R=cur(); return R.work.date+'_'+(schShift()==='dawn'?'새벽반':'출근')+'명단'+(getRosterCols()===2?'_2단':'')+'.png'; }
 function rosterImgZoom(){
   const d=rosterImgData(); if(!d) return;
   const c=rosterCardCanvas(d);
-  c.style.cssText='width:100%;max-width:600px;height:auto;border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.6);display:block;margin:0 auto;';
+  c.style.cssText='width:100%;max-width:'+(d.cols===2?940:600)+'px;height:auto;border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.6);display:block;margin:0 auto;';
   const ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);overflow:auto;padding:16px 12px 30px;';
   const tip=document.createElement('div');
