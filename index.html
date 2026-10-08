@@ -2611,7 +2611,7 @@ function rosterImgData(){
     zoneCnt: norm.filter(z=>!z.isDiv).length, cols: getRosterCols()
   };
 }
-/* 출근명단 이미지 — LK로지스 로고 + 큰 글씨 (카톡에서 폰 화면 폭으로 볼 때 이름이 16pt 이상 되도록 600폭에 27px, 2단은 940폭)
+/* 출근명단 이미지 — LK로지스 로고 + 큰 글씨 (카톡에서 폰 화면 폭으로 볼 때 이름이 16pt 이상 되도록 600폭에 27px, 2단은 940폭~)
    흰 바탕 · 회사 남색/하늘색 줄 · 포인트 색 하나(당일 파랑 / 새벽 주황) · 신규 초록.
    당일배송반 = 구역 (번호) 제목 + 이름 4칸 정렬, 메모는 이름 옆 꼬리표
    새벽반 = '구역 (번호) | 이름' 한 줄 표 (사용자 결정 2026-10-05), 한 구역이라도 넘치면 당일 모양 */
@@ -2622,7 +2622,19 @@ rosterLogo.text.src='logo-lk-text.png';
 /* 2단(d.cols===2): 길면 카톡이 긴 변 기준으로 통째로 줄여(세로 5800 → 1/5) 흐려져서,
    구역을 두 칸에 나눠 담아 정사각형에 가깝게 만든 모양 (2026-10-08 사용자 요청, 1단과 골라 씀) */
 function rosterCardCanvas(d, dpr){
-  const two=d.cols===2, W=two?940:600, GAP=40, CIN=two?(W-60-GAP)/2:W-60, F="'Noto Sans KR',sans-serif";
+  const two=d.cols===2, GAP=40, F="'Noto Sans KR',sans-serif";
+  let CIN=two?420:540;
+  /* 새벽반 2단: 구역 번호가 한 칸 안에서 세 줄로 꺾이지 않게 칸을 넓힘 (최대 540) — '/' 앞뒤는 원래 따로 줄 */
+  if(two&&d.dawn){
+    const m=document.createElement('canvas').getContext('2d');
+    const tw=(t,sz,w)=>{ m.font=w+' '+sz+'px '+F; return m.measureText(t).width; };
+    const zs=d.norm.concat(d.back).filter(z=>!z.isDiv), PW=Math.round(26*0.62)+8;
+    const numNeed=Math.max(0,...zs.map(z=>z.nums?PW+28+Math.max(...('('+z.nums+')').split(/(?<=\/)/).map(t=>tw(t,21,700))):0));
+    const lineNeed=Math.max(0,...zs.map(z=>z.people.map(personParse).reduce((a,o,i)=>a+(i?28:0)+tw(o.n,27,500)
+      +(o.nw&&o.n!=='신규'?tw('신규',16,800)+7:0)+(o.m?10+tw(o.m.replace(/^\+\s*/,''),21,700)+20:0),0)));
+    CIN=Math.min(540,Math.max(CIN,Math.ceil(numNeed+lineNeed+8)));
+  }
+  const W=two?CIN*2+60+GAP:600;
   const NAVY='#013C73', SKY='#1296E0';
   const AC=d.dawn?'#C2410C':'#0A5FA8', SOFT=d.dawn?'#FFEDD5':'#E1EFFA', GR='#15803D', INK='#111827', SUB='#4b5563', LN='#e5e7eb';
   const NS=two?3:4, LH=46, NM=27;
@@ -2777,11 +2789,16 @@ function rosterCardCanvas(d, dpr){
       /* 덩어리마다 높이를 재서 두 칸 높이가 가장 비슷해지는 곳에서 나눔 (구분선 제목이 왼쪽 끝에 홀로 남지 않게) */
       const hs=items.map(it=>{ const sd=draw, sf=first, sy=y; draw=false; first=true; y=0; run(it); const h=y; draw=sd; first=sf; y=sy; return h; });
       const sum=hs.reduce((a,h)=>a+h,0);
+      /* 오른쪽 칸이 묶음(송파 등) 중간에서 시작하면 그 묶음 제목을 '송파 · 이어서'로 한 번 더 달아 줌 */
+      const labBefore=i=>{ for(let j=i-1;j>=0;j--) if(items[j].lab) return j; return -1; };
       let k=items.length, best=Infinity, acc=0;
-      for(let i=1;i<items.length;i++){ acc+=hs[i-1]; const m=Math.max(acc,sum-acc); if(m<best){ best=m; k=i; } }
+      for(let i=1;i<items.length;i++){ acc+=hs[i-1]; const lb=items[i].lab?-1:labBefore(i);
+        const m=Math.max(acc,sum-acc+(lb>=0?hs[lb]:0)); if(m<best){ best=m; k=i; } }
       while(k>1&&k<items.length&&items[k-1].lab) k--;
+      const right=items.slice(k), lb=k<items.length&&!items[k].lab?labBefore(k):-1;
+      if(lb>=0) right.unshift({lab:items[lb].lab+' · 이어서',c:items[lb].c});
       const y0=y; let yEnd=y0;
-      [items.slice(0,k),items.slice(k)].forEach((col,ci)=>{ P=30+ci*(CIN+GAP); y=y0; first=true; col.forEach(run); yEnd=Math.max(yEnd,y); });
+      [items.slice(0,k),right].forEach((col,ci)=>{ P=30+ci*(CIN+GAP); y=y0; first=true; col.forEach(run); yEnd=Math.max(yEnd,y); });
       P=30; IN=W-60; y=yEnd;
       if(k<items.length) hr(P+CIN+GAP/2,y0+14,1,LN,yEnd-y0-14);
     }
@@ -2825,7 +2842,7 @@ function rosterImgName(){ const R=cur(); return R.work.date+'_'+(schShift()==='d
 function rosterImgZoom(){
   const d=rosterImgData(); if(!d) return;
   const c=rosterCardCanvas(d);
-  c.style.cssText='width:100%;max-width:'+(d.cols===2?940:600)+'px;height:auto;border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.6);display:block;margin:0 auto;';
+  c.style.cssText='width:100%;max-width:'+Math.round(c.width/3)+'px;height:auto;border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.6);display:block;margin:0 auto;';
   const ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);overflow:auto;padding:16px 12px 30px;';
   const tip=document.createElement('div');
