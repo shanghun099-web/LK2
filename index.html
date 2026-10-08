@@ -150,7 +150,7 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
 .cal-day{background:var(--card);border:1.5px solid var(--border);border-radius:10px;padding:6px 4px;min-height:76px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:all 0.15s;}
 .cal-day:active{border-color:var(--blue2);background:var(--card2);}
 .cal-day.other-month{opacity:0.35;}
-.cal-day.is-today{border-color:var(--blue2);background:rgba(37,99,235,0.12);}
+.cal-day.is-today{border:2px solid #3b82f6;background:rgba(37,99,235,0.28);}
 .cal-day.selected{border-color:var(--amber2);box-shadow:0 0 0 2px rgba(245,158,11,0.3);}
 .cal-day-num{font-size:12px;font-weight:800;color:var(--text);}
 .cal-day-num.sun{color:#f08a8a;}
@@ -182,6 +182,26 @@ select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.
 .chip-dup{border-color:var(--amber2,#f59e0b);}
 .chip-slot{border-style:dashed;border-color:var(--teal3);color:var(--teal3);}
 .chip-sel{border-color:var(--blue2);background:rgba(59,130,246,.16);}
+.zone-mv{display:flex;flex-direction:column;gap:2px;flex-shrink:0;}
+.zone-mv button{width:30px;height:20px;border:none;border-radius:6px;background:var(--card2);color:var(--sub);font-size:10px;cursor:pointer;padding:0;line-height:1;}
+.zone-mv button:active{background:var(--blue);color:#fff;}
+.zone-mv button:disabled{opacity:.25;cursor:default;}
+.zone-moved{box-shadow:0 0 0 2px var(--blue2);transition:box-shadow .3s;}
+.chip-off{opacity:.55;text-decoration:line-through;text-decoration-color:#f87171;}
+.chip-offtag{font-size:10.5px;font-weight:900;color:#fff;background:#dc2626;border-radius:5px;padding:1px 5px;text-decoration:none;display:inline-block;}
+.roster-off-note{background:rgba(220,38,38,.1);border:1.5px solid rgba(220,38,38,.35);border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:13px;font-weight:700;color:#fca5a5;line-height:1.5;}
+.roster-off-note small{color:var(--sub);font-weight:600;font-size:11.5px;}
+.rh-open{width:100%;display:flex;flex-direction:column;align-items:center;gap:2px;padding:11px;margin-bottom:12px;border:1.5px solid var(--blue2);border-radius:12px;background:rgba(37,99,235,.12);color:var(--blue3);font-size:14.5px;font-weight:900;cursor:pointer;font-family:inherit;min-height:48px;}
+.rh-open small{font-size:11.5px;font-weight:600;color:var(--sub);}
+.dawn-theme .rh-open{border-color:var(--amber);background:rgba(245,158,11,.1);color:var(--amber2);}
+.rh-list{max-height:58vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;}
+.rh-item{text-align:left;padding:12px 13px;border:1.5px solid var(--border2);border-radius:12px;background:var(--card2);color:var(--text);cursor:pointer;font-family:inherit;}
+.rh-item:active{border-color:var(--blue2);}
+.rh-top{display:flex;align-items:center;gap:7px;font-size:14.5px;}
+.rh-tag{font-size:10.5px;font-weight:900;color:#fff;background:var(--blue);border-radius:99px;padding:2px 7px;}
+.rh-tag.wk{background:var(--card3);color:var(--blue3);}
+.rh-cnt{margin-left:auto;font-size:12px;font-weight:800;color:var(--sub);}
+.rh-zones{font-size:12px;color:var(--dim);margin-top:5px;line-height:1.45;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
 .zone-warn{font-size:11.5px;font-weight:700;color:var(--amber2,#f59e0b);margin:8px 0 0 2px;}
 .pedit{margin-top:10px;background:var(--card2);border:1.5px solid var(--blue2);border-radius:12px;padding:10px;display:grid;gap:8px;}
 .pedit-lb{display:grid;gap:4px;font-size:12px;font-weight:700;color:var(--sub);}
@@ -686,7 +706,8 @@ input[type="time"].time-hint{
 .sd-bar-d small{display:block;font-size:9.5px;opacity:.75;}
 .sd-bar-d.sun{color:#f08a8a;}
 .sd-bar-d.sat{color:#7ab0f0;}
-.sd-bar.today .sd-bar-d small{color:var(--blue3);opacity:1;font-weight:900;}
+.sd-bar.today .sd-bar-d{background:#2563eb;color:#fff;border-radius:7px;padding:2px 5px;}
+.sd-bar.today .sd-bar-d small{color:#fff;opacity:1;font-weight:900;}
 .sd-week-foot{font-size:10.5px;color:var(--dim);margin-top:6px;text-align:center;}
 .sch-badge{flex-shrink:0;font-size:10.5px;font-weight:900;padding:2px 7px;border-radius:99px;}
 .sch-badge.on{background:rgba(34,197,94,.15);color:#4ade80;}
@@ -703,8 +724,8 @@ input[type="time"].time-hint{
 .bd-h small{display:block;font-size:9.5px;font-weight:700;color:var(--dim);margin-top:1px;}
 .bd-h.sun b,.bd-h.sun small{color:#f08a8a;}
 .bd-h.sat b,.bd-h.sat small{color:#7ab0f0;}
-.bd-h.today{background:rgba(37,99,235,.3) !important;}
-.bd-h.today b{color:#fff;}
+.bd-h.today{background:#2563eb !important;}
+.bd-h.today b,.bd-h.today small{color:#fff !important;}
 .bd-h.sel{box-shadow:inset 0 -3px 0 var(--amber2);}
 .bd-name{position:sticky;left:0;z-index:3;background:var(--card);text-align:left;padding:0 6px 0 10px !important;min-width:78px;white-space:nowrap;border-right:1.5px solid var(--border2);cursor:pointer;font-size:13px;font-weight:900;}
 .bd-name span{display:inline-block;max-width:60px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;}
@@ -716,6 +737,10 @@ input[type="time"].time-hint{
 .bd tbody .bd-c.we{background:rgba(255,255,255,.035);}
 .bd tbody .bd-c.today{background:rgba(37,99,235,.13);}
 .bd tbody .bd-c.sel{background:rgba(245,158,11,.09);}
+/* 오늘 칸 — 선택한 날(주황)보다 우선, 파란 테두리 기둥으로 다른 날과 확실히 구분 (2026-10-08 사용자 요청) */
+.bd tbody .bd-c.today{background:rgba(37,99,235,.3) !important;box-shadow:inset 2px 0 0 #3b82f6,inset -2px 0 0 #3b82f6;}
+.bd tfoot td.today{box-shadow:inset 2px 0 0 #3b82f6,inset -2px 0 0 #3b82f6,inset 0 -2px 0 #3b82f6;background:rgba(37,99,235,.35);color:#fff;}
+.bd tfoot td.today.short{background:#b91c1c;}
 .bd-cell{width:26px;height:27px;border-radius:6px;border:none;cursor:pointer;font-family:inherit;font-size:11px;font-weight:900;padding:0;display:block;margin:0 auto;transition:transform .08s;}
 .bd-cell:active{transform:scale(.88);}
 .bd-cell.work{background:rgba(34,197,94,.14);}
@@ -920,6 +945,14 @@ body.tab-dragging .tabs{overflow-x:hidden;}
     </div>
   </div>
 </div>
+<div class="sheet-overlay" id="rhist-sheet" onclick="if(event.target===this)closeRosterHist()">
+  <div class="sheet pick-sheet">
+    <div class="sheet-title" id="rh-title">📂 지난 명단 불러오기</div>
+    <div class="sheet-sub">누르면 그날 명단(구역·이름·메모·번호)이 지금 명단에 그대로 들어옵니다. 날짜는 지금 날짜 그대로예요.</div>
+    <div class="rh-list" id="rh-list"></div>
+    <div class="sheet-btns"><button class="mini-btn" onclick="closeRosterHist()">닫기</button></div>
+  </div>
+</div>
 <div id="tab-ghost"></div>
 <div class="toast" id="toast"></div>
 
@@ -1098,8 +1131,41 @@ function sanitizeRosterArr(arr,defTitle){
   return base;
 }
 
+/* ── 지난 명단 기록 (2026-10-08 사용자 요청 "전일·이번 주 명단을 끌어와 그대로 쓰기") ──
+   그날 고치거나 보낸 명단을 날짜별로 남김 → 📂 지난 명단 불러오기 + 앱을 다시 열어도 그날 고친 명단 유지.
+   요일 기본을 띄우기만 하고 손대지 않은 날은 남기지 않음(보내면 남김). 최근 45일만 보관 */
+const ROSTER_HIST_KEY='disp-roster-hist', ROSTER_HIST_DAYS=45;
+let rosterHist=load(ROSTER_HIST_KEY,null);
+if(!rosterHist||typeof rosterHist!=='object') rosterHist={};
+['main','dawn'].forEach(k=>{ if(!rosterHist[k]||typeof rosterHist[k]!=='object') rosterHist[k]={}; });
+function rosterSig(w){ return JSON.stringify([w.title||'',w.zones||[]]); }
+function rosterHistGet(key,iso){ const h=rosterHist[key][iso]; return (h&&Array.isArray(h.zones))?h:null; }
+/* 그 날짜 명단 띄우기 — 기록이 있으면 기록, 없으면 요일 기본 */
+function rosterSetWork(R,iso,dow){
+  const h=rosterHistGet(R.key,iso);
+  R.work={date:iso,title:h?(h.title||R.defTitle):R.tpl[dow].title,zones:deepZones(h?h.zones:R.tpl[dow].zones)};
+  R.loadedSig=rosterSig(R.work);
+}
+/* render 마다 부름. forceKey = 보내기·저장 때 손 안 댄 명단도 남김 */
+function rosterHistRecord(forceKey){
+  let changed=false;
+  ['main','dawn'].forEach(k=>{
+    const R=rosters[k]; if(!R.work||!R.work.date) return;
+    const sig=rosterSig(R.work), old=rosterHist[k][R.work.date];
+    if(old&&rosterSig(old)===sig) return;
+    if(!old&&forceKey!==k&&sig===R.loadedSig) return;
+    if(!old&&!R.work.zones.some(z=>!z.isDiv&&z.people.length)) return;
+    rosterHist[k][R.work.date]={title:R.work.title,zones:deepZones(R.work.zones),at:Date.now()};
+    changed=true;
+  });
+  if(!changed) return;
+  const cut=toLocalISO(new Date(Date.now()-ROSTER_HIST_DAYS*864e5));
+  ['main','dawn'].forEach(k=>Object.keys(rosterHist[k]).forEach(d=>{ if(d<cut) delete rosterHist[k][d]; }));
+  try{ localStorage.setItem(ROSTER_HIST_KEY,JSON.stringify(rosterHist)); }catch(e){}
+}
+
 function initRoster(key){
-  const R=rosters[key];
+  const R=rosters[key]; R.key=key;
   const raw=load(R.lsKey,null);
   if(!raw){
     R.tpl=[0,1,2,3,4,5,6].map(()=>blankTpl(R.defTitle));
@@ -1111,7 +1177,7 @@ function initRoster(key){
     R.tpl=sanitizeRosterArr(raw,R.defTitle);
   }
   R.workDow=dowOf(todayISO());
-  R.work={date:todayISO(),title:R.tpl[R.workDow].title,zones:deepZones(R.tpl[R.workDow].zones)};
+  rosterSetWork(R,todayISO(),R.workDow);
 }
 initRoster('main');
 initRoster('dawn');
@@ -1353,13 +1419,12 @@ function applyDayRollover(force){
   if (!force && t === lastWorkDay) return false;
   lastWorkDay = t;
   const dow = dowOf(t);
+  rosterHistRecord();
 
   ['main','dawn'].forEach(k=>{
     const R = rosters[k];
     R.workDow = dow;
-    R.work.date = t;
-    R.work.title = R.tpl[dow].title;
-    R.work.zones = deepZones(R.tpl[dow].zones);
+    rosterSetWork(R, t, dow);
   });
 
   if (scheduleStore) {
@@ -2320,6 +2385,7 @@ function renderRoster(){
   const zonesHtml=R.work.zones.map((z,zi)=>{
     if(z.isDiv) return `
     <div class="zone zone-div">
+      ${zoneMoveHTML(zi,R.work.zones.length)}
       <span class="zdiv-bar">━━</span>
       <input class="zone-name" value="${esc(z.name)}" placeholder="묶음 이름 (예: 송파)" onchange="setZone(${zi},'name',this.value)">
       <span class="zdiv-bar">━━</span>
@@ -2331,6 +2397,7 @@ function renderRoster(){
     return `
     <div class="zone" style="${z.isBackup?'border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.05);':''}">
       <div class="zone-top">
+        ${zoneMoveHTML(zi,R.work.zones.length)}
         <input class="zone-emoji" value="${esc(z.emoji||'📍')}" maxlength="2" onchange="setZone(${zi},'emoji',this.value)">
         <input class="zone-name" value="${esc(z.name)}" placeholder="구역명" onchange="setZone(${zi},'name',this.value)">
         <button class="zone-del" title="백업 지정" style="${z.isBackup?'background:rgba(245,158,11,.18);color:var(--amber2)':''}" onclick="toggleZoneBackup(${zi})">🆘</button>
@@ -2339,10 +2406,11 @@ function renderRoster(){
       ${(z.nums||rosterNumsOpen[zi])?`<div class="zone-nums-row"><span>구역 번호</span><input id="znum-${zi}" class="zone-nums" value="${esc(z.nums.replace(/·/g,', '))}" placeholder="예: 104, 105, 106" inputmode="text" onchange="setZoneNums(${zi},this.value)"></div>`:''}
            ${zoneMainLines(z,getCompactMode()).length>1?`<div style="font-size:10.5px;color:var(--blue3);font-weight:700;margin:-4px 0 8px 2px;">↩️ 인원이 많아 카톡에서 2줄로 나눠 보냅니다</div>`:''}
       <div class="chips">
-        ${ppl.map((o,pi)=>`<span class="chip${zDups.indexOf(o.n)>=0?' chip-dup':''}${ed&&sel[1]===pi?' chip-sel':''}${o.n==='신규'?' chip-slot':''}" onclick="selPerson(${zi},${pi})">${esc(o.n)}${o.m?`<span class="chip-memo">${esc(o.m)}</span>`:''}${o.nw&&o.n!=='신규'?'<span class="chip-new">신규</span>':''}<button class="chip-x" onclick="event.stopPropagation();delPerson(${zi},${pi})">✕</button></span>`).join('')}
+        ${ppl.map((o,pi)=>`<span class="chip${zDups.indexOf(o.n)>=0?' chip-dup':''}${ed&&sel[1]===pi?' chip-sel':''}${o.n==='신규'?' chip-slot':''}${rosterIsOff(R,z.people[pi])?' chip-off':''}" onclick="selPerson(${zi},${pi})">${esc(o.n)}${rosterIsOff(R,z.people[pi])?'<span class="chip-offtag">휴무</span>':''}${o.m?`<span class="chip-memo">${esc(o.m)}</span>`:''}${o.nw&&o.n!=='신규'?'<span class="chip-new">신규</span>':''}<button class="chip-x" onclick="event.stopPropagation();delPerson(${zi},${pi})">✕</button></span>`).join('')}
         <span class="chip-add"><input id="padd-${zi}" placeholder="+ 이름 (여러 명 띄어쓰기)" onkeydown="if(event.key==='Enter'){event.preventDefault();const v=this.value;this.value='';addPerson(${zi},v,true);}" onblur="const v=this.value;this.value='';if(v.trim())addPerson(${zi},v);"></span>
       </div>
       ${zDups.length?`<div class="zone-warn">⚠️ ${esc(zDups.join(', '))} — 다른 구역에도 있어요</div>`:''}
+      ${z.people.length&&z.people.every(p=>rosterIsOff(R,p))?`<div class="zone-warn" style="color:#f87171">🔴 모두 휴무라 이 구역이 카톡·이미지에서 빠져요 — 대신할 사람을 넣으세요</div>`:''}
       ${ed?`<div class="pedit">
         <label class="pedit-lb">이름<input class="inp" value="${esc(ed.n)}" oninput="setPersonField(${zi},${sel[1]},'n',this.value)"></label>
         <label class="pedit-lb">메모 · 추가로 맡는 곳<input class="inp" value="${esc(ed.m)}" placeholder="예: 선경·우성 / 4동·딜" oninput="setPersonField(${zi},${sel[1]},'m',this.value)"></label>
@@ -2362,10 +2430,12 @@ function renderRoster(){
   const previewText = customRosterText !== null ? customRosterText : rosterText();
   const imgView = getRosterView()==='img';
 
-  const workCnt = k => rosterUniqNames(rosters[k].work.zones.filter(z=>!z.isBackup)).length;
+  const workCnt = k => rosterUniqNames(rosterLiveZones(rosters[k]).filter(z=>!z.isBackup)).length;
+  const liveZ = rosterLiveZones(R), offNames = rosterOffNames(R);
   return `${shiftSwitchHTML({ day: workCnt('main'), dawn: workCnt('dawn') })}<div class="${R.theme}">
     <div class="dow-bar">${dowBtns}</div>
     ${banner}
+    <button class="rh-open" onclick="openRosterHist()">📂 지난 명단 불러오기<small>${rosterHistDates().length?'어제·이번 주 명단을 그대로 가져와요 · '+rosterHistDates().length+'일치':'고치거나 보낸 명단이 날짜별로 쌓여요'}</small></button>
     <div class="row2" style="margin-bottom:13px">
       <div class="field" style="margin:0"><label class="field-label">📅 날짜</label><input type="date" class="inp" value="${R.work.date}" onchange="cur().work.date=this.value;customRosterText=null;render()"></div>
       <div class="field" style="margin:0"><label class="field-label">📋 제목</label><input class="inp" value="${esc(R.work.title)}" placeholder="${esc(R.defTitle)}" onchange="cur().work.title=this.value;customRosterText=null;render()"></div>
@@ -2387,6 +2457,10 @@ function renderRoster(){
           <div><div class="opt-text">이름 간격 좁게</div><div class="opt-sub">쉼표 공백을 없애 한 줄에 더 많이 담습니다 (권장)</div></div>
           <label class="switch"><input type="checkbox" ${getCompactMode()?'checked':''} onchange="setCompactMode(this.checked)"><span class="slider"></span></label>
         </div>
+        <div class="opt-row" style="margin:0 0 9px">
+          <div><div class="opt-text">휴무자 자동 빼기</div><div class="opt-sub">근무/휴무 탭에서 그날 휴무인 사람은 카톡 글·이미지에서 뺍니다</div></div>
+          <label class="switch"><input type="checkbox" ${getRosterAutoOff()?'checked':''} onchange="setRosterAutoOff(this.checked)"><span class="slider"></span></label>
+        </div>
         <div class="opt-text" style="margin-bottom:6px">구역 · 이름 구분 방식</div>
         <div class="paste-mode" style="margin-bottom:0">
           ${Object.keys(ZONE_SEPS).map(k=>`<button class="paste-mode-btn ${k===getZoneSep()?'active':''}" style="padding:9px 2px;font-size:11.5px" onclick="setZoneSep('${k}')">${esc(ZONE_SEPS[k].label)}</button>`).join('')}
@@ -2394,8 +2468,9 @@ function renderRoster(){
       </div>
     </details>
     <div class="section-head">
-      <div class="section-title">구역 <b>${R.work.zones.filter(z=>!z.isBackup&&!z.isDiv).length}</b>개 · 근무 <b>${rosterUniqNames(R.work.zones.filter(z=>!z.isBackup)).length}</b>명${rosterNewCount(R.work.zones)?` (신규 ${rosterNewCount(R.work.zones)})`:''} · 🆘 백업 <b>${rosterUniqNames(R.work.zones.filter(z=>z.isBackup)).length}</b>명</div>
+      <div class="section-title">구역 <b>${R.work.zones.filter(z=>!z.isBackup&&!z.isDiv).length}</b>개 · 근무 <b>${rosterUniqNames(liveZ.filter(z=>!z.isBackup)).length}</b>명${rosterNewCount(liveZ)?` (신규 ${rosterNewCount(liveZ)})`:''} · 🆘 백업 <b>${rosterUniqNames(liveZ.filter(z=>z.isBackup)).length}</b>명</div>
     </div>
+    ${offNames.length?`<div class="roster-off-note">🔴 휴무 <b>${offNames.length}명</b> — ${esc(offNames.join(', '))}<br><small>근무/휴무 탭 ${fmtKDate(R.work.date)} 기준이라 카톡 글·이미지에서 자동으로 빠져요</small></div>`:''}
     ${zonesHtml}
     <div class="add-zone-row">
       <button class="btn-add-zone" onclick="addZone()">＋ 구역 추가</button>
@@ -2412,8 +2487,8 @@ function renderRoster(){
       <textarea id="roster-pv" class="kakao-bubble${previewText?'':' empty'}" oninput="customRosterText=this.value; autoResizePreviews(); document.getElementById('roster-apply').hidden=false;" placeholder="구역과 이름을 입력하면 여기에 미리보기가 나옵니다.">${esc(previewText)}</textarea>
       <button id="roster-apply" class="btn-apply" ${customRosterText!==null?'':'hidden'} onclick="applyRosterEdit()">✅ 고친 글을 명단에 반영 (입력칸 · 이미지)</button>
       <div class="actions">
-        <button class="btn btn-share" onclick="shareText(customRosterText !== null ? customRosterText : rosterText())">💬 공유하기</button>
-        <button class="btn btn-copy" onclick="copyText(customRosterText !== null ? customRosterText : rosterText())">📋 복사</button>
+        <button class="btn btn-share" onclick="rosterHistRecord(cur().key);shareText(customRosterText !== null ? customRosterText : rosterText())">💬 공유하기</button>
+        <button class="btn btn-copy" onclick="rosterHistRecord(cur().key);copyText(customRosterText !== null ? customRosterText : rosterText())">📋 복사</button>
       </div>
       </div>
       ${imgView?`<div class="pv-seg pv-seg-sm">
@@ -2470,9 +2545,22 @@ function rosterDupNames(zones){
   zones.forEach(z=>{const s={};(z.people||[]).forEach(p=>{const n=rosterBaseName(p);if(!n||n==='신규'||s[n])return;s[n]=1;cnt[n]=(cnt[n]||0)+1;});});
   return Object.keys(cnt).filter(n=>cnt[n]>1);
 }
+/* 근무/휴무 탭에서 그날 휴무인 사람은 카톡 글·이미지·인원 수에서 자동으로 뺌 (2026-10-08 사용자 요청)
+   명단 자체는 그대로 두어서 휴무를 풀면 다시 나옴. 표시 옵션에서 끌 수 있음(disp-roster-autooff) */
+function getRosterAutoOff(){ try{ return localStorage.getItem('disp-roster-autooff')!=='0'; }catch(e){ return true; } }
+function setRosterAutoOff(v){ try{ localStorage.setItem('disp-roster-autooff', v?'1':'0'); }catch(e){} customRosterText=null; render(); }
+function rosterIsOff(R,p){
+  if(!getRosterAutoOff()) return false;
+  const sh=R===rosters.dawn?'dawn':'day', n=rosterBaseName(p);
+  if(!n||n==='신규') return false;
+  return schList(sh).indexOf(n)>=0&&getWorkerStatus(n,R.work.date,sh)==='OFF';
+}
+function rosterLiveZones(R){ R=R||cur(); return R.work.zones.map(z=>z.isDiv?z:Object.assign({},z,{people:z.people.filter(p=>!rosterIsOff(R,p))})); }
+function rosterOffNames(R){ R=R||cur(); const out=[]; R.work.zones.forEach(z=>z.people.forEach(p=>{ const n=rosterBaseName(p); if(rosterIsOff(R,p)&&out.indexOf(n)<0) out.push(n); })); return out; }
+
 function rosterText(){
   const R=cur();
-  const active=R.work.zones.filter(z=>z.isDiv||(z.name.trim()&&z.people.length));
+  const active=rosterLiveZones(R).filter(z=>z.isDiv||(z.name.trim()&&z.people.length));
   if(!active.some(z=>!z.isDiv)) return '';
 
   const compact=getCompactMode();
@@ -2518,6 +2606,25 @@ function setZone(zi,key,v){
 }
 function setZoneNums(zi,v){customRosterText=null;const z=cur().work.zones[zi];if(!z)return;z.nums=normNums(v);if(!z.nums)delete rosterNumsOpen[zi];render();}
 function openZoneNums(zi){rosterNumsOpen[zi]=1;render();const el=document.getElementById('znum-'+zi);if(el)el.focus();}
+/* 구역·구분선 순서 바꾸기 ▲▼ (2026-10-08 사용자 요청) — 옮긴 칸이 화면에서 같은 자리에 보이게 스크롤을 맞춤 */
+function zoneMoveHTML(zi,n){
+  return `<div class="zone-mv"><button ${zi===0?'disabled':''} onclick="moveZone(${zi},-1)" aria-label="위로">▲</button><button ${zi===n-1?'disabled':''} onclick="moveZone(${zi},1)" aria-label="아래로">▼</button></div>`;
+}
+function moveZone(zi,dir){
+  const zs=cur().work.zones, j=zi+dir;
+  if(j<0||j>=zs.length) return;
+  const els=()=>document.querySelectorAll('#content .zone');
+  const before=els()[zi]?els()[zi].getBoundingClientRect().top:null;
+  [zs[zi],zs[j]]=[zs[j],zs[zi]];
+  customRosterText=null; rosterSel=null; rosterNumsOpen={};
+  render();
+  const el=els()[j]; if(!el) return;
+  if(before!==null){
+    const d=el.getBoundingClientRect().top-before, sc=document.getElementById('content');
+    if(sc&&sc.scrollHeight>sc.clientHeight+5) sc.scrollTop+=d; else window.scrollBy(0,d);
+  }
+  el.classList.add('zone-moved'); setTimeout(()=>el.classList.remove('zone-moved'),600);
+}
 function delZone(zi){customRosterText=null;rosterSel=null;rosterNumsOpen={};cur().work.zones.splice(zi,1);render();}
 function addZone(){customRosterText=null;cur().work.zones.push({emoji:'📍',name:'',nums:'',people:[],isBackup:false,isDiv:false});render();}
 function addDivider(){customRosterText=null;cur().work.zones.push({emoji:'',name:'',nums:'',people:[],isBackup:false,isDiv:true});render();}
@@ -2599,7 +2706,7 @@ function setRosterCols(n){ try{ localStorage.setItem('disp-roster-cols', String(
 function rosterDocDate(iso){ const d=new Date(iso+'T00:00:00'); return d.getFullYear()+'. '+(d.getMonth()+1)+'. '+d.getDate()+'.('+DAYS[d.getDay()]+')'; }
 function rosterImgData(){
   const R=cur();
-  const active=R.work.zones.filter(z=>z.isDiv||(z.name.trim()&&z.people.length));
+  const active=rosterLiveZones(R).filter(z=>z.isDiv||(z.name.trim()&&z.people.length));
   if(!active.some(z=>!z.isDiv)) return null;
   const norm=active.filter(z=>!z.isBackup), back=active.filter(z=>z.isBackup);
   const work=rosterUniqNames(norm);
@@ -2833,6 +2940,7 @@ function rosterImgRefresh(){
 }
 async function rosterImgBlob(){
   const d=rosterImgData(); if(!d){ showToast('명단이 비어 있어요','err'); return null; }
+  rosterHistRecord(cur().key);
   try{ if(document.fonts&&document.fonts.load) await document.fonts.load("700 18px 'Noto Sans KR'"); }catch(e){}
   await Promise.all([rosterLogo.mark,rosterLogo.text].map(i=>i.decode?i.decode().catch(()=>{}):null));
   const c=rosterCardCanvas(d);
@@ -2996,11 +3104,36 @@ function reloadTpl(){
 function selectDow(d){
   const R=cur();
   customRosterText = null; rosterSel = null; rosterNumsOpen = {};
+  rosterHistRecord();
   R.workDow=d;
-  R.work.title=R.tpl[d].title;
-  R.work.zones=deepZones(R.tpl[d].zones);
-  R.work.date=nearestDateForDow(d);
+  rosterSetWork(R,nearestDateForDow(d),d);
   render();
+}
+
+function rosterHistDates(){ const R=cur(); return Object.keys(rosterHist[R.key]).filter(d=>d!==R.work.date&&rosterHistGet(R.key,d)).sort().reverse(); }
+function openRosterHist(){ document.getElementById('rhist-sheet').classList.add('show'); drawRosterHist(); }
+function closeRosterHist(){ document.getElementById('rhist-sheet').classList.remove('show'); }
+function drawRosterHist(){
+  const R=cur(), box=document.getElementById('rh-list'); if(!box) return;
+  document.getElementById('rh-title').textContent='📂 지난 '+R.label+' 불러오기';
+  const y=new Date(R.work.date+'T00:00:00'); y.setDate(y.getDate()-1); const yIso=toLocalISO(y);
+  const wk=getWeekDays(R.work.date);
+  const rows=rosterHistDates().slice(0,30).map(d=>{
+    const h=rosterHistGet(R.key,d), zs=h.zones.filter(z=>!z.isDiv&&!z.isBackup&&z.name.trim()&&z.people.length);
+    const tag=d===yIso?'<span class="rh-tag">어제</span>':(wk.indexOf(d)>=0?'<span class="rh-tag wk">이번 주</span>':'');
+    return `<button class="rh-item" onclick="loadRosterHist('${d}')">
+      <div class="rh-top"><b>${fmtKDate(d)}</b>${tag}<span class="rh-cnt">구역 ${zs.length} · ${rosterUniqNames(zs).length}명</span></div>
+      <div class="rh-zones">${esc(zs.map(z=>z.name.trim()).join(' · '))}</div>
+    </button>`;
+  }).join('');
+  box.innerHTML=rows||`<div class="ob-empty">아직 남은 지난 명단이 없어요.<br>오늘부터 명단을 고치거나 보내면 날짜별로 쌓여요 (최근 ${ROSTER_HIST_DAYS}일).</div>`;
+}
+function loadRosterHist(d){
+  const R=cur(), h=rosterHistGet(R.key,d); if(!h) return;
+  customRosterText=null; rosterSel=null; rosterNumsOpen={};
+  R.work.title=h.title||R.defTitle; R.work.zones=deepZones(h.zones);
+  closeRosterHist(); render();
+  showToast('📂 '+fmtKDate(d)+' 명단을 불러왔어요 — 바뀐 사람만 고치세요');
 }
 
 function nearestDateForDow(targetDow){
@@ -3265,7 +3398,7 @@ function schBoardHTML(days, wide){
     }).join('');
     return `<tr><th class="bd-name" onclick="schOpenPerson('${esc(w)}')"><span style="color:${settleNameColorOf(w)}">${esc(w)}</span>${n?`<i>${n}</i>`:''}</th>${cells}</tr>`;
   }).join('');
-  const foot = days.map(d => { const c = schWorkCount(d, sh); return `<td class="${min>0&&c<min?'short':''}">${c}</td>`; }).join('');
+  const foot = days.map(d => { const c = schWorkCount(d, sh); return `<td class="${min>0&&c<min?'short':''} ${d===today?'today':''}">${c}</td>`; }).join('');
   return `
     <div class="bd-wrap ${wide?'wide':''}" id="bd-wrap"><table class="bd">
       <thead><tr><th class="bd-name bd-corner">${SHIFT_ICON[sh]} ${list.length}명</th>${head}</tr></thead>
@@ -3680,7 +3813,7 @@ function saveSettings(){
   showToast('⚙️ 설정 및 공유 양식이 기기에 저장되었습니다.');
 }
 
-const BK_KEYS=['disp-roster-tpl','disp-dawn-tpl','disp-schedule','disp-inbound','disp-roster-wide','disp-roster-compact','disp-roster-sep','disp-tab-order','acn5',
+const BK_KEYS=['disp-roster-tpl','disp-dawn-tpl','disp-schedule','disp-inbound','disp-roster-wide','disp-roster-compact','disp-roster-sep','disp-tab-order','acn5','disp-roster-hist',
                'mv_alias','mv_items','mv_base','mv_rules','mv_models','mv_midx','mv_history','mv_last','disp-settle'];
 let pendingImport=null;
 
@@ -5153,6 +5286,7 @@ function showFrameFail(f, app){
 }
 
 function render(){
+  rosterHistRecord();
   document.getElementById('hDate').textContent=new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
   const c  = document.getElementById('content');
   const fw = document.getElementById('frames');
