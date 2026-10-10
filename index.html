@@ -2730,8 +2730,11 @@ rosterLogo.text.src='logo-lk-text.png';
 [rosterLogo.mark,rosterLogo.text].forEach(i=>{ i.onload=()=>rosterImgRefresh(); });
 /* 2단(d.cols===2): 길면 카톡이 긴 변 기준으로 통째로 줄여(세로 5800 → 1/5) 흐려져서,
    구역을 두 칸에 나눠 담아 정사각형에 가깝게 만든 모양 (2026-10-08 사용자 요청, 1단과 골라 씀) */
+const ROSTER_2COL_FS=1.12;   /* 2단 글씨 12% 키움 (2026-10-10 사용자 선택, 비교: 지금·12%·20%) */
 function rosterCardCanvas(d, dpr){
   const two=d.cols===2, GAP=40, F="'Noto Sans KR',sans-serif";
+  /* FS = 2단 글씨 배율 — 같은 그림 폭에 내용을 FS 배 크게 (좁은 폭에 그린 뒤 키움) */
+  const FS=two?(d.fs||ROSTER_2COL_FS):1;
   let CIN=two?420:540;
   /* 새벽반 2단: 구역 번호가 한 칸 안에서 세 줄로 꺾이지 않게 칸을 넓힘 (최대 540) — '/' 앞뒤는 원래 따로 줄 */
   if(two&&d.dawn){
@@ -2739,10 +2742,12 @@ function rosterCardCanvas(d, dpr){
     const tw=(t,sz,w)=>{ m.font=w+' '+sz+'px '+F; return m.measureText(t).width; };
     const zs=d.norm.concat(d.back).filter(z=>!z.isDiv), PW=Math.round(26*0.62)+8;
     const numNeed=Math.max(0,...zs.map(z=>z.nums?PW+28+Math.max(...('('+z.nums+')').split(/(?<=\/)/).map(t=>tw(t,21,700))):0));
-    const lineNeed=Math.max(0,...zs.map(z=>z.people.map(personParse).reduce((a,o,i)=>a+(i?28:0)+tw(o.n,27,500)
-      +(o.nw&&o.n!=='신규'?tw('신규',16,800)+7:0)+(o.m?10+tw(o.m.replace(/^\+\s*/,''),21,700)+20:0),0)));
+    /* 이름이 여럿이면 위아래로 쌓으므로 가장 긴 이름 하나만큼 */
+    const lineNeed=Math.max(0,...zs.map(z=>Math.max(0,...z.people.map(personParse).map(o=>tw(o.n,27,500)
+      +(o.nw&&o.n!=='신규'?tw('신규',16,800)+7:0)+(o.m?10+tw(o.m.replace(/^\+\s*/,''),21,700)+20:0)))));
     CIN=Math.min(540,Math.max(CIN,Math.ceil(numNeed+lineNeed+8)));
   }
+  if(two) CIN=Math.round(CIN/FS);
   const W=two?CIN*2+60+GAP:600;
   const NAVY='#013C73', SKY='#1296E0';
   const AC=d.dawn?'#C2410C':'#0A5FA8', SOFT=d.dawn?'#FFEDD5':'#E1EFFA', GR='#15803D', INK='#111827', SUB='#4b5563', LN='#e5e7eb';
@@ -2859,7 +2864,9 @@ function rosterCardCanvas(d, dpr){
       const nw=nameW(o), mt=o.m?o.m.replace(/^\+\s*/,''):'';
       return {o,nw,mt,w:nw+(mt?10+tw(mt,21,700)+20:0)};
     });
-    const lineW=z=>inl(z).reduce((a,it,i)=>a+it.w+(i?28:0),0);
+    /* 2단은 칸이 좁아 이름이 여럿인 줄은 이름을 위아래로 쌓음 → 이름 칸이 좁아지고 구역 번호 칸이 넓어짐 (2026-10-10) */
+    const stack=z=>two&&z.people.length>1;
+    const lineW=z=>stack(z)?Math.max(...inl(z).map(it=>it.w)):inl(z).reduce((a,it,i)=>a+it.w+(i?28:0),0);
     /* 구역 칸 폭: 이름 칸은 가장 긴 이름 줄만큼만 남기고 나머지 빈자리를 구역 칸에 줌 (최소 290)
        → 긴 구역·번호가 덜 꺾이고 글씨 크기는 그대로 (2026-10-06 사용자 요청 "옆으로 늘려")
        2단은 칸이 좁아 최소 170 — 번호가 몇 줄로 꺾여도 한 줄 표 모양을 지킴 */
@@ -2876,15 +2883,17 @@ function rosterCardCanvas(d, dpr){
       const lines=zl.map(t=>({t,s:ZS,w:900})).concat(nt&&!same?wrapN(nt,ZC-28-PW,NSZ,700).map(t=>({t,s:NSZ,w:700})):[]);
       const lh=l=>l.s===ZS?34:28;
       const blockH=lines.reduce((a,l)=>a+lh(l),0);
-      const h=Math.max(64,blockH+22), cy=y+h/2;
+      const NLH=40, nameH=stack(z)?z.people.length*NLH:0;
+      const h=Math.max(64,blockH+22,nameH+22), cy=y+h/2;
       let ly=cy-blockH/2;
       lines.forEach((l,i)=>{ if(!i) pin(P,ly+lh(l)/2+1,ZS,zc); T(l.t,P+PW,ly+lh(l)/2+1,{s:l.s,w:l.w,c:zc}); ly+=lh(l); });
       if(same&&nt) T(nt,P+zW(z)+10,cy+2,{s:NSZ,w:700,c:zc});
-      let X=P+ZC;
+      let X=P+ZC, ny=cy-nameH/2+NLH/2;
       inl(z).forEach(it=>{
-        nameAt(it.o,X,cy+1);
-        if(it.mt){ const tx=X+it.nw+10, tW=tw(it.mt,21,700)+20; rr(tx,cy-18,tW,36,9,SOFT); T(it.mt,tx+10,cy+1,{s:21,w:700,c:AC}); }
-        X+=it.w+28;
+        const Y=nameH?ny:cy;
+        nameAt(it.o,X,Y+1);
+        if(it.mt){ const tx=X+it.nw+10, tW=tw(it.mt,21,700)+20; rr(tx,Y-18,tW,36,9,SOFT); T(it.mt,tx+10,Y+1,{s:21,w:700,c:AC}); }
+        if(nameH) ny+=NLH; else X+=it.w+28;
       });
       y+=h;
     };
@@ -2923,8 +2932,10 @@ function rosterCardCanvas(d, dpr){
   const m=document.createElement('canvas').getContext('2d');
   const H=Math.ceil(pass(m,false));
   const c=document.createElement('canvas'); dpr=dpr||3;
-  c.width=W*dpr; c.height=H*dpr;
-  const x=c.getContext('2d'); x.scale(dpr,dpr);
+  /* 2단: 카톡이 긴 변 약 1400px 기준으로 정수배 축소 → 긴 변을 4200(=3배) 안으로 맞춰야 1/4 로 떨어지지 않음 */
+  const SC=two?Math.min(dpr*FS,4200/Math.max(W,H)):dpr*FS;
+  c.width=Math.round(W*SC); c.height=Math.round(H*SC);
+  const x=c.getContext('2d'); x.scale(SC,SC);
   x.fillStyle='#fff'; x.fillRect(0,0,W,H);
   pass(x,true);
   return c;
