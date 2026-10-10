@@ -399,6 +399,8 @@ input[type="time"].time-hint{
 .st-sec .st-line.net span:first-child{color:var(--text);}
 .st-sec .st-line.net span:last-child{color:var(--teal3);}
 .st-sec .st-line.tax span:last-child{color:var(--amber2);font-weight:800;}
+.st-sec .st-line.vatin{padding:4px 12px 4px 22px;font-size:12.5px;border-top:none;}
+.st-sec .st-line.vatin span{color:var(--sub);font-weight:700;}
 .st-sum2 .st-line.mini{font-size:11.5px;color:var(--dim);padding:2px 0 4px;border-top:none;}
 .st-sum2 .st-line.mini span:first-child{color:var(--dim);}
 .st-line.tax span:last-child{color:var(--amber2);font-weight:800;}
@@ -4009,7 +4011,7 @@ function showToast(msg,type){const t=document.getElementById('toast');if(!t)retu
 /* ===== 💰 정산 — 물량 탭이 날짜별로 저장한 표(mv_history)를 월별로 모아 사람별 단가를 곱함 ===== */
 const SETTLE_KEY='disp-settle', SETTLE_HISTORY_KEY='mv_history';
 const SETTLE_DEFAULT_ITEMS=['오네','책','딜리','주말딜리','새벽딜리'];
-const TAX_TYPES={ '3.3':'3.3% 공제', 'vat':'부가세 별도', 'none':'세금 없음' };
+const TAX_TYPES={ '3.3':'3.3% 공제', 'vat':'부가세 별도', 'vatin':'부가세 포함', 'none':'세금 없음' };
 const SETTLE_PAL=['#2563eb','#0d9488','#7c3aed','#d97706','#db2777','#0891b2','#65a30d','#dc2626'];
 const SETTLE_PAL_LIGHT=['#7cb0ff','#4fe3d0','#bda4ff','#fbbf24','#ff8fc4','#4fd8f0','#b6ee5c','#ff9494'];
 let settleStore=load(SETTLE_KEY,null);
@@ -4095,10 +4097,21 @@ function settleAllNames(){
   return Object.keys(set).sort((a,b)=>a.localeCompare(b,'ko'));
 }
 
-function settleTaxOf(amt, taxType){ return taxType==='vat' ? Math.round(amt*0.1) : taxType==='none' ? 0 : -Math.round(amt*0.033); }
+function settleTaxOf(amt, taxType){ return taxType==='vat' ? Math.round(amt*0.1) : (taxType==='none'||taxType==='vatin') ? 0 : -Math.round(amt*0.033); }
+/* 부가세 포함 금액 → 세금계산서 칸. 공급가액 = 합계÷1.1 원 단위 반올림, 부가세 = 나머지
+   (150,000 → 136,364 + 13,636 : 홈택스가 공급가액×10% 버림으로 내는 세액과 같고 합계도 딱 맞음) */
+function settleVatSplit(amt){ const supply=Math.round(amt*10/11); return {supply, vat:amt-supply}; }
+/* 소계 아래에 더하거나 빼는 줄이 있는 방식 (부가세 포함은 지급액이 소계 그대로라 대신 공급가액·부가세 두 줄) */
+function settleTaxShow(taxType){ return taxType==='3.3'||taxType==='vat'; }
 /* 마감해 둔 예전 기록엔 정산별 공제가 없을 수 있어 그 자리에서 계산 */
 function settleGroupTax(g, taxType){ return (typeof g.tax==='number') ? g.tax : settleTaxOf(g.sub, taxType); }
 function settleTaxLabel(taxType){ return taxType==='vat' ? '부가세 (10%)' : taxType==='3.3' ? '3.3% 공제' : ''; }
+/* '매출 합계 …' 뒤 꼬리 — 부가세 포함이면 오네·딜리 각각 나눈 공급가액·부가세를 더해서 */
+function settleVatTotals(r){ return r.groups.reduce((a,g)=>{ const v=settleVatSplit(g.sub); a.supply+=v.supply; a.vat+=v.vat; return a; },{supply:0,vat:0}); }
+function settleSalesNote(r){
+  if(r.taxType==='vatin'){ const v=settleVatTotals(r); return ' · 공급가액 '+won(v.supply)+' · 부가세 '+won(v.vat); }
+  return settleTaxShow(r.taxType) ? ' · '+settleTaxLabel(r.taxType)+' '+(r.tax>0?'+':'')+won(r.tax) : '';
+}
 function settleNetLabel(g){ return g.key==='one' ? '오네 지급액' : '딜리 지급액'; }
 function settleIsClosed(month){ return !!settleStore.closed[month]; }
 function settleCalc(month){
@@ -4295,14 +4308,15 @@ function settlePersonText(r){
     g.lines.forEach(l=>L.push(' · '+l.item+' '+num(l.qty)+'건 × '+num(l.price)+'원 = '+won(l.amt)));
     L.push(' 소계 '+won(g.sub));
     const t=settleGroupTax(g,r.taxType);
-    if(r.taxType!=='none') L.push(' '+settleTaxLabel(r.taxType)+' '+(t>0?'+':'')+won(t));
+    if(settleTaxShow(r.taxType)) L.push(' '+settleTaxLabel(r.taxType)+' '+(t>0?'+':'')+won(t));
+    if(r.taxType==='vatin'){ const v=settleVatSplit(g.sub); L.push('  └ 공급가액 '+won(v.supply)); L.push('  └ 부가세 '+won(v.vat)); }
     L.push(' ▶ '+settleNetLabel(g)+' '+won(g.sub+t));
   });
   if(r.etc.length) L.push('※ 단가 없는 물품: '+r.etc.map(e=>e.item+' '+num(e.qty)+'건').join(', '));
   L.push(SETTLE_BAR);
   r.groups.filter(g=>g.lines.length).forEach(g=>L.push((g.key==='one'?'🟦 ':'🟩 ')+settleNetLabel(g)+' '+won(g.sub+settleGroupTax(g,r.taxType))));
   L.push('💰 총 지급액 '+won(r.pay));
-  L.push('(매출 '+won(r.sales)+(r.taxType!=='none'?' · '+settleTaxLabel(r.taxType)+' '+(r.tax>0?'+':'')+won(r.tax):'')+')');
+  L.push('(매출 '+won(r.sales)+settleSalesNote(r)+')');
   L.push((r.sum?'월 합계':'근무 '+r.days+'일')+' · 총 '+num(r.totalQty)+'건');
   if(r.daily&&r.daily.length){
     L.push(SETTLE_BAR);
@@ -4324,7 +4338,7 @@ function settleCardPNG(r){
   const dailyRows=(r.daily||[]).slice();
   const cols=items.filter(it=>r.daily.some(d=>d.qty[it])).concat([...new Set(r.daily.flatMap(d=>Object.keys(d.qty).filter(it=>items.indexOf(it)<0&&d.qty[it])))]);
   const gWith=r.groups.filter(g=>g.lines.length);
-  const lines=gWith.reduce((n,g)=>n+g.lines.length+2+(r.taxType!=='none'?1:0)+1,0);
+  const lines=gWith.reduce((n,g)=>n+g.lines.length+2+(settleTaxShow(r.taxType)?1:r.taxType==='vatin'?2:0)+1,0);
   const sumH=gWith.length*40+48+30;
   const H=162 + lines*34 + sumH + 30 + (dailyRows.length ? 76 + dailyRows.length*32 : 0) + 64;
   const c=document.createElement('canvas'); const dpr=2; c.width=W*dpr; c.height=H*dpr;
@@ -4356,7 +4370,9 @@ function settleCardPNG(r){
     });
     T('소계',P+12,y+14,{s:14,w:900,c:'#374151'}); T(won(gr.sub),W-P-12,y+14,{s:15,w:900,c:'#111827',a:'right'}); y+=34;
     const gt=settleGroupTax(gr,r.taxType);
-    if(r.taxType!=='none'){ T(settleTaxLabel(r.taxType),P+12,y+14,{s:13,w:700,c:'#6b7280'}); T((gt>0?'+':'')+won(gt),W-P-12,y+14,{s:14,w:800,c:'#b45309',a:'right'}); y+=34; }
+    if(settleTaxShow(r.taxType)){ T(settleTaxLabel(r.taxType),P+12,y+14,{s:13,w:700,c:'#6b7280'}); T((gt>0?'+':'')+won(gt),W-P-12,y+14,{s:14,w:800,c:'#b45309',a:'right'}); y+=34; }
+    if(r.taxType==='vatin'){ const v=settleVatSplit(gr.sub);
+      [['└ 공급가액',v.supply],['└ 부가세 (10%)',v.vat]].forEach(([k,a])=>{ T(k,P+24,y+14,{s:13,w:700,c:'#6b7280'}); T(won(a),W-P-12,y+14,{s:14,w:700,c:'#6b7280',a:'right'}); y+=34; }); }
     rr(P+4,y+1,W-P*2-8,30,7,one?'#eff6ff':'#f0fdfa');
     T(settleNetLabel(gr),P+14,y+16,{s:14,w:900,c:one?'#1e40af':'#0f766e'}); T(won(gr.sub+gt),W-P-14,y+16,{s:16,w:900,c:one?'#1e40af':'#0f766e',a:'right'}); y+=40;
   });
@@ -4365,7 +4381,7 @@ function settleCardPNG(r){
     T(settleNetLabel(gr),P+14,y+20,{s:14,w:700,c:'#374151'}); T(won(gr.sub+settleGroupTax(gr,r.taxType)),W-P-14,y+20,{s:15,w:800,c:one?'#1e40af':'#0f766e',a:'right'}); y+=40; });
   x.fillStyle='#e5e7eb'; x.fillRect(P+14,y+2,W-P*2-28,1);
   T('총 지급액',P+14,y+24,{s:17,w:900,c:'#111827'}); T(won(r.pay),W-P-14,y+24,{s:23,w:900,c:'#0d9488',a:'right'}); y+=46;
-  T('매출 합계 '+won(r.sales)+(r.taxType!=='none'?' · '+settleTaxLabel(r.taxType)+' '+(r.tax>0?'+':'')+won(r.tax):''),W-P-14,y+8,{s:12,w:500,c:'#9ca3af',a:'right'}); y+=30;
+  T('매출 합계 '+won(r.sales)+settleSalesNote(r),W-P-14,y+8,{s:12,w:500,c:'#9ca3af',a:'right'}); y+=30;
   if(dailyRows.length){
     y+=10; T('📅 날짜별 내역',P,y+12,{s:13,w:900,c:'#374151'}); y+=34;
     const cw=(W-P*2-96-70)/Math.max(cols.length,1);
@@ -4409,17 +4425,25 @@ async function settleShareImage(name){
   settleMarkSent(r.name);
 }
 /* 엑셀 붙여넣기용 표 (탭 구분) */
+/* 세금계산서 칸 (오네 공급가액·부가세, 딜리 공급가액·부가세) — 부가세 포함은 합계를 나누고, 별도는 소계·얹은 부가세 그대로 */
+function settleInvoiceCells(r){
+  return r.groups.slice(0,2).flatMap(g=>{
+    if(r.taxType==='vatin'){ const v=settleVatSplit(g.sub); return [v.supply,v.vat]; }
+    if(r.taxType==='vat') return [g.sub, settleGroupTax(g,r.taxType)];
+    return ['',''];
+  });
+}
 function settleTSV(){
   const c=settleCalc(settleStore.month); const groups=settleGroupsFor(settleStore.month);
   const head=['이름','근무일'];
   groups.forEach(g=>g.items.forEach(it=>head.push(it+' 수량',it+' 단가',it+' 금액')));
-  head.push('오네 소계','오네 공제','오네 지급액','딜리 소계','딜리 공제','딜리 지급액','매출 합계','세금 방식','세금 합계','총 지급액');
+  head.push('오네 소계','오네 공제','오네 지급액','딜리 소계','딜리 공제','딜리 지급액','매출 합계','세금 방식','세금 합계','총 지급액','오네 공급가액','오네 부가세','딜리 공급가액','딜리 부가세');
   const rows=[head.join('\t')];
   c.rows.forEach(r=>{
     const a=[r.name,r.sum?'월합계':r.days];
     groups.forEach((g,gi)=>g.items.forEach(it=>{ const l=r.groups[gi].lines.find(x=>x.item===it)||{qty:0,price:0,amt:0}; a.push(l.qty,l.price,l.amt); }));
     const t0=settleGroupTax(r.groups[0],r.taxType), t1=settleGroupTax(r.groups[1],r.taxType);
-    a.push(r.groups[0].sub, t0, r.groups[0].sub+t0, r.groups[1].sub, t1, r.groups[1].sub+t1, r.sales, TAX_TYPES[r.taxType], r.tax, r.pay);
+    a.push(r.groups[0].sub, t0, r.groups[0].sub+t0, r.groups[1].sub, t1, r.groups[1].sub+t1, r.sales, TAX_TYPES[r.taxType], r.tax, r.pay, ...settleInvoiceCells(r));
     rows.push(a.join('\t'));
   });
   return rows.join('\n');
@@ -4446,13 +4470,13 @@ function settleSheetRows(){
   const c=settleCalc(settleStore.month); const groups=settleGroupsFor(settleStore.month);
   const head=['이름','근무일'];
   groups.forEach(g=>g.items.forEach(it=>head.push(it+' 수량',it+' 단가',it+' 금액')));
-  head.push('오네 소계','오네 공제','오네 지급액','딜리 소계','딜리 공제','딜리 지급액','매출 합계','세금 방식','세금 합계','총 지급액');
+  head.push('오네 소계','오네 공제','오네 지급액','딜리 소계','딜리 공제','딜리 지급액','매출 합계','세금 방식','세금 합계','총 지급액','오네 공급가액','오네 부가세','딜리 공급가액','딜리 부가세');
   const rows=[head];
   c.rows.forEach(r=>{
     const a=[r.name,r.sum?'월합계':r.days];
     groups.forEach((g,gi)=>g.items.forEach(it=>{ const l=r.groups[gi].lines.find(x=>x.item===it)||{qty:0,price:0,amt:0}; a.push(l.qty,l.price,l.amt); }));
     const t0=settleGroupTax(r.groups[0],r.taxType), t1=settleGroupTax(r.groups[1],r.taxType);
-    a.push(r.groups[0].sub, t0, r.groups[0].sub+t0, r.groups[1].sub, t1, r.groups[1].sub+t1, r.sales, TAX_TYPES[r.taxType], r.tax, r.pay);
+    a.push(r.groups[0].sub, t0, r.groups[0].sub+t0, r.groups[1].sub, t1, r.groups[1].sub+t1, r.sales, TAX_TYPES[r.taxType], r.tax, r.pay, ...settleInvoiceCells(r));
     rows.push(a);
   });
   return rows;
@@ -4909,14 +4933,15 @@ function renderSettlePerson(name){
           <div class="st-sec-h"><span>${g.key==='one'?'🟦':'🟩'} ${esc(g.label)}</span><span>${num(g.qty)}건</span></div>
           ${g.lines.map(l=>`<div class="st-line"><span><em>${esc(l.item)}</em> ${num(l.qty)}건 × ${l.price?num(l.price)+'원':'<span style="color:var(--amber2)">단가 없음</span>'}</span><span>${won(l.amt)}</span></div>`).join('')}
           <div class="st-line sub"><span>소계</span><span>${won(g.sub)}</span></div>
-          ${r.taxType!=='none'?`<div class="st-line tax"><span>${settleTaxLabel(r.taxType)}</span><span>${settleGroupTax(g,r.taxType)>0?'+':''}${won(settleGroupTax(g,r.taxType))}</span></div>`:''}
+          ${settleTaxShow(r.taxType)?`<div class="st-line tax"><span>${settleTaxLabel(r.taxType)}</span><span>${settleGroupTax(g,r.taxType)>0?'+':''}${won(settleGroupTax(g,r.taxType))}</span></div>`:''}
+          ${r.taxType==='vatin'?(v=>`<div class="st-line vatin"><span>└ 공급가액</span><span>${won(v.supply)}</span></div><div class="st-line vatin"><span>└ 부가세 (10%)</span><span>${won(v.vat)}</span></div>`)(settleVatSplit(g.sub)):''}
           <div class="st-line net"><span>${settleNetLabel(g)}</span><span>${won(g.sub+settleGroupTax(g,r.taxType))}</span></div>
         </div>`:'').join('')}
       ${r.etc.length?`<div class="st-warn">단가표에 없는 물품: ${r.etc.map(e=>esc(e.item)+' '+num(e.qty)+'건').join(', ')} — 금액에 넣지 않았습니다.</div>`:''}
       <div class="st-sum2">
         ${r.groups.filter(g=>g.lines.length).map(g=>`<div class="st-line"><span>${g.key==='one'?'🟦':'🟩'} ${settleNetLabel(g)}</span><span><em>${won(g.sub+settleGroupTax(g,r.taxType))}</em></span></div>`).join('')}
         <div class="st-line total"><span>💰 총 지급액</span><span>${won(r.pay)}</span></div>
-        <div class="st-line mini"><span>매출 합계 ${won(r.sales)}${r.taxType!=='none'?' · '+settleTaxLabel(r.taxType)+' '+(r.tax>0?'+':'')+won(r.tax):''}</span><span></span></div>
+        <div class="st-line mini"><span>매출 합계 ${won(r.sales)}${settleSalesNote(r)}</span><span></span></div>
       </div>
       ${dayTable}
       ${r.noPrice&&!closed?`<div class="st-warn">단가가 비어 있는 물품이 있습니다. 아래 <b>단가 · 세금</b>에서 넣어주세요.</div>`:''}
