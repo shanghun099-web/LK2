@@ -87,6 +87,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Noto S
 .tpl-banner-txt b{color:#fff;font-weight:800;}
 .dawn-theme .tpl-banner{background:linear-gradient(135deg,#2b1c05,#33220a);border-color:#5c4413;}
 .dawn-theme .tpl-banner-txt{color:var(--amber2);}
+.tpl-banner.hist{align-items:center;}
+.tpl-banner-btn{flex-shrink:0;margin-left:auto;padding:8px 10px;min-height:40px;border:1.5px solid var(--border2);border-radius:10px;background:var(--card2);color:var(--text);font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;}
 
 .field{margin-bottom:13px;}
 .field-label{display:block;font-size:12.5px;color:var(--sub);font-weight:700;letter-spacing:0.2px;margin-bottom:7px;}
@@ -1147,6 +1149,7 @@ function rosterSetWork(R,iso,dow){
   const h=rosterHistGet(R.key,iso);
   R.work={date:iso,title:h?(h.title||R.defTitle):R.tpl[dow].title,zones:deepZones(h?h.zones:R.tpl[dow].zones)};
   R.loadedSig=rosterSig(R.work);
+  R.fromHist=!!h;
 }
 /* render 마다 부름. forceKey = 보내기·저장 때 손 안 댄 명단도 남김 */
 function rosterHistRecord(forceKey){
@@ -2375,7 +2378,12 @@ function renderRoster(){
   }).join('');
 
   const tplSaved=R.tpl[R.workDow].saved&&R.tpl[R.workDow].zones.length;
-  const banner=`<div class="tpl-banner">
+  /* 그날 고친 기록을 띄웠으면 그렇다고 분명히 (요일 기본으로 착각해 덮어쓰지 않게) */
+  const banner=R.fromHist?`<div class="tpl-banner hist">
+    <span class="tpl-banner-icon">📂</span>
+    <span class="tpl-banner-txt"><b>${fmtKDate(R.work.date)}</b>에 고친 ${R.label}이에요. ${DOW_FULL[R.workDow]} 기본과 다를 수 있어요.</span>
+    <button class="tpl-banner-btn" onclick="reloadTpl()">${DOW_FULL[R.workDow]} 기본</button>
+  </div>`:`<div class="tpl-banner">
     <span class="tpl-banner-icon">${tplSaved?'📌':R.emoji}</span>
     <span class="tpl-banner-txt">${tplSaved
       ? `<b>${DOW_FULL[R.workDow]}</b> ${R.label} 기본을 불러왔어요. 그날 변경분만 고치세요.`
@@ -2439,7 +2447,7 @@ function renderRoster(){
     ${banner}
     <button class="rh-open" onclick="openRosterHist()">📂 지난 명단 불러오기<small>${rosterHistDates().length?'어제·이번 주 명단을 그대로 가져와요 · '+rosterHistDates().length+'일치':'고치거나 보낸 명단이 날짜별로 쌓여요'}</small></button>
     <div class="row2" style="margin-bottom:13px">
-      <div class="field" style="margin:0"><label class="field-label">📅 날짜</label><input type="date" class="inp" value="${R.work.date}" onchange="cur().work.date=this.value;customRosterText=null;render()"></div>
+      <div class="field" style="margin:0"><label class="field-label">📅 날짜</label><input type="date" class="inp" value="${R.work.date}" onchange="setWorkDate(this.value)"></div>
       <div class="field" style="margin:0"><label class="field-label">📋 제목</label><input class="inp" value="${esc(R.work.title)}" placeholder="${esc(R.defTitle)}" onchange="cur().work.title=this.value;customRosterText=null;render()"></div>
     </div>
     <details class="paste-box" style="margin-bottom:11px" ${rosterPanels.bulk?'open':''} ontoggle="rosterPanels.bulk=this.open">
@@ -3106,9 +3114,21 @@ function saveAsTpl(){
   R.tpl[R.workDow]={title:R.work.title,zones:deepZones(R.work.zones),saved:true};
   saveTplFor(R);render();showToast(`📌 ${DOW_FULL[R.workDow]} ${R.label} 기본으로 저장했어요`);
 }
+/* 📅 날짜 칸 — 요일도 같이 따라가고 그 날짜 명단을 띄움 (2026-10-11 버그: 날짜만 바뀌고 요일은 그대로라
+   '이 명단을 ○요일 기본으로 저장'이 처음 고른 요일 기본을 덮어썼음) */
+function setWorkDate(v){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(v||'')) return;
+  const R=cur();
+  customRosterText=null; rosterSel=null; rosterNumsOpen={};
+  rosterHistRecord();
+  R.workDow=dowOf(v);
+  rosterSetWork(R,v,R.workDow);
+  render();
+  showToast('📅 '+fmtKDate(v)+' '+R.label+(R.fromHist?' — 그날 고친 명단을 띄웠어요':' — '+DOW_FULL[R.workDow]+' 기본을 띄웠어요'));
+}
 function reloadTpl(){
   const R=cur();
-  customRosterText=null;rosterSel=null;rosterNumsOpen={};
+  customRosterText=null;rosterSel=null;rosterNumsOpen={};R.fromHist=false;
   R.work.title=R.tpl[R.workDow].title;
   R.work.zones=deepZones(R.tpl[R.workDow].zones);
   render();showToast('기본 명단으로 되돌렸어요');
@@ -3144,7 +3164,7 @@ function drawRosterHist(){
 function loadRosterHist(d){
   const R=cur(), h=rosterHistGet(R.key,d); if(!h) return;
   customRosterText=null; rosterSel=null; rosterNumsOpen={};
-  R.work.title=h.title||R.defTitle; R.work.zones=deepZones(h.zones);
+  R.work.title=h.title||R.defTitle; R.work.zones=deepZones(h.zones); R.fromHist=false;
   closeRosterHist(); render();
   showToast('📂 '+fmtKDate(d)+' 명단을 불러왔어요 — 바뀐 사람만 고치세요');
 }
