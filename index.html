@@ -601,6 +601,13 @@ input[type="time"].time-hint{
 .mini-btn:active{background:var(--card2);}
 .mini-btn.danger:active{background:#2a1414;color:var(--red2);border-color:var(--red);}
 
+.hver{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:99px;background:rgba(255,255,255,.18);letter-spacing:0;font-size:10.5px;font-weight:800;opacity:.95;}
+.upd-bar{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:998;display:flex;align-items:center;gap:8px;max-width:560px;margin:0 auto;
+  background:#1d4ed8;color:#fff;border-radius:16px;padding:10px 10px 10px 16px;box-shadow:0 8px 28px rgba(0,0,0,.45);font-size:14px;font-weight:700;}
+.upd-bar[hidden]{display:none;}
+.upd-bar span{flex:1;line-height:1.4;}
+.upd-bar button{min-height:44px;padding:0 16px;border:none;border-radius:12px;background:#fff;color:#1d4ed8;font-size:14px;font-weight:900;cursor:pointer;font-family:inherit;}
+.upd-bar button.x{min-width:44px;padding:0;background:rgba(255,255,255,.18);color:#fff;}
 .toast{position:fixed;bottom:34px;left:50%;transform:translateX(-50%) translateY(20px);background:#1a2e1a;border:1px solid #2d5a2d;color:#7fd67f;padding:12px 22px;border-radius:30px;font-size:13.5px;font-weight:700;z-index:999;pointer-events:none;opacity:0;transition:all 0.3s;white-space:nowrap;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 .toast.err{background:#2e1a1a;border-color:#5a2d2d;color:#f0a0a0;}
@@ -835,7 +842,7 @@ body.tab-dragging .tabs{overflow-x:hidden;}
 <body>
 <div id="app">
   <div class="header">
-    <div class="header-label">DISPATCH ORGANIZER</div>
+    <div class="header-label">DISPATCH ORGANIZER <span class="hver" id="hVer"></span></div>
     <div class="header-title" id="hTitle">출근명단 정리</div>
     <div class="header-date" id="hDate"></div>
     <button class="header-gear header-backup" onclick="openBackup()" title="백업 · 복원">💾<span class="bk-badge" id="bk-badge"></span></button>
@@ -974,6 +981,11 @@ body.tab-dragging .tabs{overflow-x:hidden;}
     <div class="rh-list" id="rh-list"></div>
     <div class="sheet-btns"><button class="mini-btn" onclick="closeRosterHist()">닫기</button></div>
   </div>
+</div>
+<div class="upd-bar" id="upd-bar" hidden>
+  <span>🔄 새 버전 <b id="upd-ver"></b> 이 올라왔어요</span>
+  <button onclick="appUpdateNow()">새로고침</button>
+  <button class="x" onclick="appUpdateLater()" aria-label="나중에">✕</button>
 </div>
 <div id="tab-ghost"></div>
 <div class="toast" id="toast"></div>
@@ -5494,6 +5506,38 @@ function showFrameFail(f, app){
   f.replaceWith(box);
 }
 
+/* ── 앱 버전 · 새 버전 알림 (2026-10-12, 이사님 폰에서 예전/새 화면이 번갈아 보인다고 해서) ──
+   ★ 고쳐서 올릴 때마다 APP_VERSION 을 바꿀 것 (날짜.순번). 서비스 워커는 없고 GitHub Pages 가 10분 캐시함.
+   앱을 열거나 다시 볼 때 서버의 index.html 을 캐시 없이 받아 APP_VERSION 이 다르면 아래 알림 줄 → 새로고침은 ?v= 를 붙여 캐시를 건너뜀 */
+const APP_VERSION='10.12-1';
+let appUpdChecked=0, appUpdSkip='';
+function appVersionInit(){
+  const el=document.getElementById('hVer'); if(el) el.textContent='v'+APP_VERSION;
+  appUpdateCheck();
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) appUpdateCheck(); });
+  window.addEventListener('focus',()=>appUpdateCheck());
+  window.addEventListener('online',()=>appUpdateCheck(true));
+}
+async function appUpdateCheck(force){
+  if(!/^https?:/.test(location.protocol)) return;
+  const now=Date.now(); if(!force&&now-appUpdChecked<60*1000) return;   /* 1분에 한 번까지 */
+  appUpdChecked=now;
+  try{
+    const res=await fetch(location.pathname+'?chk='+now,{cache:'no-store'});
+    if(!res.ok) return;
+    const m=(await res.text()).match(/const APP_VERSION='([\w.\-]+)'/);
+    if(!m||m[1]===APP_VERSION||m[1]===appUpdSkip) return;
+    const v=document.getElementById('upd-ver'); if(v) v.textContent='v'+m[1];
+    const b=document.getElementById('upd-bar'); if(b){ b.dataset.ver=m[1]; b.hidden=false; }
+  }catch(e){}
+}
+function appUpdateNow(){
+  const b=document.getElementById('upd-bar'), v=(b&&b.dataset.ver)||String(Date.now());
+  try{ rosterHistRecord(); }catch(e){}
+  location.replace(location.pathname+'?v='+encodeURIComponent(v)+location.hash);
+}
+function appUpdateLater(){ const b=document.getElementById('upd-bar'); if(b){ appUpdSkip=b.dataset.ver||''; b.hidden=true; } }
+
 function render(){
   rosterHistRecord();
   document.getElementById('hDate').textContent=new Date().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
@@ -5555,7 +5599,8 @@ updateBackupBadge();
 render();
 initTabDND();
 settlePurgeOldMsgs();   /* 카톡 원문은 최근 3개월치만 두고 그 전 달은 수량만 남긴다 */
-try{ history.replaceState({},''); }catch(e){}   /* 새로 열었을 때(새로고침 포함) 기록 상태 초기화 */
+try{ history.replaceState({},'',location.pathname+location.hash); }catch(e){}   /* 새로 열었을 때(새로고침 포함) 기록 상태 초기화 · 새 버전 받을 때 붙인 ?v= 떼기 */
+appVersionInit();
 watchSheets();
 initWeather();
 startDayWatcher();
