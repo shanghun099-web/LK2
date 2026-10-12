@@ -1011,7 +1011,6 @@ let customRosterText = null;
 let rosterSel = null;       /* 출근명단에서 고치는 중인 사람 [구역, 순번] */
 let rosterNumsOpen = {};    /* 번호 칸을 연 구역 */
 let customWeatherText = null;
-let customVolumeText = null;
 let customScheduleText = null;
 let customInboundText = null;
 let rosterPanels = { bulk:false, opts:false };
@@ -1169,9 +1168,13 @@ function sanitizeRosterArr(arr,defTitle){
    그날 고치거나 보낸 명단을 날짜별로 남김 → 📂 지난 명단 불러오기 + 앱을 다시 열어도 그날 고친 명단 유지.
    요일 기본을 띄우기만 하고 손대지 않은 날은 남기지 않음(보내면 남김). 최근 45일만 보관 */
 const ROSTER_HIST_KEY='disp-roster-hist', ROSTER_HIST_DAYS=45;
-let rosterHist=load(ROSTER_HIST_KEY,null);
-if(!rosterHist||typeof rosterHist!=='object') rosterHist={};
-['main','dawn'].forEach(k=>{ if(!rosterHist[k]||typeof rosterHist[k]!=='object') rosterHist[k]={}; });
+let rosterHist={};
+function rosterHistReload(){
+  rosterHist=load(ROSTER_HIST_KEY,null);
+  if(!rosterHist||typeof rosterHist!=='object') rosterHist={};
+  ['main','dawn'].forEach(k=>{ if(!rosterHist[k]||typeof rosterHist[k]!=='object') rosterHist[k]={}; });
+}
+rosterHistReload();
 function rosterSig(w){ return JSON.stringify([w.title||'',w.zones||[]]); }
 function rosterHistGet(key,iso){ const h=rosterHist[key][iso]; return (h&&Array.isArray(h.zones))?h:null; }
 /* 그 날짜 명단 띄우기 — 기록이 있으면 기록, 없으면 요일 기본 */
@@ -1291,11 +1294,6 @@ function schList(sh){ return (sh || schShift()) === 'dawn' ? scheduleStore.dawnW
 function schMin(sh){ return Number((scheduleStore.minStaff || {})[sh || schShift()]) || 0; }
 function schWorkCount(iso, sh){ sh = sh || schShift(); return schList(sh).filter(w => getWorkerStatus(w, iso, sh) === 'WORK').length; }
 
-const STATUS_TYPES = {
-  WORK: { key: 'WORK', label: '근무', emoji: '🟢', badgeClass: 'st-work' },
-  OFF:  { key: 'OFF',  label: '휴무', emoji: '🔴', badgeClass: 'st-off' }
-};
-
 function statusKey(shift, worker, iso) {
   return `${shift === 'dawn' ? 'DAWN' : 'DAY'}_${worker}_${iso}`;
 }
@@ -1347,55 +1345,6 @@ function toggleWorkerStatus(worker, iso, shift) {
 }
 
 function setSchView(v) { scheduleStore.viewMode = v; customScheduleText = null; saveSchedule(); render(); }
-function offCountOn(iso) {
-  let c = 0;
-  scheduleStore.dayWorkers.forEach(w => { if (getWorkerStatus(w, iso, 'day') === 'OFF') c++; });
-  scheduleStore.dawnWorkers.forEach(w => { if (getWorkerStatus(w, iso, 'dawn') === 'OFF') c++; });
-  return c;
-}
-
-function syncScheduleWorkers() {
-  customScheduleText = null;
-  const daySet = new Set();
-  rosters.main.work.zones.forEach(z => z.people.forEach(p => { p = rosterBaseName(p); if (p && p !== '신규') daySet.add(p); }));
-  scheduleStore.dayWorkers = Array.from(daySet).filter(Boolean);
-
-  const dawnSet = new Set();
-  rosters.dawn.work.zones.forEach(z => z.people.forEach(p => { p = rosterBaseName(p); if (p && p !== '신규') dawnSet.add(p); }));
-  scheduleStore.dawnWorkers = Array.from(dawnSet).filter(Boolean);
-
-  saveSchedule();
-  render();
-  showToast('👥 출근명단·새벽반 탭 인원으로 당배반·새벽반을 맞췄어요');
-}
-
-function addScheduleWorker(type, name) {
-  name = String(name || '').trim();
-  if (!name) return;
-  customScheduleText = null;
-  const targetArr = (type === 'dawn') ? scheduleStore.dawnWorkers : scheduleStore.dayWorkers;
-  if (!targetArr.includes(name)) {
-    targetArr.push(name);
-    saveSchedule();
-    render();
-  }
-}
-
-function delScheduleWorker(type, idx) {
-  customScheduleText = null;
-  const targetArr = (type === 'dawn') ? scheduleStore.dawnWorkers : scheduleStore.dayWorkers;
-  const removed = targetArr[idx];
-  targetArr.splice(idx, 1);
-
-  if (removed) {
-    const prefix = (type === 'dawn') ? `DAWN_${removed}_` : `DAY_${removed}_`;
-    Object.keys(scheduleStore.statusMap).forEach(k => {
-      if (k.startsWith(prefix)) delete scheduleStore.statusMap[k];
-    });
-  }
-  saveSchedule();
-  render();
-}
 
 function getWeekDays(iso) {
   const base = new Date(iso + 'T00:00:00');
@@ -1419,8 +1368,10 @@ function shiftWeek(delta) {
 }
 
 function shiftMonth(delta) {
-  const d = new Date(scheduleStore.selectedDate + 'T00:00:00');
-  d.setMonth(d.getMonth() + delta);
+  /* 31일에서 ▶ 를 누르면 다음 달 31일이 없어 그다음 달로 넘어가던 문제 → 그 달 마지막 날로 맞춤 */
+  const d = new Date(scheduleStore.selectedDate + 'T00:00:00'), day = d.getDate();
+  d.setDate(1); d.setMonth(d.getMonth() + delta);
+  d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
   scheduleStore.selectedDate = toLocalISO(d);
   customScheduleText = null;
   saveSchedule();
@@ -1470,7 +1421,7 @@ function applyDayRollover(force){
   ['trunk','rabbit'].forEach(k=>{ if(inboundStore && inboundStore[k]) inboundStore[k].date = t; });
   saveInbound();
 
-  customRosterText = customWeatherText = customVolumeText = customScheduleText = customInboundText = null;
+  customRosterText = customWeatherText = customScheduleText = customInboundText = null;
   return true;
 }
 
@@ -1671,7 +1622,6 @@ function switchTab(t){
   if(!navSilent){ settlePerson = null; settleQuery = ''; schPerson = null; schQuery = ''; }
   customRosterText = null;
   customWeatherText = null;
-  customVolumeText = null;
   customScheduleText = null;
   customInboundText = null;
   applyDayRollover(false);
@@ -1716,7 +1666,6 @@ const WX_SNOW_STEPS=[
 ];
 
 let wx={name:WX_LOC.name,lat:WX_LOC.lat,lon:WX_LOC.lon,model:null,updated:null,err:null,alerted:0,loading:false,queue:false,showMap:false};
-let wxCustomText=null;
 
 /* ── 공용 유틸 ── */
 function wxLevel(mm,snow,stepMin){
@@ -3206,12 +3155,6 @@ function nearestDateForDow(targetDow){
   return toLocalISO(base);
 }
 
-function offNamesOn(iso){
-  const out = [];
-  scheduleStore.dayWorkers.forEach(w => { if (getWorkerStatus(w, iso, 'day') === 'OFF') out.push(w); });
-  scheduleStore.dawnWorkers.forEach(w => { if (getWorkerStatus(w, iso, 'dawn') === 'OFF') out.push(w); });
-  return out;
-}
 /* ===== 휴무 지정 시트 ===== */
 function openOffPick(){
   document.getElementById('offpick-sheet').classList.add('show');
@@ -3240,9 +3183,6 @@ function drawOffPick(){
 function pickOff(w, shift){
   toggleWorkerStatus(w, scheduleStore.selectedDate, shift);
   drawOffPick();
-}
-function unsetOff(w, shift){
-  toggleWorkerStatus(w, scheduleStore.selectedDate, shift);
 }
 
 function tabTitle(t){ return t==='roster' ? (schShift()==='dawn' ? '새벽반 출근명단' : '출근명단 정리') : (TAB_TITLES[t]||''); }
@@ -3314,7 +3254,7 @@ function schDelWorker(w){
 }
 function schRenameWorker(w){
   const sh = schShift();
-  const n = (prompt(w+' 님의 새 이름을 입력하세요.\n지정해둔 휴무·고정 휴무 요일과 '+SHIFT_NAME[sh]+' 출근명단(요일별 기본 명단 포함)이 함께 바뀝니다.', w) || '').trim();
+  const n = (prompt(w+' 님의 새 이름을 입력하세요.\n지정해둔 휴무·고정 휴무 요일과 '+SHIFT_NAME[sh]+' 출근명단(요일별 기본 명단·오늘 이후 날짜 명단 포함)이 함께 바뀝니다.', w) || '').trim();
   if (!n || n === w) return;
   if (scheduleStore.dayWorkers.indexOf(n) >= 0 || scheduleStore.dawnWorkers.indexOf(n) >= 0){ showToast('이미 있는 이름이에요 — 다른 이름을 넣어주세요','err'); return; }
   const a = schList(sh), i = a.indexOf(w); if (i >= 0) a[i] = n;
@@ -3328,6 +3268,10 @@ function schRenameWorker(w){
   const R = sh === 'dawn' ? rosters.dawn : rosters.main; let hit = 0;
   const swap = zones => (zones||[]).forEach(z => { z.people = (z.people||[]).map(p => { const o = personParse(p); if (o.n === w){ hit++; o.n = n; return personStr(o); } return p; }); });
   swap(R.work.zones); R.tpl.forEach(t => swap(t.zones)); saveTplFor(R);
+  /* 미리 짜 둔 오늘·내일 명단 기록도 — 안 바꾸면 그 날짜를 열 때 옛 이름이 다시 나옴 (지난 날짜 기록은 그대로) */
+  const t0 = todayISO(), H = rosterHist[R.key];
+  Object.keys(H).forEach(d => { if (d >= t0 && H[d] && Array.isArray(H[d].zones)) swap(H[d].zones); });
+  try{ localStorage.setItem(ROSTER_HIST_KEY, JSON.stringify(rosterHist)); }catch(e){}
   customRosterText = null;
   if (schPerson === w){ schPerson = n; try{ history.replaceState({ sub:'schedule', schPerson:n }, ''); }catch(e){} }
   showToast('✏️ '+w+' → '+n+(hit?' · 출근명단 '+hit+'곳도 바꿨어요':''));
@@ -3596,7 +3540,8 @@ let inboundStore = load('disp-inbound', {
   rabbit: { phone: '', date: todayISO(), cars: [ { time: '' }, { time: '' } ] }
 });
 
-(function migrateInbound(){
+/* 백업 복원 뒤에도 다시 부름 — 예전 모양 백업이면 입고 탭이 열리지 않던 것 */
+function migrateInbound(){
   if(!inboundStore||typeof inboundStore!=='object'||Array.isArray(inboundStore)){
     inboundStore={set:'trunk',trunk:{phone:RABBIT_PHONE,date:todayISO(),cars:[{time:''}]},rabbit:{phone:'',date:todayISO(),cars:[{time:''},{time:''}]}};
   }
@@ -3611,7 +3556,8 @@ let inboundStore = load('disp-inbound', {
     st.cars=st.cars.map(c=>({time:String((c&&c.time)||'')}));
   });
   saveInbound();
-})();
+}
+migrateInbound();
 
 function saveInbound(){ localStorage.setItem('disp-inbound', JSON.stringify(inboundStore)); }
 function inbCur(){ return inboundStore[inboundStore.set]; }
@@ -3862,7 +3808,6 @@ function saveSettings(){
   
   customRosterText = null;
   customWeatherText = null;
-  customVolumeText = null;
   customScheduleText = null;
   customInboundText = null;
 
@@ -3876,8 +3821,11 @@ function saveSettings(){
   showToast('⚙️ 설정 및 공유 양식이 기기에 저장되었습니다.');
 }
 
+/* 카톡 양식(⚙️ 기본 문구 편집)·날짜 넘김 시각·명단 보기 설정도 같이 — 새 폰에서 복원하면 고쳐 둔 문구가 기본값으로 돌아가던 것 (2026-10-13) */
 const BK_KEYS=['disp-roster-tpl','disp-dawn-tpl','disp-schedule','disp-inbound','disp-roster-wide','disp-roster-compact','disp-roster-sep','disp-tab-order','acn5','disp-roster-hist',
-               'mv_alias','mv_items','mv_base','mv_rules','mv_models','mv_midx','mv_history','mv_last','disp-settle'];
+               'mv_alias','mv_items','mv_base','mv_rules','mv_models','mv_midx','mv_history','mv_last','disp-settle',
+               'disp-rollover-hour','disp-roster-view','disp-roster-cols','disp-roster-autooff']
+  .concat(Object.keys(DEFAULT_TEMPLATES).map(k=>'disp-tpl-'+k));
 let pendingImport=null;
 
 function openBackup(){
@@ -3902,6 +3850,7 @@ function backupSummary(data){
   if(data['mv_items']||data['mv_alias'])parts.push('물량 설정');
   if(data['mv_history'])parts.push('물량 기록');
   if(data['disp-settle'])parts.push('정산');
+  if(Object.keys(data).some(k=>k.indexOf('disp-tpl-')===0))parts.push('카톡 양식');
   return parts.join(' + ')||'명단';
 }
 /* 백업 화면에 지금 무엇이 담기는지 보여준다 */
@@ -3990,19 +3939,22 @@ function tryImport(text){
 }
 
 function applyImport(){
-  customRosterText = customWeatherText = customVolumeText = customScheduleText = customInboundText = null;
+  customRosterText = customWeatherText = customScheduleText = customInboundText = null;
   Object.keys(pendingImport).forEach(k=>localStorage.setItem(k,pendingImport[k]));
   const summary=backupSummary(pendingImport);
   const hadCode = !!pendingImport['acn5'];
   pendingImport=null;
 
+  /* 지난 명단 기록도 메모리로 다시 읽음 — 안 읽으면 다음 저장 때 복원 전 기록이 복원한 기록을 덮어씀 */
+  rosterHistReload();
+  rosterSel=null; rosterNumsOpen={}; rosterWarn=[];
   initRoster('main');initRoster('dawn');
-  
+
   const restoredSch = load('disp-schedule', null);
   if(restoredSch) { scheduleStore = restoredSch; sanitizeSchedule(); }
 
   const restoredInb = load('disp-inbound', null);
-  if(restoredInb) { inboundStore = restoredInb; }
+  if(restoredInb) { inboundStore = restoredInb; migrateInbound(); }
 
   settleReload();
   settlePurgeOldMsgs();
@@ -4318,7 +4270,6 @@ function settleReload(){
   settlePerson=null; settleEditName=null; settleUnlocked=false;
   settleQuery=''; settleFilter='all'; settleDayItem=''; settleOpenSet.clear();
 }
-function settleToggle(name,open){ if(open) settleOpenSet.add(name); else settleOpenSet.delete(name); }
 function settleEdit(name){ if(settleIsClosed(settleStore.month)){ showToast('🔏 마감된 달은 고칠 수 없어요 — 마감 해제 후 고치세요','err'); return; } settleEditName = settleEditName===name ? null : name; if(settleEditName) settleOpenSet.add(name); render(); }
 function settleMarkEdited(rec,name){ rec.edited=rec.edited||{}; rec.edited[name]=Date.now(); }
 function settleSetQty(name,date,item,v){
@@ -4583,21 +4534,8 @@ function settleInvoiceCells(r){
     return ['',''];
   });
 }
-function settleTSV(){
-  const c=settleCalc(settleStore.month); const groups=settleGroupsFor(settleStore.month);
-  const head=['이름','근무일'];
-  groups.forEach(g=>g.items.forEach(it=>head.push(it+' 수량',it+' 단가',it+' 금액')));
-  head.push('오네 소계','오네 공제','오네 지급액','딜리 소계','딜리 공제','딜리 지급액','매출 합계','세금 방식','세금 합계','차감·추가(세금 전)','그 세금','차감·추가(세금 뒤)','차감·추가 내용','총 지급액','오네 공급가액','오네 부가세','딜리 공급가액','딜리 부가세');
-  const rows=[head.join('\t')];
-  c.rows.forEach(r=>{
-    const a=[r.name,r.sum?'월합계':r.days];
-    groups.forEach((g,gi)=>g.items.forEach(it=>{ const l=r.groups[gi].lines.find(x=>x.item===it)||{qty:0,price:0,amt:0}; a.push(l.qty,l.price,l.amt); }));
-    const t0=settleGroupTax(r.groups[0],r.taxType), t1=settleGroupTax(r.groups[1],r.taxType);
-    a.push(r.groups[0].sub, t0, r.groups[0].sub+t0, r.groups[1].sub, t1, r.groups[1].sub+t1, r.sales, TAX_TYPES[r.taxType], r.tax, r.adjPre||0, r.adjTax||0, r.adjPost||0, (r.adj||[]).map(a=>a.label+' '+a.amt).join(' / '), r.pay, ...settleInvoiceCells(r));
-    rows.push(a.join('\t'));
-  });
-  return rows.join('\n');
-}
+/* 📋 표 복사 = 📥 엑셀 내보내기와 같은 표 (예전엔 같은 코드가 두 벌이라 한쪽만 고치면 어긋날 수 있었음) */
+function settleTSV(){ return settleSheetRows().map(r=>r.join('\t')).join('\n'); }
 function settleCopyPerson(name){ const r=settleRow(name); if(r){ copyText(settlePersonText(r)); settleMarkSent(name); } }
 function settleSharePerson(name){ const r=settleRow(name); if(r){ shareText(settlePersonText(r)); settleMarkSent(name); } }
 /* 엑셀에서 한글이 깨지지 않게 BOM 을 붙인 CSV 로 내보낸다. 공유가 되면 카톡·메일로 바로 보낼 수 있다 */
@@ -4616,8 +4554,14 @@ async function settleDownloadCSV(text, fname){
   showToast('📥 '+fname+' 내려받았어요');
 }
 /* 정산 내역 (이름 × 물품 수량·단가·금액 → 지급액) */
+/* 엑셀 칸 묶음 — 마감한 달은 마감 때 있던 물품 칸도 넣는다 (마감 뒤 물품을 목록에서 빼도 그 칸이 사라져 총 지급액과 안 맞는 일 없게) */
+function settleSheetGroups(c,month){
+  const groups=settleGroupsFor(month).map(g=>({key:g.key,label:g.label,items:g.items.slice()}));
+  if(c.closed) c.rows.forEach(r=>r.groups.forEach((g,gi)=>{ const G=groups[gi]; if(G) g.lines.forEach(l=>{ if(G.items.indexOf(l.item)<0) G.items.push(l.item); }); }));
+  return groups;
+}
 function settleSheetRows(){
-  const c=settleCalc(settleStore.month); const groups=settleGroupsFor(settleStore.month);
+  const c=settleCalc(settleStore.month); const groups=settleSheetGroups(c,settleStore.month);
   const head=['이름','근무일'];
   groups.forEach(g=>g.items.forEach(it=>head.push(it+' 수량',it+' 단가',it+' 금액')));
   head.push('오네 소계','오네 공제','오네 지급액','딜리 소계','딜리 공제','딜리 지급액','매출 합계','세금 방식','세금 합계','차감·추가(세금 전)','그 세금','차감·추가(세금 뒤)','차감·추가 내용','총 지급액','오네 공급가액','오네 부가세','딜리 공급가액','딜리 부가세');
@@ -5509,7 +5453,7 @@ function showFrameFail(f, app){
 /* ── 앱 버전 · 새 버전 알림 (2026-10-12, 이사님 폰에서 예전/새 화면이 번갈아 보인다고 해서) ──
    ★ 고쳐서 올릴 때마다 APP_VERSION 을 바꿀 것 (날짜.순번). 서비스 워커는 없고 GitHub Pages 가 10분 캐시함.
    앱을 열거나 다시 볼 때 서버의 index.html 을 캐시 없이 받아 APP_VERSION 이 다르면 아래 알림 줄 → 새로고침은 ?v= 를 붙여 캐시를 건너뜀 */
-const APP_VERSION='10.12-1';
+const APP_VERSION='10.13-1';
 let appUpdChecked=0, appUpdSkip='';
 function appVersionInit(){
   const el=document.getElementById('hVer'); if(el) el.textContent='v'+APP_VERSION;
@@ -5574,6 +5518,8 @@ function render(){
       }
     }
     [...fw.children].forEach(x => x.classList.toggle('on', x.id === fid));
+    /* 물량 탭으로 돌아오면 날짜(하루 지났는지)·저장 상태를 다시 보게 */
+    if(tab==='volume'){ const vf=document.getElementById(fid); try{ if(vf&&vf.contentWindow) vf.contentWindow.postMessage({type:'shown'},'*'); }catch(e){} }
     return;
   }
 
@@ -6627,6 +6573,21 @@ function saveToSettle(){
   stlState();
 }
 
+/* ---------- 날짜 칸 ----------
+   앱을 끄지 않고 다음 날 다시 열면 날짜 칸이 처음 연 날에 멈춰 있어서, 오늘 물량을 어제 날짜로 저장(어제 기록 덮어쓰기)할 수 있었다.
+   날짜를 손으로 바꾸지 않았으면 오늘로 따라간다 (2026-10-13) */
+const todayStr = () => { const d = new Date(); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
+let autoDate = '';
+function followToday(){
+  const el = document.getElementById('dateIn'); if (!el) return;
+  const t = todayStr();
+  if (!autoDate || el.value !== autoDate || t === autoDate) return;
+  const had = S.people.length > 0;
+  el.value = autoDate = t;
+  el.dispatchEvent(new Event('change'));
+  if (had) msg('stlMsg','warn','📅 날짜가 바뀌어 오늘로 맞췄습니다. 아래 표가 <b>전날 읽은 것</b>이면 정산에 저장하지 마세요.');
+}
+
 /* ---------- 임시 저장 ---------- */
 function saveLast(){
   save(K.last, { date:document.getElementById('dateIn').value, people:S.people, grid:S.grid, rawRows:S.rawRows, flags:S.flags });
@@ -6634,9 +6595,7 @@ function saveLast(){
 function restore(){
   const l = load(K.last, null);
   if (!l || !l.people || !l.people.length) return;
-  const d = new Date();
-  const today = new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
-  if (l.date !== today) return;
+  if (l.date !== todayStr()) return;
   S.people = l.people; S.grid = l.grid||{}; S.rawRows = l.rawRows||[]; S.flags = l.flags||{};
   document.getElementById('ckEmpty').hidden = true;
   document.getElementById('ckBody').hidden = false;
@@ -6646,8 +6605,7 @@ function restore(){
 
 /* ---------- 시작 ---------- */
 (function init(){
-  const d = new Date();
-  document.getElementById('dateIn').value = new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  document.getElementById('dateIn').value = autoDate = todayStr();
   document.getElementById('dateIn').addEventListener('change', () => {
     drawDay();
     if (S.rawRows.length) build(S.rawRows);
@@ -6668,8 +6626,10 @@ function restore(){
     if (document.getElementById('itemChips')) drawItems();
     if (S.rawRows.length) build(S.rawRows); else if (S.people.length) drawGrid();
   });
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) stlState(); });
-  window.addEventListener('focus', stlState);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden){ followToday(); stlState(); } });
+  window.addEventListener('focus', () => { followToday(); stlState(); });
+  /* 앱 안에서 📦 물량 탭으로 다시 왔을 때 (부모 앱이 알려줌) */
+  window.addEventListener('message', e => { if (e.data && e.data.type === 'shown'){ followToday(); stlState(); } });
 })();
 <\/script>
 </body>
