@@ -428,6 +428,14 @@ input[type="time"].time-hint{
 .st-line.total span:first-child{color:var(--text);}
 .st-line.total span:last-child{color:var(--teal3);font-size:18px;}
 .st-days{margin-top:12px;border:1px solid var(--border);border-radius:13px;overflow:hidden;}
+.st-notice{margin:12px 0;border:1px solid rgba(251,146,60,.45);border-radius:13px;background:rgba(251,146,60,.06);overflow:hidden;}
+.st-notice summary{padding:11px 12px;font-size:12.5px;font-weight:900;color:#fdba74;cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:8px;}
+.st-notice summary span:last-child{color:var(--dim);font-weight:700;font-size:11.5px;}
+.st-notice summary::-webkit-details-marker{display:none;}
+.st-notice[open]{padding-bottom:10px;}
+.st-notice .paste-ta{display:block;width:calc(100% - 20px);margin:0 10px;height:112px;font-size:14px;line-height:1.5;}
+.st-notice-foot{display:flex;justify-content:space-between;gap:8px;margin:6px 12px 0;font-size:11px;color:var(--dim);}
+.st-notice .mini-btn{width:calc(100% - 20px)!important;margin:8px 10px 0!important;}
 .st-days summary{padding:9px 12px;font-size:12px;font-weight:900;color:var(--sub);background:var(--card2);cursor:pointer;list-style:none;display:flex;justify-content:space-between;}
 .st-days summary::-webkit-details-marker{display:none;}
 .st-days table{width:100%;border-collapse:collapse;font-size:12.5px;}
@@ -4037,6 +4045,7 @@ if(!settleStore.pinned||typeof settleStore.pinned!=='object') settleStore.pinned
 let settleUnlocked=false;   /* 단가 잠금 — 화면을 벗어나면 다시 잠김 */
 if(!settleStore.adj||typeof settleStore.adj!=='object') settleStore.adj={};   /* ➕➖ 차감·추가 { '2026-10': { 이름: [{kind:'minus'|'plus', label, amt, pre}] } } */
 if(!settleStore.sent||typeof settleStore.sent!=='object') settleStore.sent={};   /* 정산서 보낸 표시 { '2026-09': { 이름: 시각 } } */
+if(!settleStore.notice||typeof settleStore.notice!=='object') settleStore.notice={};   /* 📢 정산서 공지 { '2026-09': '글' } */
 /* 📋 월 합계 — 업체(오네·딜리)에서 받은 한 달 합산표를 기사별로 넣어 바로 정산 (2026-10-06 이사님 요청)
    sums[월] = {on, qty:{이름:{칸:수량}}} · sumItems = 칸 이름(오네/딜리 따로). on 인 달은 매일 기록 대신 이걸로 계산.
    단가·세금 방식은 기사별 설정(workers)을 그대로 씀 — 칸 이름이 단가 이름 */
@@ -4253,6 +4262,53 @@ function settleAdjEditorHTML(name,closed){
 }
 function settleAdjSignWon(n){ return (n>0?'+':n<0?'-':'')+won(Math.abs(n)); }
 
+/* 📢 정산서 공지사항 (2026-10-17 사용자 요청) — 달마다 하나. 그 달 모든 기사 정산서(이미지·카톡 글) 맨 아래에 붙음.
+   돈 계산과 상관없어서 마감한 달에도 고칠 수 있음 */
+const SETTLE_NOTICE_MAX=500;
+function settleNotice(m){ return String(settleStore.notice[m||settleStore.month]||'').trim(); }
+function settleNoticeSet(v){
+  const m=settleStore.month; v=String(v||'').slice(0,SETTLE_NOTICE_MAX);
+  if(v.trim()) settleStore.notice[m]=v; else delete settleStore.notice[m];
+  saveSettle();
+  const c=document.getElementById('st-notice-cnt'); if(c) c.textContent=v.length+'/'+SETTLE_NOTICE_MAX;
+  const b=document.getElementById('st-notice-prev'); if(b) b.hidden=!!v.trim();
+}
+function settlePrevMonthOf(m){ const a=String(m).split('-'); const d=new Date(+a[0],+a[1]-2,1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+function settleNoticeCopyPrev(){
+  const p=settleNotice(settlePrevMonthOf(settleStore.month)); if(!p) return;
+  settleStore.notice[settleStore.month]=p; saveSettle(); render();
+  showToast('📢 지난달 공지를 가져왔어요 — 바꿀 곳만 고치세요');
+}
+function settleNoticeHTML(){
+  const m=settleStore.month, v=settleStore.notice[m]||'', has=!!v.trim();
+  const prev=!has&&settleNotice(settlePrevMonthOf(m));
+  return `<details class="st-notice" ${has?'open':''}>
+    <summary><span>📢 정산서 공지사항</span><span>${has?'정산서 맨 아래에 붙어요':'비어 있음 · 눌러서 쓰기'}</span></summary>
+    <textarea class="paste-ta" id="st-notice" maxlength="${SETTLE_NOTICE_MAX}" placeholder="예: 10월 정산금은 11월 25일(오네)·말일(딜리)에 들어갑니다.&#10;문의는 사무실로 연락 주세요." oninput="settleNoticeSet(this.value)">${esc(v)}</textarea>
+    <div class="st-notice-foot"><span>${esc(settleMonthLabel(m))} 모든 기사 정산서(이미지·카톡 글)에 같이 들어가요</span><span id="st-notice-cnt">${v.length}/${SETTLE_NOTICE_MAX}</span></div>
+    ${prev?`<button class="mini-btn" id="st-notice-prev" style="width:100%;margin-top:8px" onclick="settleNoticeCopyPrev()">↩️ 지난달 공지 가져오기</button>`:''}
+  </details>`;
+}
+/* 캔버스 글 줄 나누기 — 폭을 넘으면 가까운 띄어쓰기에서, 없으면 글자에서 끊음 */
+function settleWrapText(ctx,text,maxW){
+  const out=[];
+  String(text||'').split(/\r?\n/).forEach(par=>{
+    if(!par.trim()){ out.push(''); return; }
+    let line='';
+    for(const ch of par){
+      const t=line+ch;
+      if(line&&ctx.measureText(t).width>maxW){
+        const sp=line.lastIndexOf(' ');
+        if(sp>0&&line.length-sp<=12){ out.push(line.slice(0,sp)); line=line.slice(sp+1)+ch; }
+        else { out.push(line); line=ch; }
+      } else line=t;
+    }
+    out.push(line);
+  });
+  while(out.length&&!out[out.length-1].trim()) out.pop();
+  return out;
+}
+
 /* 기사 카드 열림 상태 유지 + 날짜별 내역 수정 */
 const settleOpenSet=new Set(); let settleEditName=null;
 /* 백업 복원 뒤 저장된 정산 설정을 메모리로 다시 읽는다 (앱을 껐다 켜지 않아도 되게) */
@@ -4263,6 +4319,7 @@ function settleReload(){
   if(!settleStore.closed||typeof settleStore.closed!=='object') settleStore.closed={};
   if(!settleStore.pinned||typeof settleStore.pinned!=='object') settleStore.pinned={};
   if(!settleStore.sent||typeof settleStore.sent!=='object') settleStore.sent={};
+  if(!settleStore.notice||typeof settleStore.notice!=='object') settleStore.notice={};
   if(!settleStore.adj||typeof settleStore.adj!=='object') settleStore.adj={};
   if(!settleStore.month) settleStore.month=settleCurMonth();
   if(!settleStore.view) settleStore.view='table';
@@ -4414,6 +4471,8 @@ function settlePersonText(r){
       L.push(settleDateLabel(d.date)+' '+bits.join(' · '));
     });
   }
+  const note=settleNotice();
+  if(note){ L.push(SETTLE_BAR); L.push('📢 공지사항'); note.split(/\r?\n/).forEach(x=>L.push(x)); }
   L.push(SETTLE_BAR);
   L.push('내용 확인 부탁드립니다. 다른 점 있으면 알려주세요 🙏');
   return L.join('\n');
@@ -4428,7 +4487,11 @@ function settleCardPNG(r){
   const lines=gWith.reduce((n,g)=>n+g.lines.length+2+(settleTaxShow(r.taxType)?1:r.taxType==='vatin'?2:0)+1,0);
   const adjN=(r.adj||[]).length, adjH=adjN?34+adjN*34+(r.adjTax?34:0)+40:0;
   const sumH=(gWith.length+(adjN?1:0))*40+48+30;
-  const H=162 + lines*34 + adjH + sumH + 30 + (dailyRows.length ? 76 + dailyRows.length*32 : 0) + 64;
+  /* 📢 공지사항 — 맨 아래 상자, 줄은 그림 폭에 맞춰 나눔 */
+  const NOTE_FS=15, NOTE_LH=25;
+  const noteLines=(()=>{ const n=settleNotice(); if(!n) return []; const mx=document.createElement('canvas').getContext('2d'); mx.font='500 '+NOTE_FS+'px '+F; return settleWrapText(mx,n,W-P*2-32); })();
+  const noteH=noteLines.length ? 16+44+noteLines.length*NOTE_LH+16 : 0;
+  const H=162 + lines*34 + adjH + sumH + 30 + (dailyRows.length ? 76 + dailyRows.length*32 : 0) + noteH + 64;
   const c=document.createElement('canvas'); const dpr=2; c.width=W*dpr; c.height=H*dpr;
   const x=c.getContext('2d'); x.scale(dpr,dpr);
   const rr=(X,Y,w,h,rad,fill)=>{ x.beginPath(); x.moveTo(X+rad,Y); x.arcTo(X+w,Y,X+w,Y+h,rad); x.arcTo(X+w,Y+h,X,Y+h,rad); x.arcTo(X,Y+h,X,Y,rad); x.arcTo(X,Y,X+w,Y,rad); x.closePath(); x.fillStyle=fill; x.fill(); };
@@ -4496,6 +4559,12 @@ function settleCardPNG(r){
       cols.forEach((it,k)=>T(d.qty[it]?num(d.qty[it]):'·',P+96+cw*(k+1)-6,y+16,{s:13,w:d.qty[it]?600:400,c:d.qty[it]?'#111827':'#d1d5db',a:'right'}));
       T(num(d.total),W-P-10,y+16,{s:13,w:900,c:'#111827',a:'right'}); y+=32;
     });
+  }
+  if(noteLines.length){
+    y+=16; rr(P,y,W-P*2,noteH-16,12,'#fff7ed'); x.fillStyle='#fb923c'; x.fillRect(P,y+12,4,noteH-40);
+    T('📢 공지사항',P+16,y+24,{s:14,w:900,c:'#9a3412'}); y+=44;
+    noteLines.forEach(l=>{ T(l,P+16,y+NOTE_LH/2,{s:NOTE_FS,w:500,c:'#1f2937'}); y+=NOTE_LH; });
+    y+=16;
   }
   T('내용 확인 부탁드립니다 · 다른 점 있으면 알려주세요',W/2,H-40,{s:12,w:500,c:'#9ca3af',a:'center'});
   return new Promise(res=>c.toBlob(res,'image/png'));
@@ -4696,6 +4765,7 @@ function renderSettleTable(){
       <div><small>매출 합계</small><b>${won(c.totalSales)}</b></div>
       <div><small>지급 합계</small><b class="pay">${won(c.totalPay)}</b></div>
     </div>
+    ${settleNoticeHTML()}
     ${settleSearchBox('기사 이름 검색')}
     <div class="st-filters">${FILTERS.map(([k,l])=>`<button class="st-filter ${settleFilter===k?'on':''}" onclick="settleSetFilter('${k}')">${l}<b>${cnt[k]}</b></button>`).join('')}</div>
     ${cnt.noprice&&!closed&&settleFilter==='all'?`<div class="st-warn" style="margin:0 0 12px">단가가 비어 있는 기사가 <b>${cnt.noprice}명</b> 있습니다. 이름을 누르면 그 자리에서 단가를 넣을 수 있어요.</div>`:''}
@@ -5058,6 +5128,7 @@ function renderSettlePerson(name){
       ${dayTable}
       ${r.noPrice&&!closed?`<div class="st-warn">단가가 비어 있는 물품이 있습니다. 아래 <b>단가 · 세금</b>에서 넣어주세요.</div>`:''}
       ${!closed&&settleWeekendWarn(name,settleStore.month)?`<div class="st-warn">🗓 ${esc(settleWeekendWarn(name,settleStore.month))}</div>`:''}
+      ${settleNoticeHTML()}
       <div class="st-actions">
         <button class="img" onclick="settleShareImage('${nA}')">🖼 정산서 이미지 보내기</button>
         <button class="k" onclick="settleSharePerson('${nA}')">💬 카톡 문구 보내기</button>
@@ -5453,7 +5524,7 @@ function showFrameFail(f, app){
 /* ── 앱 버전 · 새 버전 알림 (2026-10-12, 이사님 폰에서 예전/새 화면이 번갈아 보인다고 해서) ──
    ★ 고쳐서 올릴 때마다 APP_VERSION 을 바꿀 것 (날짜.순번). 서비스 워커는 없고 GitHub Pages 가 10분 캐시함.
    앱을 열거나 다시 볼 때 서버의 index.html 을 캐시 없이 받아 APP_VERSION 이 다르면 아래 알림 줄 → 새로고침은 ?v= 를 붙여 캐시를 건너뜀 */
-const APP_VERSION='10.13-1';
+const APP_VERSION='10.17-1';
 let appUpdChecked=0, appUpdSkip='';
 function appVersionInit(){
   const el=document.getElementById('hVer'); if(el) el.textContent='v'+APP_VERSION;
