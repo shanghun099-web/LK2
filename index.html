@@ -460,6 +460,11 @@ input[type="time"].time-hint{
 .st-warn{background:#3a2a0a;border:1px solid #6b4a10;color:#ffd48a;border-radius:10px;padding:8px 11px;font-size:12.5px;margin-top:10px;line-height:1.5;}
 .st-warn a{color:#ffd48a;font-weight:800;text-decoration:underline;}
 .st-inline{display:inline-block;margin:4px 4px 0 0;padding:5px 10px;border-radius:99px;border:1.5px solid #b07d1c;background:#5a3f0c;color:#ffe2a8;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;}
+/* 🔁 당배반·새벽반 둘 다 (2026-11-14) */
+.sch-both{font-size:11px;margin-left:3px;vertical-align:1px;}
+.sch-bothbar{margin-top:10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(251,146,60,.45);background:rgba(251,146,60,.08);font-size:12.5px;line-height:1.6;color:var(--sub);}
+.sch-bothbar b{color:var(--text);}
+.sch-bothbar button{display:block;margin-top:7px;padding:7px 12px;border-radius:99px;border:1.5px solid #c2620f;background:#5a2d07;color:#ffd2a8;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;}
 .st-summode-note{margin-top:8px;font-size:11.5px;font-weight:700;color:var(--teal3);}
 /* ✏️ 최종 수량 직접 수정 (2026-11-14) */
 .st-fixbtn{display:block;width:100%;margin-top:10px;padding:10px;border-radius:11px;border:1.5px dashed var(--border2);background:transparent;color:var(--blue3);font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;}
@@ -3262,12 +3267,22 @@ function schAddWorker(){
   if (!n){ showToast('이름을 넣어주세요','err'); return; }
   const sh = schShift(), other = sh === 'day' ? 'dawn' : 'day';
   if (schList(sh).indexOf(n) >= 0){ showToast('이미 있는 이름이에요','err'); return; }
+  /* 당배반·새벽반을 둘 다 하는 기사가 있음 (2026-11-14 사용자: 김진호·권현정 등 오네·딜리 + 새벽딜리)
+     → 예전처럼 "옮기기"만 묻지 않고 두 반 모두에 넣을 수 있게. 휴무는 반마다 따로 */
   if (schList(other).indexOf(n) >= 0){
-    if (confirm(n+' 님은 '+SHIFT_NAME[other]+'에 있어요. '+SHIFT_NAME[sh]+'으로 옮길까요?')) schMoveWorker(n, other, sh, true);
-    return;
+    if (!confirm(n+' 님은 '+SHIFT_NAME[other]+'에 이미 있어요.\n\n두 반 모두 일하는 분이면 [확인] → '+SHIFT_NAME[sh]+'에도 넣어요 (휴무는 반마다 따로 관리)\n\n반을 옮기는 거면 [취소] 후 그 분 화면에서 "옮기기"를 누르세요')) return;
+    schList(sh).push(n); saveSchedule();
+    showToast('🔁 '+n+' 님 — '+SHIFT_NAME[other]+'·'+SHIFT_NAME[sh]+' 둘 다'); render(); return;
   }
   schList(sh).push(n); saveSchedule();
   showToast('👤 '+n+' 님을 '+SHIFT_NAME[sh]+'에 추가했어요'); render();
+}
+function schIsBoth(w){ return scheduleStore.dayWorkers.indexOf(w) >= 0 && scheduleStore.dawnWorkers.indexOf(w) >= 0; }
+function schAddBoth(w){
+  const sh = schShift(), other = sh === 'day' ? 'dawn' : 'day';
+  if (schList(other).indexOf(w) >= 0) return;
+  if (!confirm(w+' 님을 '+SHIFT_NAME[other]+'에도 넣을까요?\n'+SHIFT_NAME[sh]+'에서는 빠지지 않고, 두 반 휴무를 따로 관리해요.')) return;
+  schList(other).push(w); saveSchedule(); showToast('🔁 '+w+' 님 — 두 반 모두'); render();
 }
 function schDelWorker(w){
   const sh = schShift();
@@ -3280,24 +3295,30 @@ function schDelWorker(w){
   if (schPerson === w) schClosePerson(); else render();
 }
 function schRenameWorker(w){
-  const sh = schShift();
-  const n = (prompt(w+' 님의 새 이름을 입력하세요.\n지정해둔 휴무·고정 휴무 요일과 '+SHIFT_NAME[sh]+' 출근명단(요일별 기본 명단·오늘 이후 날짜 명단 포함)이 함께 바뀝니다.', w) || '').trim();
+  const sh = schShift(), both = schIsBoth(w);
+  /* 두 반 모두 일하는 분은 두 반 이름을 같이 바꿈 — 한쪽만 바뀌면 같은 사람이 두 사람으로 갈라짐 */
+  const shifts = both ? ['day','dawn'] : [sh];
+  const n = (prompt(w+' 님의 새 이름을 입력하세요.\n지정해둔 휴무·고정 휴무 요일과 '+shifts.map(s=>SHIFT_NAME[s]).join('·')+' 출근명단(요일별 기본 명단·오늘 이후 날짜 명단 포함)이 함께 바뀝니다.', w) || '').trim();
   if (!n || n === w) return;
-  if (scheduleStore.dayWorkers.indexOf(n) >= 0 || scheduleStore.dawnWorkers.indexOf(n) >= 0){ showToast('이미 있는 이름이에요 — 다른 이름을 넣어주세요','err'); return; }
-  const a = schList(sh), i = a.indexOf(w); if (i >= 0) a[i] = n;
-  const pre = (sh === 'dawn' ? 'DAWN_' : 'DAY_');
-  Object.keys(scheduleStore.statusMap).forEach(k => {
-    if (k.indexOf(pre + w + '_') === 0){ scheduleStore.statusMap[pre + n + '_' + k.slice((pre + w + '_').length)] = scheduleStore.statusMap[k]; delete scheduleStore.statusMap[k]; }
+  if (shifts.some(s => schList(s).indexOf(n) >= 0)){ showToast('이미 있는 이름이에요 — 다른 이름을 넣어주세요','err'); return; }
+  let hit = 0;
+  const t0 = todayISO();
+  shifts.forEach(s => {
+    const a = schList(s), i = a.indexOf(w); if (i >= 0) a[i] = n;
+    const pre = (s === 'dawn' ? 'DAWN_' : 'DAY_');
+    Object.keys(scheduleStore.statusMap).forEach(k => {
+      if (k.indexOf(pre + w + '_') === 0){ scheduleStore.statusMap[pre + n + '_' + k.slice((pre + w + '_').length)] = scheduleStore.statusMap[k]; delete scheduleStore.statusMap[k]; }
+    });
+    const fk = fixedKey(s, w); if (scheduleStore.fixedOff[fk]){ scheduleStore.fixedOff[fixedKey(s, n)] = scheduleStore.fixedOff[fk]; delete scheduleStore.fixedOff[fk]; }
+    /* 출근명단: 오늘 명단 + 요일별 기본 명단 */
+    const R = s === 'dawn' ? rosters.dawn : rosters.main;
+    const swap = zones => (zones||[]).forEach(z => { z.people = (z.people||[]).map(p => { const o = personParse(p); if (o.n === w){ hit++; o.n = n; return personStr(o); } return p; }); });
+    swap(R.work.zones); R.tpl.forEach(t => swap(t.zones)); saveTplFor(R);
+    /* 미리 짜 둔 오늘·내일 명단 기록도 — 안 바꾸면 그 날짜를 열 때 옛 이름이 다시 나옴 (지난 날짜 기록은 그대로) */
+    const H = rosterHist[R.key];
+    Object.keys(H).forEach(d => { if (d >= t0 && H[d] && Array.isArray(H[d].zones)) swap(H[d].zones); });
   });
-  const fk = fixedKey(sh, w); if (scheduleStore.fixedOff[fk]){ scheduleStore.fixedOff[fixedKey(sh, n)] = scheduleStore.fixedOff[fk]; delete scheduleStore.fixedOff[fk]; }
   saveSchedule();
-  /* 출근명단: 오늘 명단 + 요일별 기본 명단 */
-  const R = sh === 'dawn' ? rosters.dawn : rosters.main; let hit = 0;
-  const swap = zones => (zones||[]).forEach(z => { z.people = (z.people||[]).map(p => { const o = personParse(p); if (o.n === w){ hit++; o.n = n; return personStr(o); } return p; }); });
-  swap(R.work.zones); R.tpl.forEach(t => swap(t.zones)); saveTplFor(R);
-  /* 미리 짜 둔 오늘·내일 명단 기록도 — 안 바꾸면 그 날짜를 열 때 옛 이름이 다시 나옴 (지난 날짜 기록은 그대로) */
-  const t0 = todayISO(), H = rosterHist[R.key];
-  Object.keys(H).forEach(d => { if (d >= t0 && H[d] && Array.isArray(H[d].zones)) swap(H[d].zones); });
   try{ localStorage.setItem(ROSTER_HIST_KEY, JSON.stringify(rosterHist)); }catch(e){}
   customRosterText = null;
   if (schPerson === w){ schPerson = n; try{ history.replaceState({ sub:'schedule', schPerson:n }, ''); }catch(e){} }
@@ -3320,13 +3341,14 @@ function schMoveWorker(w, from, to, silent){
 }
 function schImportRoster(){
   const sh = schShift(), R = sh === 'dawn' ? rosters.dawn : rosters.main;
-  const a = schList(sh), other = schList(sh === 'day' ? 'dawn' : 'day'); let n = 0;
+  const a = schList(sh), other = schList(sh === 'day' ? 'dawn' : 'day'); let n = 0; const both = [];
+  /* 다른 반에 있는 사람도 이 반 출근명단에 있으면 넣음 — 두 반 모두 일하는 분 (2026-11-14) */
   R.work.zones.forEach(z => z.people.forEach(p => {
     p = rosterBaseName(p);
-    if (p && p !== '신규' && a.indexOf(p) < 0 && other.indexOf(p) < 0){ a.push(p); n++; }
+    if (p && p !== '신규' && a.indexOf(p) < 0){ a.push(p); n++; if (other.indexOf(p) >= 0) both.push(p); }
   }));
   saveSchedule();
-  showToast(n ? '👥 '+SHIFT_NAME[sh]+'에 '+n+'명을 새로 불러왔어요' : '새로 불러올 사람이 없어요');
+  showToast(n ? '👥 '+SHIFT_NAME[sh]+'에 '+n+'명을 새로 불러왔어요'+(both.length?' · 🔁 두 반 모두: '+both.join(', '):'') : '새로 불러올 사람이 없어요');
   render();
 }
 /* 선택한 날, 보고 있는 반의 현황을 카톡용 문구로 */
@@ -3394,7 +3416,7 @@ function schPeopleListHTML(){
     const off = getWorkerStatus(w, iso, sh) === 'OFF', fix = isFixedOffDay(w, iso, sh);
     const n = getWorkerMonthlyStats(w, y, m, sh).offCount, fx = fixedOffLabel(w, sh);
     return `<button class="st-tile sch-tile ${off?'off':''}" style="--pc:${settleColorOf(w)}" onclick="schOpenPerson('${esc(w)}')">
-      <div class="st-tile-head"><span class="st-tile-name" style="color:${settleNameColorOf(w)}">${esc(w)}</span>
+      <div class="st-tile-head"><span class="st-tile-name" style="color:${settleNameColorOf(w)}">${esc(w)}${schIsBoth(w)?' <small class="sch-both" title="두 반 모두">🔁</small>':''}</span>
         <span class="sch-badge ${off?'off':'on'}">${off?'휴무':'근무'}${fix?' 🔒':''}</span></div>
       <div class="st-tile-sub" style="margin-top:6px">${m+1}월 휴무 <b style="color:${n?'#f87171':'var(--sub)'}">${n}일</b></div>
       <div class="st-tile-sub">${fx ? '🔒 매주 '+fx : '고정 휴무 없음'}</div>
@@ -3430,7 +3452,7 @@ function schBoardHTML(days, wide){
       if (off) n++;
       return `<td class="bd-c ${dw===0||dw===6?'we':''} ${d===today?'today':''} ${d===iso?'sel':''}"><button class="bd-cell ${off?(fix?'fix':'off'):'work'}" onclick="toggleWorkerStatus('${esc(w)}','${d}','${sh}')">${off?'휴':''}</button></td>`;
     }).join('');
-    return `<tr><th class="bd-name" onclick="schOpenPerson('${esc(w)}')"><span style="color:${settleNameColorOf(w)}">${esc(w)}</span>${n?`<i>${n}</i>`:''}</th>${cells}</tr>`;
+    return `<tr><th class="bd-name" onclick="schOpenPerson('${esc(w)}')"><span style="color:${settleNameColorOf(w)}">${esc(w)}</span>${schIsBoth(w)?'<small class="sch-both">🔁</small>':''}${n?`<i>${n}</i>`:''}</th>${cells}</tr>`;
   }).join('');
   const foot = days.map(d => { const c = schWorkCount(d, sh); return `<td class="${min>0&&c<min?'short':''} ${d===today?'today':''}">${c}</td>`; }).join('');
   return `
@@ -3439,7 +3461,7 @@ function schBoardHTML(days, wide){
       <tbody>${rows}</tbody>
       <tfoot><tr><th class="bd-name">근무 인원</th>${foot}</tr></tfoot>
     </table></div>
-    <div class="bd-legend"><span><i class="lg-w"></i>근무</span><span><i class="lg-o"></i>휴무</span><span><i class="lg-f"></i>고정 휴무</span><span>이름 옆 숫자 = 휴무 일수</span></div>`;
+    <div class="bd-legend"><span><i class="lg-w"></i>근무</span><span><i class="lg-o"></i>휴무</span><span><i class="lg-f"></i>고정 휴무</span><span>이름 옆 숫자 = 휴무 일수</span>${list.some(schIsBoth)?'<span>🔁 = 당배반·새벽반 둘 다</span>':''}</div>`;
 }
 function schAddRowHTML(){
   const sh = schShift();
@@ -3499,8 +3521,9 @@ function schPersonHTML(w){
     <div class="st-phead" style="--pc:${settleColorOf(w)}">
       <button class="st-back" onclick="schClosePerson()">‹</button>
       <div class="st-who"><div class="st-name" style="color:${settleNameColorOf(w)};font-size:19px">${esc(w)}</div>
-        <div class="st-meta"><span class="pill">${SHIFT_ICON[sh]} ${SHIFT_FULL[sh]}</span><span class="pill ${todayOff?'tax33':'sent'}">오늘 ${todayOff?'휴무':'근무'}</span></div></div>
+        <div class="st-meta"><span class="pill">${SHIFT_ICON[sh]} ${SHIFT_FULL[sh]}</span>${schIsBoth(w)?`<span class="pill">🔁 ${SHIFT_NAME[other]}도</span>`:''}<span class="pill ${todayOff?'tax33':'sent'}">오늘 ${todayOff?'휴무':'근무'}</span></div></div>
     </div>
+    ${schIsBoth(w)?`<div class="sch-bothbar">🔁 <b>${esc(w)}</b> 님은 <b>당배반·새벽반 둘 다</b> 일해요. 아래 달력은 <b>${SHIFT_NAME[sh]}</b> 휴무예요 — ${SHIFT_NAME[other]} 휴무는 따로예요. <button onclick="schSetShift('${other}')">${SHIFT_ICON[other]} ${SHIFT_NAME[other]} 달력 보기</button></div>`:''}
     <div class="sch-nav-bar" style="margin-top:12px">
       <button class="sch-nav-btn" onclick="shiftMonth(-1)">◀</button>
       <span class="sch-nav-title">${y}년 ${m+1}월</span>
@@ -3521,8 +3544,11 @@ function schPersonHTML(w){
     </div>
     <button class="sch-rename" onclick="schRenameWorker('${esc(w)}')">✏️ 이름 바꾸기 <small>임시 이름(신규1 등)을 실제 이름으로 · 휴무 기록과 출근명단이 함께 바뀜</small></button>
     <div class="st-actions" style="margin-top:8px">
-      <button onclick="schMoveWorker('${esc(w)}','${sh}','${other}')">🔁 ${SHIFT_NAME[other]}으로 옮기기</button>
+      ${schIsBoth(w)
+        ? `<button style="color:#f0a0a0;border-color:#6b1d1d;grid-column:1/-1" onclick="schDelWorker('${esc(w)}')">🗑 ${SHIFT_NAME[sh]}에서만 빼기 <small style="display:block;font-weight:600;opacity:.75">${SHIFT_NAME[other]}에는 그대로 남아요</small></button>`
+        : `<button onclick="schMoveWorker('${esc(w)}','${sh}','${other}')">➡️ ${SHIFT_NAME[other]}으로 옮기기</button>
       <button style="color:#f0a0a0;border-color:#6b1d1d" onclick="schDelWorker('${esc(w)}')">🗑 명단에서 삭제</button>
+      <button style="grid-column:1/-1" onclick="schAddBoth('${esc(w)}')">🔁 ${SHIFT_NAME[other]}에도 넣기 <small style="display:block;font-weight:600;opacity:.75">두 반 모두 일하는 분 (오네·딜리 + 새벽딜리 등)</small></button>`}
     </div>`;
 }
 
@@ -5342,7 +5368,7 @@ function renderSettlePerson(name){
     <div class="st-phead" style="--pc:${pc}">
       <button class="st-back" onclick="settleClosePerson()">‹</button>
       <div class="st-who"><div class="st-name" style="color:${settleNameColorOf(name)};font-size:19px">${nA}${settleStore.pinned[name]?' <small style="color:var(--amber2);font-size:11px">📌 고정</small>':''}</div>
-        <div class="st-meta"><span>${esc(settleMonthLabel(settleStore.month))}</span>${closed?'<span class="pill closed">🔏 마감</span>':''}${sentAt?`<span class="pill sent">✓ ${new Date(sentAt).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'})} 보냄</span>`:'<span class="pill">미발송</span>'}</div></div>
+        <div class="st-meta"><span>${esc(settleMonthLabel(settleStore.month))}</span>${schIsBoth(name)?'<span class="pill">🔁 당배반+새벽반</span>':''}${closed?'<span class="pill closed">🔏 마감</span>':''}${sentAt?`<span class="pill sent">✓ ${new Date(sentAt).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'})} 보냄</span>`:'<span class="pill">미발송</span>'}</div></div>
       ${r?`<div class="st-pay">${won(r.pay)}<small>지급액</small></div>`:''}
     </div>`;
   if(!r) return head+`<div class="st-empty">${esc(settleMonthLabel(settleStore.month))}에 <b>${nA}</b> 기록이 없습니다.${closed?'':'<br><small>캡처 기록 없이 수량을 바로 넣으려면 아래 ✏️ 를 누르세요.</small>'}</div>`
@@ -5472,7 +5498,7 @@ function settlePriceListHTML(){
     const cntSet=items.filter(it=>Number(prices[it])>0).length;
     return `
     <button class="st-tile ${ok?'':'warn'}" style="--pc:${settleColorOf(n)}" onclick="settleOpenPerson('${esc(n)}')">
-      <div class="st-tile-head"><span class="st-tile-name" style="color:${settleNameColorOf(n)}">${settleIsDawn(n)?'🌅 ':''}${esc(n)}</span>
+      <div class="st-tile-head"><span class="st-tile-name" style="color:${settleNameColorOf(n)}">${schIsBoth(n)?'🔁 ':settleIsDawn(n)?'🌅 ':''}${esc(n)}</span>
         <span class="st-tile-marks">${settleStore.pinned[n]?'<span>📌</span>':''}${ok?'':'<span class="w">⚠</span>'}</span></div>
       <div class="st-tile-val ${ok?'ok':'no'}">${ok?'단가 '+cntSet+'개 설정됨':'단가 없음'}</div>
       <div class="st-tile-sub">${esc(TAX_TYPES[TAX_TYPES[w.tax]?w.tax:'3.3'])}</div>
@@ -5791,7 +5817,7 @@ function showFrameFail(f, app){
 /* ── 앱 버전 · 새 버전 알림 (2026-10-12, 이사님 폰에서 예전/새 화면이 번갈아 보인다고 해서) ──
    ★ 고쳐서 올릴 때마다 APP_VERSION 을 바꿀 것 (날짜.순번). 서비스 워커는 없고 GitHub Pages 가 10분 캐시함.
    앱을 열거나 다시 볼 때 서버의 index.html 을 캐시 없이 받아 APP_VERSION 이 다르면 아래 알림 줄 → 새로고침은 ?v= 를 붙여 캐시를 건너뜀 */
-const APP_VERSION='11.14-1';
+const APP_VERSION='11.14-2';
 let appUpdChecked=0, appUpdSkip='';
 function appVersionInit(){
   const el=document.getElementById('hVer'); if(el) el.textContent='v'+APP_VERSION;
@@ -6026,6 +6052,13 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--act);outline-off
 .mchip .n{display:block;font-size:12.5px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px}
 .mchip[aria-pressed="true"]{border-color:var(--act);background:var(--act-soft)}
 .mchip[aria-pressed="true"] .t{color:var(--act-3)}
+/* 어느 단톡방 (2026-11-14) — 새벽 단톡방이면 딜리를 새벽딜리로, 저장은 같은 날짜에 더함 */
+.roomsel{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:6px}
+.roomsel button{border:1.5px solid var(--rule);background:var(--paper-2);border-radius:11px;padding:10px 9px;cursor:pointer;font:inherit;font-size:14px;font-weight:750;color:var(--ink);text-align:center}
+.roomsel button small{display:block;font-size:11px;font-weight:600;color:var(--ink-3);margin-top:2px}
+.roomsel button[aria-pressed="true"]{border-color:var(--act);background:var(--act-soft)}
+.roomsel button[data-room="dawn"][aria-pressed="true"]{border-color:#E8590C;background:rgba(232,89,12,.16)}
+.roombadge{display:inline-block;margin-left:6px;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:800;background:rgba(232,89,12,.18);color:#ff9f5a;vertical-align:2px}
 
 .note{border-radius:10px;padding:11px 12px;font-size:13px;line-height:1.6;margin:0 0 11px;border:1px solid transparent}
 .note.warn{background:var(--warn-soft);color:var(--warn);border-color:rgba(245,158,11,.28)}
@@ -6126,6 +6159,13 @@ details.raw summary{font-size:12.5px;color:var(--act-3);cursor:pointer;font-weig
     <input type="date" id="dateIn">
     <div id="dayBadge"></div>
 
+    <label class="f" style="margin-top:13px">어느 단톡방 캡쳐인가요?</label>
+    <div class="roomsel" id="roomSel">
+      <button type="button" data-room="day">☀️ 당일 단톡방<small>오네 · 딜리</small></button>
+      <button type="button" data-room="dawn">🌅 새벽 단톡방<small>새벽딜리</small></button>
+    </div>
+    <div id="roomNote"></div>
+
     <div style="height:13px"></div>
     <input type="file" id="pick" accept="image/*" multiple class="sr-file">
     <label class="drop" id="drop" for="pick">
@@ -6168,7 +6208,7 @@ details.raw summary{font-size:12.5px;color:var(--act-3);cursor:pointer;font-weig
     <div id="ckMsg"></div>
     <div id="ckNew"></div>
     <div class="card" style="--c:#0CA678">
-      <div class="step"><b>3</b><h2>숫자 확인하기</h2></div>
+      <div class="step"><b>3</b><h2>숫자 확인하기<span id="ckRoom"></span></h2></div>
       <p class="hint">잘못 읽은 칸은 바로 눌러서 고치면 됩니다. 빈칸은 0으로 나갑니다.</p>
       <div class="scroll">
         <table id="grid">
@@ -6300,8 +6340,29 @@ function dayInfo(){
   const g = d.getDay();
   return { weekend: g===0 || g===6, label: DAYS[g] + '요일' };
 }
-const weekendOn = () => dayInfo().weekend
+/* 🌅 새벽 단톡방 (2026-11-14) — 당배반·새벽반을 둘 다 하는 기사(김진호·권현정 등)가 있어 같은 날짜에
+   당일 단톡방·새벽 단톡방을 따로 읽어 저장함. 새벽 단톡방은 딜리·숫자만 적힌 것을 새벽딜리로 보고,
+   저장할 때 당일 기록을 지우지 않고 같은 날짜에 더한다 (예전엔 날짜째 덮어써서 먼저 저장한 쪽이 사라졌음) */
+const ROOM_KEY = 'mv_room', DAWN_ITEM = '새벽딜리';
+const ROOM_NAME = { day:'☀️ 당일 단톡방', dawn:'🌅 새벽 단톡방' };
+const dawnOn = () => S.room === 'dawn' && S.items.indexOf(DAWN_ITEM) >= 0;
+const weekendOn = () => dayInfo().weekend && !dawnOn()
   && S.items.indexOf(WEEKEND_ITEM) >= 0;
+function drawRoom(){
+  document.querySelectorAll('#roomSel [data-room]').forEach(b => b.setAttribute('aria-pressed', b.getAttribute('data-room') === S.room ? 'true' : 'false'));
+  msg('roomNote', S.room === 'dawn' ? 'warn' : '', S.room === 'dawn'
+    ? (S.items.indexOf(DAWN_ITEM) < 0
+        ? '물품 목록에 <b>'+DAWN_ITEM+'</b>가 없어요. ⚙️ 설정에서 넣어 주세요.'
+        : '🌅 <b>새벽 단톡방</b>으로 읽어요. 딜리·숫자만 적힌 물량은 모두 <b>'+DAWN_ITEM+'</b>로 들어가요 (오네라고 적힌 것만 오네).<br>저장하면 같은 날짜의 <b>당일 단톡방 기록은 그대로 두고 더해요</b>. 두 반 다 하는 기사는 한 사람 정산서에 함께 나와요.')
+    : '');
+  const b = document.getElementById('ckRoom'); if (b) b.innerHTML = S.room === 'dawn' ? '<span class="roombadge">🌅 새벽 단톡방</span>' : '';
+  drawDay();
+}
+function setRoom(r){
+  S.room = r === 'dawn' ? 'dawn' : 'day'; save(ROOM_KEY, S.room); drawRoom();
+  if (S.rawRows.length) build(S.rawRows);
+  stlState();
+}
 
 let S = {
   models: load(K.models, DEFAULT_MODELS.slice()),
@@ -6310,6 +6371,7 @@ let S = {
   baseItem: load(K.base, '오네'),
   rules:  load(K.rules, ''),
   alias:  load(K.alias, {}),
+  room:   load('mv_room', 'day') === 'dawn' ? 'dawn' : 'day',
   images: [], rawRows: [], people: [], grid: {}, flags: {}
 };
 if (!Array.isArray(S.items)  || !S.items.length)  S.items  = DEFAULT_ITEMS.slice();
@@ -6446,7 +6508,7 @@ function drawDay(){
   const el = document.getElementById('dayBadge');
   if (!el) return;
   const i = dayInfo();
-  el.innerHTML = i.weekend
+  el.innerHTML = i.weekend && !dawnOn()
     ? '<div class="note warn" style="margin:9px 0 0">'+i.label+'입니다. 딜리로 적힌 물량은 모두 <b>'+WEEKEND_ITEM+'</b>로 분류됩니다.</div>'
     : (i.label ? '<p class="muted" style="margin:7px 0 0">'+i.label+'</p>' : '');
 }
@@ -6466,11 +6528,15 @@ function drawChips(){
 
 /* ---------- 호출 ---------- */
 function prompt_(){
-  const base = S.baseItem && S.items.indexOf(S.baseItem) >= 0 ? S.baseItem : S.items[0];
+  const dw = dawnOn();
+  const base = dw ? DAWN_ITEM : S.baseItem && S.items.indexOf(S.baseItem) >= 0 ? S.baseItem : S.items[0];
   const extra = String(S.rules||'').trim();
   return [
     '카카오톡 배송 단톡방에서 기사들이 올린 물량 보고를 읽고, 사람별·물품별 최종 수량을 뽑는 작업입니다.',
     '',
+    (dw
+      ? '★★ 이 캡쳐는 새벽반 단톡방입니다. "딜", "딜리", "딜리래빗", "딜리레빗", "새벽" 으로 적힌 것과 물품 이름 없이 숫자만 적힌 것은 예외 없이 모두 ' + DAWN_ITEM + ' 로 분류하세요. "오네"라고 분명히 적힌 것만 오네입니다.\n'
+      : '') +
     (weekendOn()
       ? '★★ 이 날은 ' + dayInfo().label + '입니다. "딜", "딜리", "딜리래빗", "딜리레빗", "주말딜리" 로 적힌 것은 예외 없이 모두 ' + WEEKEND_ITEM + ' 로 분류하세요. ' + PLAIN_ITEM + ' 로 두면 안 됩니다. ("새벽" 이 붙은 것만 새벽딜리입니다.)\n'
       : '') +
@@ -6648,12 +6714,13 @@ function build(rows){
     name:String(r.name||'').trim(), area:String(r.area||'').trim(), item:String(r.item||'').trim(),
     qty:Number(r.qty)||0, raw:String(r.raw||'').trim(), sure:r.sure !== false
   })).filter(r => r.name);
-  S.people = []; S.grid = {}; S.flags = {}; S.dups = []; S.moved = 0;
-  const wk = weekendOn();
+  S.people = []; S.grid = {}; S.flags = {}; S.dups = []; S.moved = 0; S.movedDawn = 0;
+  const wk = weekendOn(), dw = dawnOn();
   S.rawRows.forEach(r => {
     r.item0 = r.item0 || r.item;
     r.item = normItem(r.item0);
-    if (wk && (r.item === PLAIN_ITEM || r.item0 === PLAIN_ITEM)){ r.item = WEEKEND_ITEM; S.moved++; }
+    if (dw && (r.item === PLAIN_ITEM || r.item === WEEKEND_ITEM)){ r.item = DAWN_ITEM; S.movedDawn++; }
+    else if (wk && (r.item === PLAIN_ITEM || r.item0 === PLAIN_ITEM)){ r.item = WEEKEND_ITEM; S.moved++; }
   });
   const seen = {};
   S.rawRows.forEach(r => {
@@ -6676,7 +6743,8 @@ function notices(){
   const etc = S.rawRows.filter(r => S.items.indexOf(r.item) < 0 && !isNewItem(r.item)).length;
   const unmapped = [...new Set(S.rawRows.map(r => r.name).filter(n => !S.alias[n]))];
   const bits = [];
-  if (S.moved) msgAppend = '<b>'+dayInfo().label+'</b>이라서 딜리 '+S.moved+'건을 '+WEEKEND_ITEM+'로 옮겼습니다.';
+  if (S.movedDawn) msgAppend = '🌅 <b>새벽 단톡방</b>이라서 딜리 '+S.movedDawn+'건을 '+DAWN_ITEM+'로 넣었습니다.';
+  else if (S.moved) msgAppend = '<b>'+dayInfo().label+'</b>이라서 딜리 '+S.moved+'건을 '+WEEKEND_ITEM+'로 옮겼습니다.';
   else msgAppend = '';
   if (S.dups && S.dups.length) bits.push('<b>'+[...new Set(S.dups)].map(esc).join(', ')+'</b> 이(가) 두 번 이상 잡혔습니다. 출발과 완료를 각각 센 것일 수 있으니 꼭 확인하세요');
   if (unsure) bits.push('<b>'+unsure+'건</b>은 글자가 흐리거나 잘려서 확실하지 않습니다');
@@ -6909,10 +6977,21 @@ function stlState(){
   let closedNote = '';
   try{ const st = JSON.parse(localStorage.getItem('disp-settle')||'{}'); if (st.closed && st.closed[String(date).slice(0,7)]) closedNote = '<b>🔏 이 달은 정산이 마감됐습니다.</b> 저장해도 정산표에는 반영되지 않습니다 (정산 탭에서 마감 해제 후 다시 저장하세요).'; }catch(e){}
   if (closedNote){ msg('stlState','warn', closedNote); return; }
+  const rooms = histRooms(r);
+  const t = x => x ? new Date(x).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
+  const lines = Object.keys(rooms).map(k => ROOM_NAME[k]+' 기사 '+Object.keys(rooms[k].grid||{}).length+'명'+(rooms[k].at?' · '+t(rooms[k].at):''));
+  const other = S.room === 'dawn' ? 'day' : 'dawn';
   msg('stlState', edited.length ? 'warn' : 'ok', r
-    ? '<b>정산에 저장된 기록</b>: 이 날짜로 기사 '+Object.keys(r.grid||{}).length+'명'+(when?' · '+when+' 저장':'')+'. 지금 화면의 표로 다시 저장하면 덮어씁니다.'
+    ? '<b>이 날짜 정산에 저장된 기록</b> (기사 '+Object.keys(r.grid||{}).length+'명'+(when?' · '+when:'')+')<br>· '+lines.join('<br>· ')
+      + '<br>지금 화면은 <b>'+ROOM_NAME[S.room]+'</b>입니다. 저장하면 '+ROOM_NAME[S.room]+' 기록만 바뀌고'+(rooms[other]?' '+ROOM_NAME[other]+' 기록은 그대로 더해져요.':' 다른 단톡방 기록은 지우지 않아요.')
       + (edited.length ? '<br><b>⚠ 정산 탭에서 직접 고친 기록이 있습니다</b> ('+edited.map(esc).join(', ')+'). 다시 저장하면 고친 내용이 지워집니다.' : '')
     : '');
+}
+/* 날짜 기록을 단톡방별로 — 예전 기록(rooms 없음)은 당일 단톡방 하나로 본다 */
+function histRooms(r){
+  if (!r) return {};
+  if (r.rooms && typeof r.rooms === 'object') return r.rooms;
+  return { day: { grid: r.grid || {}, at: r.savedAt || 0 } };
 }
 function saveToSettle(){
   const date = document.getElementById('dateIn').value;
@@ -6927,8 +7006,18 @@ function saveToSettle(){
   if (!n){ msg('stlMsg','warn','수량이 전부 0이라 저장할 게 없습니다.'); return; }
   const h = load(HISTORY_KEY, {}) || {};
   /* 카톡에 적힌 수량 대목도 같이 남긴다 — 나중에 기사와 숫자를 맞춰볼 근거가 된다 */
-  const rows = (S.rawRows||[]).map(r => ({ n:r.name, i:r.item, q:r.qty, x:r.raw, u:r.sure===false?1:0 }));
-  h[date] = { grid, savedAt: Date.now(), rows, alias: Object.assign({}, S.alias) };
+  const room = S.room, prev = h[date];
+  const rows = (S.rawRows||[]).map(r => Object.assign({ n:r.name, i:r.item, q:r.qty, x:r.raw, u:r.sure===false?1:0 }, room === 'dawn' ? { rm:'dawn' } : {}));
+  /* 단톡방별로 따로 두고 합쳐서 grid — 새벽 단톡방을 저장해도 당일 기록이 안 지워짐. 같은 사람·같은 물품은 더함 */
+  const rooms = Object.assign({}, histRooms(prev));
+  rooms[room] = { grid, at: Date.now() };
+  const merged = {};
+  Object.keys(rooms).forEach(k => Object.keys(rooms[k].grid||{}).forEach(p => {
+    const g = rooms[k].grid[p]; merged[p] = merged[p] || {};
+    Object.keys(g).forEach(it => { merged[p][it] = (merged[p][it]||0) + (Number(g[it])||0); });
+  }));
+  const keepRows = ((prev && prev.rows) || []).filter(x => (x.rm || 'day') !== room);
+  h[date] = { grid: merged, savedAt: Date.now(), rows: keepRows.concat(rows), alias: Object.assign({}, (prev && prev.alias) || {}, S.alias), rooms };
   try{
     localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
   }catch(e){
@@ -6939,7 +7028,9 @@ function saveToSettle(){
   }
   const d = new Date(date+'T00:00:00');
   const label = isNaN(d) ? date : (d.getMonth()+1)+'월 '+d.getDate()+'일('+DAYS[d.getDay()]+')';
-  msg('stlMsg','ok','<b>'+label+'</b> 기사 <b>'+n+'명</b> · 총 <b>'+tot+'건</b>을 정산 기록에 저장했습니다. 앱의 💰 정산 탭에서 확인하세요.');
+  const both = Object.keys(rooms).length > 1;
+  msg('stlMsg','ok','<b>'+label+'</b> '+ROOM_NAME[room]+' 기사 <b>'+n+'명</b> · 총 <b>'+tot+'건</b>을 정산 기록에 저장했습니다.'
+    + (both ? '<br>같은 날짜의 '+ROOM_NAME[room === 'dawn' ? 'day' : 'dawn']+' 기록은 그대로 두고 더했어요 (이 날짜 기사 '+Object.keys(merged).length+'명).' : '') + ' 앱의 💰 정산 탭에서 확인하세요.');
   stlState();
 }
 
@@ -6984,7 +7075,8 @@ function restore(){
   document.getElementById('addName').addEventListener('keydown', e => { if (e.key==='Enter') addPerson(); });
   document.getElementById('itemIn').addEventListener('keydown', e => { if (e.key==='Enter') addItem(); });
   document.getElementById('aliasV').addEventListener('keydown', e => { if (e.key==='Enter') addAlias(); });
-  drawDay(); drawChips(); drawFiles(); restore();
+  document.querySelectorAll('#roomSel [data-room]').forEach(b => b.onclick = () => setRoom(b.getAttribute('data-room')));
+  drawRoom(); drawChips(); drawFiles(); restore();
   if (!apiKey()) msg('inMsg','warn','제미나이 API 키가 없습니다. 앱 <b>맨 위 ⚙️ 설정</b>에서 키를 넣어주세요.');
   /* 앱의 💰 정산 탭에서 물품 목록을 바꾸면 여기도 같은 목록으로 */
   window.addEventListener('storage', e => {
