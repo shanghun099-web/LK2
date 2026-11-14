@@ -459,6 +459,24 @@ input[type="time"].time-hint{
 .st-days .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
 .st-warn{background:#3a2a0a;border:1px solid #6b4a10;color:#ffd48a;border-radius:10px;padding:8px 11px;font-size:12.5px;margin-top:10px;line-height:1.5;}
 .st-warn a{color:#ffd48a;font-weight:800;text-decoration:underline;}
+.st-inline{display:inline-block;margin:4px 4px 0 0;padding:5px 10px;border-radius:99px;border:1.5px solid #b07d1c;background:#5a3f0c;color:#ffe2a8;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;}
+.st-summode-note{margin-top:8px;font-size:11.5px;font-weight:700;color:var(--teal3);}
+/* ✏️ 최종 수량 직접 수정 (2026-11-14) */
+.st-fixbtn{display:block;width:100%;margin-top:10px;padding:10px;border-radius:11px;border:1.5px dashed var(--border2);background:transparent;color:var(--blue3);font-size:13px;font-weight:800;cursor:pointer;font-family:inherit;}
+.st-fixbtn.on{border-style:solid;background:var(--teal);border-color:var(--teal);color:#04211c;}
+.st-fix{margin-top:10px;border:1.5px solid var(--blue2);border-radius:13px;overflow:hidden;background:var(--card2);}
+.st-fix-h{padding:9px 12px;font-size:12px;line-height:1.55;color:var(--sub);border-bottom:1px solid var(--border);}
+.st-fix-h b{color:var(--text);}
+.st-fix-g{padding:6px 12px 2px;font-size:11.5px;font-weight:900;color:var(--dim);}
+.st-fix-row{display:flex;align-items:center;gap:8px;padding:6px 12px;}
+.st-fix-row label{flex:1;font-size:13.5px;font-weight:700;color:var(--text);min-width:0;}
+.st-fix-row label small{display:block;font-size:11px;font-weight:700;color:var(--dim);}
+.st-fix-row.fixed label small{color:var(--amber2);}
+.st-fix-row .st-cell{width:78px;min-width:78px;}
+.st-fix-row.fixed .st-cell{border-color:var(--amber2);}
+.st-fix-undo{width:34px;height:34px;border-radius:9px;border:1.5px solid var(--border2);background:var(--card3);color:var(--text);font-size:15px;cursor:pointer;font-family:inherit;flex:none;}
+.st-fix-undo[disabled]{opacity:.25;cursor:default;}
+.st-fixmark{display:inline-block;margin-left:4px;padding:1px 6px;border-radius:99px;background:rgba(251,191,36,.14);color:var(--amber2);font-size:10.5px;font-weight:800;font-style:normal;vertical-align:1px;}
 .st-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}
 .st-actions button{padding:12px 6px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid var(--border2);background:var(--card2);color:var(--text);cursor:pointer;font-family:inherit;}
 .st-actions button.k{background:var(--kakao);color:var(--kakao-text);border-color:var(--kakao);}
@@ -4096,6 +4114,7 @@ let settleUnlocked=false;   /* 단가 잠금 — 화면을 벗어나면 다시 �
 if(!settleStore.adj||typeof settleStore.adj!=='object') settleStore.adj={};   /* ➕➖ 차감·추가 { '2026-10': { 이름: [{kind:'minus'|'plus', label, amt, pre}] } } */
 if(!settleStore.sent||typeof settleStore.sent!=='object') settleStore.sent={};   /* 정산서 보낸 표시 { '2026-09': { 이름: 시각 } } */
 if(!settleStore.notice||typeof settleStore.notice!=='object') settleStore.notice={};   /* 📢 정산서 공지 { '2026-09': '글' } */
+if(!settleStore.fix||typeof settleStore.fix!=='object') settleStore.fix={};   /* ✏️ 최종 수량 직접 수정 { '2026-11': { 이름: { 물품: 수량 } } } — 매일 기록 합계 대신 이 숫자로 계산 */
 /* 📋 월 합계 — 업체(오네·딜리)에서 받은 한 달 합산표를 기사별로 넣어 바로 정산 (2026-10-06 이사님 요청)
    sums[월] = {on, qty:{이름:{칸:수량}}} · sumItems = 칸 이름(오네/딜리 따로). on 인 달은 매일 기록 대신 이걸로 계산.
    단가·세금 방식은 기사별 설정(workers)을 그대로 씀 — 칸 이름이 단가 이름 */
@@ -4121,7 +4140,7 @@ function saveSettleHistory(h){
   try{ localStorage.setItem(SETTLE_HISTORY_KEY, JSON.stringify(h)); return true; }
   catch(e){ showToast('저장 공간이 가득 찼어요 — 예전 달 원문을 지워주세요','err'); return false; }
 }
-const SETTLE_MAX_ITEMS=8;
+const SETTLE_MAX_ITEMS=12;   /* 8 → 12 (2026-11-14) 새 업체·분류가 늘어도 넣을 수 있게 */
 function settleRawItems(){ const it=load('mv_items',null); return Array.isArray(it)&&it.length ? it.slice() : SETTLE_DEFAULT_ITEMS.slice(); }
 function settleItems(){ return settleRawItems().filter(i=>i!=='기타'); }
 /* 물품 목록은 물량 탭 설정(mv_items)과 같은 것을 쓴다 — 여기서 바꾸면 물량 탭 iframe 이 storage 이벤트로 따라온다 */
@@ -4134,6 +4153,23 @@ function settleAddItem(){
   if(items.filter(i=>i!=='기타').length>=SETTLE_MAX_ITEMS){ showToast('물품은 최대 '+SETTLE_MAX_ITEMS+'가지까지예요','err'); return; }
   if(items.indexOf(v)>=0||v==='기타'){ showToast('이미 있는 물품이에요','err'); return; }
   items.push(v); settleSaveItems(items); showToast('📦 '+v+' 추가 — 물량 탭에도 반영됐어요'); render();
+}
+/* 캡처에서 처음 본 업체·분류(쿠팡 등)를 물품 목록에 바로 넣기 — 넣으면 단가 칸이 생기고 금액에 들어감 (2026-11-14) */
+function settleAddItemName(v){
+  v=String(v||'').trim(); if(!v||v==='기타') return;
+  const items=settleRawItems();
+  if(items.indexOf(v)>=0){ render(); return; }
+  if(items.filter(i=>i!=='기타').length>=SETTLE_MAX_ITEMS){ showToast('물품은 최대 '+SETTLE_MAX_ITEMS+'가지까지예요 — 💵 단가 탭에서 안 쓰는 물품을 빼 주세요','err'); return; }
+  const deli=settleIsDeli(v);
+  if(!confirm('"'+v+'" 를 물품 목록에 넣을까요?\n\n· '+(deli?'이름에 \'딜\'이 있어 🟩 딜리 정산':'🟦 오네 정산')+'으로 묶여요\n· 넣은 뒤 기사마다 이 물품 단가를 넣어야 금액에 들어가요\n· 물량 탭(캡처 읽기)에도 같은 물품이 생겨요')) return;
+  items.push(v); settleSaveItems(items); showToast('📦 '+v+' 추가 — 이제 기사 단가 칸에 "'+v+'" 가 보여요'); render();
+}
+/* 이 달 기록에 있는데 물품 목록에 없는 것 — 정산표 맨 위에 모아서 알려 줌 */
+function settleEtcBarHTML(c){
+  if(c.closed||c.sum) return '';
+  const t={}; c.rows.forEach(r=>(r.etc||[]).forEach(e=>{ t[e.item]=(t[e.item]||0)+e.qty; }));
+  const ks=Object.keys(t); if(!ks.length) return '';
+  return `<div class="st-warn" style="margin:0 0 12px">🆕 물품 목록에 없는 분류가 기록에 있어요 — 지금은 <b>금액에 안 들어가요</b>.<br>${ks.map(k=>`<b>${esc(k)}</b> ${num(t[k])}건${k==='기타'?' <small>(종류를 못 정한 것 · 개인 화면 날짜별 내역에서 맞는 칸으로 옮겨 주세요)</small>':` <button class="st-inline" onclick="settleAddItemName('${esc(k)}')">＋ 물품으로 추가</button>`}`).join('<br>')}</div>`;
 }
 function settleDelItem(it){
   if(settleNeedUnlock()) return;
@@ -4149,6 +4185,25 @@ function settleGroups(){
            {key:'deli',label:'딜리 정산',items:items.filter(settleIsDeli)} ];
 }
 function settleSumOn(m){ const x=settleStore.sums[m||settleStore.month]; return !!(x&&x.on); }
+/* 새 달은 지난달 정산 방식을 이어받는다 (2026-11-14) — 지난달을 📋 월 합계(당배 일반·딜리 당일… 칸)로 정산하고
+   다음 달로 넘어가면 매일 기록 칸(오네·책·딜리…)이 나와서 단가가 전부 지워진 것처럼 보이던 문제.
+   그 달에 물량 탭 기록이 이미 있으면 예전처럼 매일 기록 그대로 둔다 (쓰던 정산이 갑자기 바뀌지 않게) */
+const settleSumAutoSeen=new Set();
+function settleSumAuto(m){
+  const S=settleStore.sums; if(!S||S[m]||settleSumAutoSeen.has(m)||settleIsClosed(m)) return false;
+  settleSumAutoSeen.add(m);
+  if(Object.keys(settleHistory()).some(d=>d.indexOf(m)===0)) return false;
+  const prev=Object.keys(S).filter(k=>k<m&&S[k]&&typeof S[k].on==='boolean').sort().pop();
+  if(!prev||!S[prev].on) return false;
+  S[m]={on:true,qty:{},auto:prev}; saveSettle(); return true;
+}
+/* 이 달 물량 탭 기록 날짜 수 — 월 합계 달인데 기록이 있으면 "안 쓰이고 있다"고 알려 주려고 */
+function settleDailyCount(m){ return Object.keys(settleHistory()).filter(d=>d.indexOf(m)===0).length; }
+function settleSumUnusedHTML(m){
+  if(!settleSumOn(m)) return '';
+  const n=settleDailyCount(m); if(!n) return '';
+  return `<div class="st-warn" style="margin:0 0 12px">📦 이 달에 물량 탭(캡처)으로 저장한 기록이 <b>${n}일</b> 있지만, 지금은 <b>📋 월 합계</b>로 정산하는 달이라 계산에 쓰지 않아요.${settleIsClosed(m)?'':` 캡처 기록으로 정산하려면 <button class="st-inline" onclick="settleSumMode(false)">📦 매일 기록으로 바꾸기</button>`}</div>`;
+}
 /* 이 달 정산에 쓰는 묶음 — 월 합계인 달은 월 합계 칸, 아니면 물량 탭 물품 */
 function settleGroupsFor(m){
   if(!settleSumOn(m)) return settleGroups();
@@ -4235,10 +4290,19 @@ function settleCalcLive(month){
       daily[n].push(row);
     });
   });
+  /* ✏️ 최종 수량 직접 수정 — 매일 기록(캡처) 합계 대신 사람이 넣은 숫자. 원래 숫자는 orig 에 남겨 화면에 같이 보여줌
+     (월 합계 달은 직접 고친 숫자가 곧 월 합계 표라 따로 덮지 않음) */
+  const F=sum?null:settleStore.fix[month], orig={};
+  if(F) Object.keys(F).forEach(n=>{
+    const f=F[n]||{}; const its=Object.keys(f); if(!its.length) return;
+    qty[n]=qty[n]||{}; days[n]=days[n]||0; daily[n]=daily[n]||[]; orig[n]={};
+    its.forEach(it=>{ orig[n][it]=qty[n][it]||0; qty[n][it]=Math.max(0,Number(f[it])||0); });
+  });
   const rows=Object.keys(qty).sort((a,b)=>a.localeCompare(b,'ko')).map(n=>{
     const w=settleStore.workers[n]||{prices:{},tax:'3.3'}; const prices=w.prices||{};
+    const O=orig[n]||{};
     const gs=groups.map(gr=>{
-      const lines=gr.items.map(it=>{ const q=qty[n][it]||0, p=Number(prices[it])||0; return {item:it,qty:q,price:p,amt:q*p,noPrice:q>0&&!p}; }).filter(l=>l.qty>0);
+      const lines=gr.items.map(it=>{ const q=qty[n][it]||0, p=Number(prices[it])||0; const l={item:it,qty:q,price:p,amt:q*p,noPrice:q>0&&!p}; if(it in O) l.fixed=O[it]; return l; }).filter(l=>l.qty>0);
       return {key:gr.key,label:gr.label,lines,qty:lines.reduce((s,l)=>s+l.qty,0),sub:lines.reduce((s,l)=>s+l.amt,0)};
     });
     const known={}; groups.forEach(gr=>gr.items.forEach(it=>known[it]=1));
@@ -4250,7 +4314,7 @@ function settleCalcLive(month){
     const tax=gs.reduce((s,x)=>s+x.tax,0);
     const A=settleAdjCalc(month,n,taxType);
     return {name:n,days:days[n],daily:daily[n],sum,groups:gs,etc,sales,tax,taxType,pay:sales+tax+A.net,
-            adj:A.lines,adjPre:A.pre,adjTax:A.tax,adjPost:A.post,adjNet:A.net,
+            adj:A.lines,adjPre:A.pre,adjTax:A.tax,adjPost:A.post,adjNet:A.net,fixN:Object.keys(O).length,
             noPrice:gs.some(x=>x.lines.some(l=>l.noPrice)),totalQty:gs.reduce((s,x)=>s+x.qty,0)};
   });
   return {dates,rows,sum,totalSales:rows.reduce((s,r)=>s+r.sales,0),totalPay:rows.reduce((s,r)=>s+r.pay,0)};
@@ -4360,7 +4424,7 @@ function settleWrapText(ctx,text,maxW){
 }
 
 /* 기사 카드 열림 상태 유지 + 날짜별 내역 수정 */
-const settleOpenSet=new Set(); let settleEditName=null;
+const settleOpenSet=new Set(); let settleEditName=null; let settleFixName=null;
 /* 백업 복원 뒤 저장된 정산 설정을 메모리로 다시 읽는다 (앱을 껐다 켜지 않아도 되게) */
 function settleReload(){
   const v=load(SETTLE_KEY,null);
@@ -4371,11 +4435,12 @@ function settleReload(){
   if(!settleStore.sent||typeof settleStore.sent!=='object') settleStore.sent={};
   if(!settleStore.notice||typeof settleStore.notice!=='object') settleStore.notice={};
   if(!settleStore.adj||typeof settleStore.adj!=='object') settleStore.adj={};
+  if(!settleStore.fix||typeof settleStore.fix!=='object') settleStore.fix={};
   if(!settleStore.month) settleStore.month=settleCurMonth();
   if(!settleStore.view) settleStore.view='table';
   settleSumEnsure();
-  settlePerson=null; settleEditName=null; settleUnlocked=false;
-  settleQuery=''; settleFilter='all'; settleDayItem=''; settleOpenSet.clear();
+  settlePerson=null; settleEditName=null; settleFixName=null; settleUnlocked=false;
+  settleQuery=''; settleFilter='all'; settleDayItem=''; settleOpenSet.clear(); settleSumAutoSeen.clear();
 }
 function settleEdit(name){ if(settleIsClosed(settleStore.month)){ showToast('🔏 마감된 달은 고칠 수 없어요 — 마감 해제 후 고치세요','err'); return; } settleEditName = settleEditName===name ? null : name; if(settleEditName) settleOpenSet.add(name); render(); }
 function settleMarkEdited(rec,name){ rec.edited=rec.edited||{}; rec.edited[name]=Date.now(); }
@@ -4409,7 +4474,7 @@ let settleDayItem='';   /* 기록 탭에서 보고 있는 물품 ('' = 전체 �
 function settleDayPick(it){ settleDayItem=it; render(); }
 function settleView(v){ settleImport=null; settleUnlocked=false; settleDayItem=''; settleStore.view=v; settlePerson=null; settleFilter='all'; settleQuery=''; saveSettle(); render(); }
 function settleOpenPerson(name){
-  settlePerson=name; settleUnlocked=false; settleEditName=null;
+  settlePerson=name; settleUnlocked=false; settleEditName=null; settleFixName=null;
   try{ history.pushState({sub:'settle',person:name},''); }catch(e){}
   render(); const c=document.getElementById('content'); if(c) c.scrollTop=0;
 }
@@ -4448,7 +4513,7 @@ function settlePrice(name,item,v){ if(settleNeedUnlock()||settleStore.pinned[nam
 /* 입력 칸을 고치고 바로 다음 칸을 누르면, 저장하며 화면을 다시 그리는 바람에 새로 누른 칸이 사라져
    거기 친 숫자가 날아가던 버그(2026-10-11) → 저장만 하고, 입력 칸 묶음 밖으로 손이 나갔을 때 다시 그림 */
 function settleDeferRender(){
-  setTimeout(()=>{ const a=document.activeElement; if(a&&a.closest&&a.closest('.st-worker,.st-days table,.st-adj')) return; render(); },0);
+  setTimeout(()=>{ const a=document.activeElement; if(a&&a.closest&&a.closest('.st-worker,.st-days table,.st-adj,.st-fix')) return; render(); },0);
 }
 function settleTax(name,v){ if(settleNeedUnlock()||settleStore.pinned[name]){ render(); return; } settleWorker(name).tax=TAX_TYPES[v]?v:'3.3'; saveSettle(); if(settlePerson) settleDeferRender(); }
 function settleAddWorker(){
@@ -4467,13 +4532,14 @@ function settleResetMonth(){
   const m=settleStore.month, label=settleMonthLabel(m);
   const h=settleHistory(); const dates=Object.keys(h).filter(d=>d.indexOf(m)===0);
   const sent=Object.keys(settleStore.sent[m]||{}).length; const closed=settleIsClosed(m);
-  const hasSum=!!settleStore.sums[m], adjN=Object.keys(settleStore.adj[m]||{}).length;
-  if(!dates.length&&!sent&&!closed&&!hasSum&&!adjN){ showToast(label+'에는 지울 기록이 없어요'); return; }
-  if(!confirm(label+' 기록을 전부 지울까요?\n\n· 저장된 날짜 '+dates.length+'일\n· 보냄 표시 '+sent+'명'+(closed?'\n· 마감 상태':'')+(hasSum?'\n· 📋 월 합계 표':'')+(adjN?'\n· ➕➖ 차감·추가 '+adjN+'명':'')+'\n\n단가·세금·📌 고정은 그대로 남습니다.')) return;
+  const hasSum=!!settleStore.sums[m], adjN=Object.keys(settleStore.adj[m]||{}).length, fixN=Object.keys(settleStore.fix[m]||{}).length;
+  if(!dates.length&&!sent&&!closed&&!hasSum&&!adjN&&!fixN){ showToast(label+'에는 지울 기록이 없어요'); return; }
+  if(!confirm(label+' 기록을 전부 지울까요?\n\n· 저장된 날짜 '+dates.length+'일\n· 보냄 표시 '+sent+'명'+(closed?'\n· 마감 상태':'')+(hasSum?'\n· 📋 월 합계 표':'')+(adjN?'\n· ➕➖ 차감·추가 '+adjN+'명':'')+(fixN?'\n· ✏️ 직접 고친 수량 '+fixN+'명':'')+'\n\n단가·세금·📌 고정은 그대로 남습니다.')) return;
   const typed=prompt('정말 지우려면 아래에 "초기화" 라고 입력하세요');
   if(typed!=='초기화'){ showToast('취소했어요'); return; }
   dates.forEach(d=>delete h[d]); saveSettleHistory(h);
-  delete settleStore.sent[m]; delete settleStore.closed[m]; delete settleStore.sums[m]; delete settleStore.adj[m];
+  delete settleStore.sent[m]; delete settleStore.closed[m]; delete settleStore.sums[m]; delete settleStore.adj[m]; delete settleStore.fix[m];
+  settleSumAutoSeen.delete(m);
   settlePerson=null; settleEditName=null; saveSettle();
   showToast('🧹 '+label+' 기록을 지웠어요'); render();
 }
@@ -4481,6 +4547,73 @@ function settleDelDay(d){
   if(settleIsClosed(d.slice(0,7))){ showToast('🔏 마감된 달의 기록은 지울 수 없어요','err'); return; }
   if(!confirm(settleDateLabel(d)+' 기록을 지울까요?')) return;
   const h=settleHistory(); delete h[d]; saveSettleHistory(h); render();
+}
+
+/* ✏️ 최종 수량 직접 수정 (2026-11-14 요청) — 개인 정산서에서 물품마다 최종 합계 수량을 바로 고침
+   · 매일 기록 달: settleStore.fix 에 따로 저장 → 캡처를 다시 저장해도 안 덮임, ↩ 로 캡처 기록 숫자로 되돌림
+   · 월 합계 달: 📋 월 합계 표 숫자를 그대로 고침 (같은 숫자가 두 군데 따로 있지 않게)
+   물품마다 단가가 달라 합계 한 줄만 고치면 금액을 못 내므로 물품별로 고친다 */
+function settleRecQty(m,name){
+  const h=settleHistory(), o={};
+  Object.keys(h).forEach(d=>{ if(d.indexOf(m)!==0) return; const g=((h[d]||{}).grid||{})[name]; if(g) Object.keys(g).forEach(it=>o[it]=(o[it]||0)+(Number(g[it])||0)); });
+  return o;
+}
+function settleFixToggle(name){
+  if(settleIsClosed(settleStore.month)){ showToast('🔏 마감된 달은 고칠 수 없어요 — 마감 해제 후 고치세요','err'); return; }
+  settleFixName = settleFixName===name ? null : name; render();
+}
+function settleFixClean(m,name){
+  const F=settleStore.fix[m]; if(!F) return;
+  if(F[name]&&!Object.keys(F[name]).length) delete F[name];
+  if(!Object.keys(F).length) delete settleStore.fix[m];
+}
+function settleFixSet(name,it,v){
+  const m=settleStore.month;
+  if(settleIsClosed(m)){ showToast('🔏 마감된 달은 고칠 수 없어요','err'); render(); return; }
+  const q=Math.max(0,parseInt(String(v).replace(/[^\d]/g,''),10)||0);
+  if(settleSumOn(m)){
+    const S=settleStore.sums[m]; const Q=S.qty=S.qty||{}; Q[name]=Q[name]||{};
+    if(q>0) Q[name][it]=q; else delete Q[name][it];
+    if(!Object.keys(Q[name]).length) delete Q[name];
+  }else{
+    const rec=settleRecQty(m,name)[it]||0;
+    const F=settleStore.fix[m]=settleStore.fix[m]||{}; F[name]=F[name]||{};
+    if(q===rec) delete F[name][it]; else F[name][it]=q;   /* 캡처 기록과 같으면 고친 게 아님 */
+    settleFixClean(m,name);
+  }
+  saveSettle(); settleDeferRender();
+}
+function settleFixUndo(name,it){
+  const m=settleStore.month, F=settleStore.fix[m]; if(!F||!F[name]) return;
+  if(settleIsClosed(m)){ showToast('🔏 마감된 달은 고칠 수 없어요','err'); return; }
+  if(it) delete F[name][it];
+  else{ if(!confirm(name+' 님의 직접 고친 수량 '+Object.keys(F[name]).length+'칸을 모두 캡처 기록 숫자로 되돌릴까요?')) return; delete F[name]; }
+  settleFixClean(m,name); saveSettle(); render();
+}
+function settleFixEditorHTML(name){
+  const m=settleStore.month, sum=settleSumOn(m), nA=esc(name);
+  const rec=sum?{}:settleRecQty(m,name);
+  const F=(!sum&&settleStore.fix[m]&&settleStore.fix[m][name])||{};
+  const Q=sum?((settleStore.sums[m].qty||{})[name]||{}):{};
+  const cur=it=>sum ? (Number(Q[it])||0) : (it in F ? Number(F[it])||0 : (rec[it]||0));
+  const row=it=>{
+    const fx=!sum&&(it in F);
+    return `<div class="st-fix-row ${fx?'fixed':''}"><label>${esc(sum?settleSumLabel(it):it)}<small>${sum?'📋 월 합계 표 숫자':fx?'✏️ 직접 고침 · 캡처 기록 '+num(rec[it]||0)+'건':'캡처 기록 합계 그대로'}</small></label>`
+      + `<input type="number" inputmode="numeric" class="st-cell" value="${cur(it)||''}" placeholder="0" onchange="settleFixSet('${nA}','${esc(it)}',this.value)">`
+      + (sum?'':`<button class="st-fix-undo" ${fx?'':'disabled'} onclick="settleFixUndo('${nA}','${esc(it)}')" aria-label="캡처 기록 숫자로 되돌리기">↩</button>`)+`</div>`;
+  };
+  const nFix=Object.keys(F).length;
+  return `<div class="st-fix" onfocusout="settleDeferRender()">
+      <div class="st-fix-h">${sum
+        ? '이 달은 <b>📋 월 합계</b>로 정산해서, 여기서 고치면 <b>월 합계 표</b>의 이 기사 숫자가 같이 바뀌어요.'
+        : '<b>최종 합계 수량</b>을 물품마다 바로 고칠 수 있어요. 고친 숫자는 캡처를 다시 저장해도 <b>그대로 남고</b>, ↩ 를 누르면 캡처 기록 숫자로 돌아가요.'}</div>
+      ${settleGroupsFor(m).map(g=>g.items.length?`<div class="st-fix-g">${g.key==='one'?'🟦':'🟩'} ${esc(g.label)}</div>${g.items.map(row).join('')}`:'').join('')}
+      ${nFix?`<div style="padding:8px 12px 10px"><button class="st-inline" style="margin:0" onclick="settleFixUndo('${nA}')">↩ 고친 ${nFix}칸 모두 되돌리기</button></div>`:'<div style="height:8px"></div>'}
+    </div>`;
+}
+function settleFixBtnHTML(name,r){
+  const on=settleFixName===name;
+  return `<button class="st-fixbtn ${on?'on':''}" onclick="settleFixToggle('${esc(name)}')">${on?'✔ 수량 고치기 끝':'✏️ 최종 수량 직접 고치기'}${!on&&r&&r.fixN?' · 지금 '+r.fixN+'칸 고침':''}</button>${on?settleFixEditorHTML(name):''}`;
 }
 
 /* 카톡 문구 — 사람 한 명 (기사님이 확인하기 좋게 정산서 형식) */
@@ -4694,11 +4827,89 @@ function settleSheetRows(){
   });
   return rows;
 }
-function settleExportSheet(){
-  const c=settleCalc(settleStore.month);
+/* 📥 엑셀(.xlsx) 내보내기 (2026-11-14 요청: 기사별·업체별 수량·금액)
+   시트 ① 기사별: 이름 × 오네·딜리 수량·금액·지급액 → 총 지급액  ② 업체별: 업체 × 물품 수량·금액  ③ 물품별 상세: 예전 CSV 표 그대로
+   엑셀 도구를 못 불러오면(인터넷 끊김) 예전처럼 CSV 로 */
+function settleGroupOf(r,key){ return r.groups.find(g=>g.key===key)||{lines:[],qty:0,sub:0}; }
+function settleXlsxSheets(){
+  const m=settleStore.month, c=settleCalc(m), title=settleMonthLabel(m)+' 정산';
+  const G=[['one','오네'],['deli','딜리']];
+  /* ① 기사별 */
+  const h1=['이름','근무일'];
+  G.forEach(([,l])=>h1.push(l+' 수량',l+' 금액',l+' 지급액'));
+  h1.push('총 수량','매출 합계','세금 방식','세금 합계','차감·추가','총 지급액');
+  const s1=[[title+' — 기사별 수량·금액'],[],h1];
+  const T={qty:0,sales:0,tax:0,adj:0,pay:0}; const TG={one:{q:0,a:0,n:0},deli:{q:0,a:0,n:0}};
+  c.rows.forEach(r=>{
+    const a=[r.name, r.sum?'월합계':r.days];
+    G.forEach(([k])=>{ const g=settleGroupOf(r,k), net=g.sub+settleGroupTax(g,r.taxType); a.push(g.qty,g.sub,net); TG[k].q+=g.qty; TG[k].a+=g.sub; TG[k].n+=net; });
+    a.push(r.totalQty, r.sales, TAX_TYPES[r.taxType], r.tax||0, r.adjNet||0, r.pay);
+    T.qty+=r.totalQty; T.sales+=r.sales; T.tax+=r.tax||0; T.adj+=r.adjNet||0; T.pay+=r.pay;
+    s1.push(a);
+  });
+  const tot=['합계', c.rows.length+'명']; G.forEach(([k])=>tot.push(TG[k].q,TG[k].a,TG[k].n)); tot.push(T.qty,T.sales,'',T.tax,T.adj,T.pay);
+  s1.push(tot);
+  /* ② 업체별 */
+  const s2=[[title+' — 업체별 수량·금액'],[],['업체','물품','수량','금액','기사 수']];
+  const groups=settleSheetGroups(c,m);
+  let allQ=0, allA=0;
+  groups.forEach(gr=>{
+    let gq=0, ga=0;
+    gr.items.forEach(it=>{
+      let q=0, a=0, n=0;
+      c.rows.forEach(r=>{ const l=(settleGroupOf(r,gr.key).lines||[]).find(x=>x.item===it); if(l&&l.qty){ q+=l.qty; a+=l.amt; n++; } });
+      if(!q) return;
+      s2.push([gr.key==='one'?'오네':'딜리', it, q, a, n]); gq+=q; ga+=a;
+    });
+    s2.push([(gr.key==='one'?'오네':'딜리')+' 소계','',gq,ga,c.rows.filter(r=>settleGroupOf(r,gr.key).qty>0).length]);
+    s2.push([]);
+    allQ+=gq; allA+=ga;
+  });
+  s2.push(['전체 합계','',allQ,allA,c.rows.length]);
+  const etc={}; c.rows.forEach(r=>(r.etc||[]).forEach(e=>etc[e.item]=(etc[e.item]||0)+e.qty));
+  if(Object.keys(etc).length){ s2.push([]); s2.push(['※ 물품 목록에 없어 금액에 안 들어간 것']); Object.keys(etc).forEach(k=>s2.push(['',k,etc[k],'',''])); }
+  /* ③ 물품별 상세 */
+  const s3=[[title+' — 물품별 상세'],[],...settleSheetRows()];
+  return {c,sheets:[['기사별',s1,3],['업체별',s2,3],['물품별 상세',s3,3]]};
+}
+async function settleExportSheet(){
+  const m=settleStore.month, c=settleCalc(m);
   if(!c.rows.length){ showToast('내보낼 기록이 없어요','err'); return; }
-  const rows=[[settleMonthLabel(settleStore.month)+' 정산 내역'],[],...settleSheetRows()];
-  settleDownloadCSV(toCSV(rows), settleStore.month+'_정산내역.csv');
+  let X;
+  try{ showToast('📥 엑셀 파일 만드는 중…'); X=await settleLoadXLSX(); }
+  catch(e){
+    const rows=[[settleMonthLabel(m)+' 정산 내역'],[],...settleSheetRows()];
+    showToast('엑셀 도구를 못 불러와 CSV 로 저장해요','err');
+    setTimeout(()=>settleDownloadCSV(toCSV(rows), m+'_정산내역.csv'),900); return;
+  }
+  const wb=X.utils.book_new();
+  settleXlsxSheets().sheets.forEach(([name,aoa,headRow])=>{
+    const ws=X.utils.aoa_to_sheet(aoa);
+    /* 숫자 칸은 천 단위 쉼표, 칸 너비는 내용 길이에 맞춤 */
+    const w=[];
+    aoa.forEach((row,ri)=>row.forEach((v,ci)=>{
+      const ref=X.utils.encode_cell({r:ri,c:ci}); const cell=ws[ref];
+      if(cell&&cell.t==='n') cell.z='#,##0';
+      if(ri>=headRow-1){ const len=String(typeof v==='number'?v.toLocaleString('ko-KR'):(v==null?'':v)).replace(/[^\x00-\xff]/g,'xx').length; w[ci]=Math.max(w[ci]||6,Math.min(len+2,40)); }
+    }));
+    ws['!cols']=w.map(x=>({wch:x||8}));
+    X.utils.book_append_sheet(wb,ws,name);
+  });
+  const buf=X.write(wb,{bookType:'xlsx',type:'array'});
+  const fname=m+'_정산내역.xlsx';
+  settleShareFile(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), fname);
+}
+/* 파일을 공유 창(카톡·메일)으로, 안 되면 내려받기 */
+async function settleShareFile(blob, fname){
+  const file=new File([blob], fname, {type:blob.type});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file], title:fname}); showToast('💬 공유 메뉴를 열었어요'); return; }
+    catch(e){ if(e&&e.name==='AbortError') return; }
+  }
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fname;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  showToast('📥 '+fname+' 내려받았어요');
 }
 /* 물량 기록 (날짜 × 기사, 물품별로 한 덩어리씩) */
 function settleDaysMatrix(item){
@@ -4733,6 +4944,7 @@ function settleCopyAll(){ const c=settleCalc(settleStore.month); if(!c.rows.leng
 
 function renderSettle(){
   const m=settleStore.month, v=settleStore.view;
+  if(settleSumAuto(m)) setTimeout(()=>showToast('📋 '+parseInt(m.slice(5),10)+'월도 지난달처럼 월 합계로 정산해요'),400);
   const head=`
     <div class="set-tabs">
       <button class="set-tab ${v==='table'?'active':''}" onclick="settleView('table')">📊 정산표</button>
@@ -4795,7 +5007,7 @@ function settleDashListHTML(){
 }
 function renderSettleTable(){
   const c=settleCalc(settleStore.month);
-  if(!c.rows.length&&settleSumOn()) return `
+  if(!c.rows.length&&settleSumOn()) return settleSumUnusedHTML(settleStore.month)+`
     <div class="st-empty"><b>${esc(settleMonthLabel(settleStore.month))}</b>은 <b>📋 월 합계</b>로 정산하는 달인데 아직 숫자가 없습니다.<br>
     <b>📋 월 합계</b> 탭에서 기사별 합계를 넣거나 엑셀에서 붙여넣으세요.</div>`;
   if(!c.rows.length) return `
@@ -4809,6 +5021,8 @@ function renderSettleTable(){
   const FILTERS=[['all','전체'],['noprice','⚠ 단가 없음'],['pinned','📌 고정'],['sent','✓ 보냄'],['unsent','미발송']];
   return `
     ${settleCloseBar(c)}
+    ${settleSumUnusedHTML(settleStore.month)}
+    ${settleEtcBarHTML(c)}
     <div class="st-sum">
       <div><small>${c.sum?'📋 월 합계 · 기사':'기록 · 기사'}</small><b>${c.sum?c.rows.length+'명':c.dates.length+'일 · '+c.rows.length+'명'}</b></div>
       <div><small>물량 합계</small><b>${num(c.rows.reduce((s,r)=>s+r.totalQty,0))}건</b></div>
@@ -4821,7 +5035,7 @@ function renderSettleTable(){
     ${cnt.noprice&&!closed&&settleFilter==='all'?`<div class="st-warn" style="margin:0 0 12px">단가가 비어 있는 기사가 <b>${cnt.noprice}명</b> 있습니다. 이름을 누르면 그 자리에서 단가를 넣을 수 있어요.</div>`:''}
     <div id="st-list">${settleDashListHTML()}</div>
     <div class="actions" style="margin-top:14px">
-      <button class="btn btn-copy" onclick="settleExportSheet()">📥 엑셀 내보내기</button>
+      <button class="btn btn-copy" onclick="settleExportSheet()">📥 엑셀 내보내기<small style="display:block;font-size:11px;font-weight:600;opacity:.75">기사별 · 업체별 · 상세</small></button>
       <button class="btn btn-copy" onclick="settleCopyAll()">📋 정산 내역 표 복사</button>
     </div>
     ${settleResetBtn()}`;
@@ -4838,7 +5052,7 @@ function renderSettleSum(){
       <div class="st-summode-btns">
         <button class="${on?'':'on'}" onclick="settleSumMode(false)">📦 매일 기록<small>물량 탭에서 저장한 것</small></button>
         <button class="${on?'on':''}" onclick="settleSumMode(true)">📋 월 합계<small>업체 합산표를 기사별로</small></button>
-      </div></div>`;
+      </div>${on&&settleStore.sums[m].auto?`<div class="st-summode-note">↪ ${esc(settleMonthLabel(settleStore.sums[m].auto))}과 같은 방식을 이어받았어요 · 단가는 기사마다 그대로 남아 있어요</div>`:''}</div>`;
   if(!on) return modeBar+`<div class="st-empty">지금 <b>${esc(settleMonthLabel(m))}</b>은 <b>매일 기록</b>으로 정산합니다.<br>업체에서 받은 한 달 합산표로 정산하려면 위에서 <b>📋 월 합계</b>를 고르세요.<br><small>매일 기록은 지워지지 않고 그대로 남아요.</small></div>`;
   const S=settleStore.sumItems, Q=settleStore.sums[m].qty||{};
   const names=settleAllNames(), all=S.one.concat(S.deli);
@@ -4874,7 +5088,7 @@ function renderSettleSum(){
         <div><small>🟦 오네</small><b>${num(grpTot('one'))}건</b></div>
         <div><small>🟩 딜리</small><b>${num(grpTot('deli'))}건</b></div>
       </div>`
-    + paste + settleSumReportHTML() + `<div id="sum-check">${settleSumCheckHTML(settleSumChecks(m))}</div>` + table
+    + settleSumUnusedHTML(m) + paste + settleSumReportHTML() + `<div id="sum-check">${settleSumCheckHTML(settleSumChecks(m))}</div>` + table
     + `<p class="st-mxhint">표를 옆으로 밀면 나머지 칸이 보입니다. 숫자를 넣으면 바로 저장되고 📊 정산표·정산서에 반영돼요. 칸 이름은 💵 단가 탭에서 바꿀 수 있어요.</p>`
     + (closed?'':`<div class="dispatch-row" style="grid-template-columns:1fr 78px;margin-top:12px">
         <input type="text" id="st-sum-add" class="inp" placeholder="표에 이름 추가" onkeydown="if(event.key==='Enter')settleSumAddName()">
@@ -5131,7 +5345,8 @@ function renderSettlePerson(name){
         <div class="st-meta"><span>${esc(settleMonthLabel(settleStore.month))}</span>${closed?'<span class="pill closed">🔏 마감</span>':''}${sentAt?`<span class="pill sent">✓ ${new Date(sentAt).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'})} 보냄</span>`:'<span class="pill">미발송</span>'}</div></div>
       ${r?`<div class="st-pay">${won(r.pay)}<small>지급액</small></div>`:''}
     </div>`;
-  if(!r) return head+`<div class="st-empty">${esc(settleMonthLabel(settleStore.month))}에 <b>${nA}</b> 기록이 없습니다.</div>`
+  if(!r) return head+`<div class="st-empty">${esc(settleMonthLabel(settleStore.month))}에 <b>${nA}</b> 기록이 없습니다.${closed?'':'<br><small>캡처 기록 없이 수량을 바로 넣으려면 아래 ✏️ 를 누르세요.</small>'}</div>`
+    + (closed?'':settleFixBtnHTML(name,null))
     + `<div class="section-head"><div class="section-title">💵 단가 · 세금</div></div>${settleLockBar(!settleUnlocked)}${settleWorkerCard(name,!settleUnlocked)}`;
   const cols=items.filter(it=>r.daily.some(d=>d.qty[it]));
   const etcCols=[...new Set(r.daily.flatMap(d=>Object.keys(d.qty).filter(it=>items.indexOf(it)<0&&d.qty[it])))];
@@ -5156,13 +5371,13 @@ function renderSettlePerson(name){
       ${r.groups.map(g=>g.lines.length?`
         <div class="st-sec ${g.key}">
           <div class="st-sec-h"><span>${g.key==='one'?'🟦':'🟩'} ${esc(g.label)}</span><span>${num(g.qty)}건</span></div>
-          ${g.lines.map(l=>`<div class="st-line"><span><em>${esc(l.item)}</em> ${num(l.qty)}건 × ${l.price?num(l.price)+'원':'<span style="color:var(--amber2)">단가 없음</span>'}</span><span>${won(l.amt)}</span></div>`).join('')}
+          ${g.lines.map(l=>`<div class="st-line"><span><em>${esc(l.item)}</em>${l.fixed!==undefined?`<span class="st-fixmark">✏️ 고침 · 기록 ${num(l.fixed)}</span>`:''} ${num(l.qty)}건 ×${l.price?num(l.price)+'원':'<span style="color:var(--amber2)">단가 없음</span>'}</span><span>${won(l.amt)}</span></div>`).join('')}
           <div class="st-line sub"><span>소계</span><span>${won(g.sub)}</span></div>
           ${settleTaxShow(r.taxType)?`<div class="st-line tax"><span>${settleTaxLabel(r.taxType)}</span><span>${settleGroupTax(g,r.taxType)>0?'+':''}${won(settleGroupTax(g,r.taxType))}</span></div>`:''}
           ${r.taxType==='vatin'?(v=>`<div class="st-line vatin"><span>└ 공급가액</span><span>${won(v.supply)}</span></div><div class="st-line vatin"><span>└ 부가세 (10%)</span><span>${won(v.vat)}</span></div>`)(settleVatSplit(g.sub)):''}
           <div class="st-line net"><span>${settleNetLabel(g)}</span><span>${won(g.sub+settleGroupTax(g,r.taxType))}</span></div>
         </div>`:'').join('')}
-      ${r.etc.length?`<div class="st-warn">단가표에 없는 물품: ${r.etc.map(e=>esc(e.item)+' '+num(e.qty)+'건').join(', ')} — 금액에 넣지 않았습니다.</div>`:''}
+      ${r.etc.length?`<div class="st-warn">단가표에 없는 물품: ${r.etc.map(e=>esc(e.item)+' '+num(e.qty)+'건').join(', ')} — 금액에 넣지 않았습니다.${closed?'':r.etc.filter(e=>e.item!=='기타').map(e=>` <button class="st-inline" onclick="settleAddItemName('${esc(e.item)}')">＋ ${esc(e.item)} 물품으로 추가</button>`).join('')}</div>`:''}
       ${(r.adj||[]).length?`<div class="st-sec adj">
           <div class="st-sec-h"><span>➕➖ 차감 · 추가</span><span>${r.adj.length}줄</span></div>
           ${r.adj.map(a=>`<div class="st-line ${a.amt<0?'minus':'plus'}"><span>${a.amt<0?'➖':'➕'} ${esc(a.label)} <small>${a.pre?'세금 전':'세금 뒤'}</small></span><span>${settleAdjSignWon(a.amt)}</span></div>`).join('')}
@@ -5175,6 +5390,8 @@ function renderSettlePerson(name){
         <div class="st-line total"><span>💰 총 지급액</span><span>${won(r.pay)}</span></div>
         <div class="st-line mini"><span>매출 합계 ${won(r.sales)}${settleSalesNote(r)}</span><span></span></div>
       </div>
+      ${closed?'':settleFixBtnHTML(name,r)}
+      ${r.fixN&&settleFixName!==name?`<div class="st-warn">✏️ 직접 고친 최종 수량이 <b>${r.fixN}칸</b> 있어요 — 아래 날짜별 내역(캡처 기록) 합계와 다를 수 있어요.</div>`:''}
       ${dayTable}
       ${r.noPrice&&!closed?`<div class="st-warn">단가가 비어 있는 물품이 있습니다. 아래 <b>단가 · 세금</b>에서 넣어주세요.</div>`:''}
       ${!closed&&settleWeekendWarn(name,settleStore.month)?`<div class="st-warn">🗓 ${esc(settleWeekendWarn(name,settleStore.month))}</div>`:''}
@@ -5574,7 +5791,7 @@ function showFrameFail(f, app){
 /* ── 앱 버전 · 새 버전 알림 (2026-10-12, 이사님 폰에서 예전/새 화면이 번갈아 보인다고 해서) ──
    ★ 고쳐서 올릴 때마다 APP_VERSION 을 바꿀 것 (날짜.순번). 서비스 워커는 없고 GitHub Pages 가 10분 캐시함.
    앱을 열거나 다시 볼 때 서버의 index.html 을 캐시 없이 받아 APP_VERSION 이 다르면 아래 알림 줄 → 새로고침은 ?v= 를 붙여 캐시를 건너뜀 */
-const APP_VERSION='10.17-2';
+const APP_VERSION='11.14-1';
 let appUpdChecked=0, appUpdSkip='';
 function appVersionInit(){
   const el=document.getElementById('hVer'); if(el) el.textContent='v'+APP_VERSION;
@@ -5949,6 +6166,7 @@ details.raw summary{font-size:12.5px;color:var(--act-3);cursor:pointer;font-weig
   </div>
   <div id="ckBody" hidden>
     <div id="ckMsg"></div>
+    <div id="ckNew"></div>
     <div class="card" style="--c:#0CA678">
       <div class="step"><b>3</b><h2>숫자 확인하기</h2></div>
       <p class="hint">잘못 읽은 칸은 바로 눌러서 고치면 됩니다. 빈칸은 0으로 나갑니다.</p>
@@ -6097,7 +6315,35 @@ let S = {
 if (!Array.isArray(S.items)  || !S.items.length)  S.items  = DEFAULT_ITEMS.slice();
 if (!Array.isArray(S.models) || S.models.length !== 3) S.models = DEFAULT_MODELS.slice();
 
-const colorOf = it => it === ETC ? '#8B93A8' : PAL[Math.max(0, S.items.indexOf(it)) % PAL.length];
+const colorOf = it => it === ETC ? '#8B93A8' : S.items.indexOf(it) < 0 ? '#F08C00' : PAL[S.items.indexOf(it) % PAL.length];
+/* 처음 보는 업체·분류(쿠팡 등) — 예전엔 '기타' 한 칸에 섞여 정산 금액에서 빠졌다. 이제 자기 이름으로 따로 칸 (2026-11-14) */
+const MAX_ITEMS = 12;
+const isNewItem = it => { const t = String(it||'').trim(); return !!t && t !== ETC && S.items.indexOf(t) < 0 && t.length <= 12 && !/^[\d\s.,+-]+$/.test(t); };
+function extraCols(){
+  const out = [];
+  S.people.forEach(p => Object.keys(S.grid[p]||{}).forEach(k => { if (k !== ETC && S.items.indexOf(k) < 0 && out.indexOf(k) < 0) out.push(k); }));
+  return out;
+}
+function drawNew(){
+  const box = document.getElementById('ckNew'); if (!box) return;
+  const ex = extraCols();
+  if (!ex.length){ box.innerHTML = ''; return; }
+  box.innerHTML = '<div class="note warn">🆕 물품 목록에 없는 분류: <b>' + ex.map(esc).join(', ') + '</b> — 버리지 않고 <b>따로 칸</b>으로 넣었어요.<br>'
+    + '<b>물품으로 추가</b>를 누르면 💰 정산에서 단가를 넣을 수 있고 금액에 들어가요. (추가 안 해도 정산에 저장은 되지만 금액엔 안 들어가요)'
+    + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:9px">'
+    + ex.map(k => '<button type="button" class="b sm" data-newitem="' + esc(k) + '">＋ ' + esc(k) + ' 물품으로 추가</button>').join('') + '</div></div>';
+  box.querySelectorAll('[data-newitem]').forEach(b => b.onclick = () => addItemName(b.getAttribute('data-newitem')));
+}
+/* 물품 목록이 바뀌어도 표는 다시 읽지 않고 칸만 다시 그린다 — 손으로 고친 숫자가 그대로 남게 */
+function refreshGrid(){ if (!S.people.length) return; drawGrid(); drawRaw(); notices(); drawNew(); saveLast(); }
+function addItemName(v){
+  v = String(v||'').trim(); if (!v || S.items.indexOf(v) >= 0) return;
+  if (S.items.filter(i => i !== ETC).length >= MAX_ITEMS){ msg('ckMsg','warn','물품은 최대 '+MAX_ITEMS+'가지까지예요. 위 ⚙️ 설정에서 안 쓰는 물품을 빼 주세요.'); return; }
+  S.items.push(v); save(K.items, S.items);
+  if (document.getElementById('itemChips')) drawItems();
+  refreshGrid();
+  msg('ckMsg','ok','📦 <b>'+esc(v)+'</b> 를 물품 목록에 넣었어요. 💰 정산 탭 기사 단가에 "'+esc(v)+'" 칸이 생겼어요.');
+}
 
 /* ---------- 화면 ---------- */
 function go(id){
@@ -6235,7 +6481,8 @@ function prompt_(){
     '- "딜", "딜리", "딜리래빗", "딜리레빗" → 딜리',
     '- "주말 딜리", "주말딜" → 주말딜리 / "새벽 딜리", "새벽딜" → 새벽딜리',
     '- ★ 물품 이름 없이 숫자만 적힌 것은 ' + base + ' 입니다. 지역명 바로 뒤에 붙은 숫자(예: 대치30, 개포 42, 대치135개), "70 + 딜리래빗 15"의 70 이 모두 ' + base + ' 입니다.',
-    '- 위 어디에도 넣을 수 없을 때만 "' + ETC + '"로 두세요.',
+    '- ★ 위 목록에 없는 다른 업체·분류(예: 쿠팡, 롯데, 컬리, 반품, 회수)로 적힌 물량도 버리지 말고, item 에 적힌 업체·분류 이름을 짧게 그대로 넣으세요(예: "쿠팡"). 같은 업체는 같은 이름으로 맞추세요.',
+    '- 업체·분류를 전혀 알 수 없을 때만 "' + ETC + '"로 두세요.',
     '',
     '[가장 중요 · 중복해서 세지 않기]',
     '- 같은 사람이 "출발"과 "완료"를 따로 올린 것은 같은 물량입니다. 완료 쪽 숫자 하나만 쓰고 절대 더하지 마세요.',
@@ -6412,21 +6659,21 @@ function build(rows){
   S.rawRows.forEach(r => {
     const real = S.alias[r.name] || r.name;
     if (!S.grid[real]){ S.grid[real] = {}; S.people.push(real); }
-    const col = S.items.indexOf(r.item) >= 0 ? r.item : ETC;
+    const col = S.items.indexOf(r.item) >= 0 ? r.item : isNewItem(r.item) ? r.item : ETC;
     const key = real + '\u0000' + col;
     if (seen[key]){ S.flags[real] = true; S.dups.push(real + ' · ' + col); }
     seen[key] = true;
     S.grid[real][col] = (S.grid[real][col]||0) + r.qty;
-    if (col === ETC || !r.sure) S.flags[real] = true;
+    if (S.items.indexOf(col) < 0 || !r.sure) S.flags[real] = true;
   });
   document.getElementById('ckEmpty').hidden = S.people.length > 0;
   document.getElementById('ckBody').hidden  = S.people.length === 0;
-  drawGrid(); drawRaw(); saveLast(); notices(); stlState();
+  drawGrid(); drawRaw(); saveLast(); notices(); drawNew(); stlState();
 }
 let msgAppend = '';
 function notices(){
   const unsure = S.rawRows.filter(r => !r.sure).length;
-  const etc = S.rawRows.filter(r => S.items.indexOf(r.item) < 0).length;
+  const etc = S.rawRows.filter(r => S.items.indexOf(r.item) < 0 && !isNewItem(r.item)).length;
   const unmapped = [...new Set(S.rawRows.map(r => r.name).filter(n => !S.alias[n]))];
   const bits = [];
   if (S.moved) msgAppend = '<b>'+dayInfo().label+'</b>이라서 딜리 '+S.moved+'건을 '+WEEKEND_ITEM+'로 옮겼습니다.';
@@ -6440,7 +6687,7 @@ function notices(){
   else msg('ckMsg','ok','읽어온 '+S.rawRows.length+'건 모두 문제없이 분류됐습니다.' + tail);
 }
 function cols(){
-  const c = S.items.slice();
+  const c = S.items.slice().concat(extraCols());
   if (S.people.some(p => (S.grid[p]||{})[ETC])) c.push(ETC);
   return c;
 }
@@ -6448,7 +6695,7 @@ function drawGrid(){
   const c = cols();
   document.getElementById('gridHead').innerHTML =
     '<th class="nm">이름</th>'
-    + c.map(x => '<th><i style="background:'+colorOf(x)+'"></i>'+esc(x)+'</th>').join('')
+    + c.map(x => '<th><i style="background:'+colorOf(x)+'"></i>'+(x !== ETC && S.items.indexOf(x) < 0 ? '🆕 ' : '')+esc(x)+'</th>').join('')
     + '<th>합계</th><th></th>';
   const body = document.getElementById('gridBody');
   body.innerHTML = '';
@@ -6624,8 +6871,9 @@ function saveRules(){
 function addItem(){
   const el = document.getElementById('itemIn'), v = el.value.trim();
   if (!v || S.items.indexOf(v) >= 0){ el.value=''; return; }
+  if (S.items.filter(i => i !== ETC).length >= MAX_ITEMS){ el.value=''; alert('물품은 최대 '+MAX_ITEMS+'가지까지예요.'); return; }
   S.items.push(v); save(K.items, S.items); el.value = '';
-  drawItems(); if (S.rawRows.length) build(S.rawRows);
+  drawItems(); refreshGrid();
 }
 function drawItems(){
   const box = document.getElementById('itemChips');
@@ -6642,7 +6890,7 @@ function drawItems(){
   box.querySelectorAll('button').forEach(b => b.onclick = () => {
     S.items.splice(+b.getAttribute('data-i'),1);
     if (!S.items.length) S.items = DEFAULT_ITEMS.slice();
-    save(K.items, S.items); drawItems(); if (S.rawRows.length) build(S.rawRows);
+    save(K.items, S.items); drawItems(); refreshGrid();
   });
 }
 function wipe(){
@@ -6721,7 +6969,7 @@ function restore(){
   S.people = l.people; S.grid = l.grid||{}; S.rawRows = l.rawRows||[]; S.flags = l.flags||{};
   document.getElementById('ckEmpty').hidden = true;
   document.getElementById('ckBody').hidden = false;
-  drawGrid(); drawRaw(); stlState();
+  drawGrid(); drawRaw(); drawNew(); stlState();
   msg('ckMsg','ok','오늘 작업하던 표를 그대로 불러왔습니다.');
 }
 
@@ -6746,7 +6994,7 @@ function restore(){
     const it = load(K.items, null);
     S.items = (Array.isArray(it) && it.length) ? it : DEFAULT_ITEMS.slice();
     if (document.getElementById('itemChips')) drawItems();
-    if (S.rawRows.length) build(S.rawRows); else if (S.people.length) drawGrid();
+    refreshGrid();
   });
   document.addEventListener('visibilitychange', () => { if (!document.hidden){ followToday(); stlState(); } });
   window.addEventListener('focus', () => { followToday(); stlState(); });
