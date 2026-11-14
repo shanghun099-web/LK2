@@ -481,7 +481,7 @@ input[type="time"].time-hint{
 .st-fix-row.fixed .st-cell{border-color:var(--amber2);}
 .st-fix-undo{width:34px;height:34px;border-radius:9px;border:1.5px solid var(--border2);background:var(--card3);color:var(--text);font-size:15px;cursor:pointer;font-family:inherit;flex:none;}
 .st-fix-undo[disabled]{opacity:.25;cursor:default;}
-.st-fixmark{display:inline-block;margin-left:4px;padding:1px 6px;border-radius:99px;background:rgba(251,191,36,.14);color:var(--amber2);font-size:10.5px;font-weight:800;font-style:normal;vertical-align:1px;}
+.st-fixmark{display:inline-block;margin-top:4px;padding:1px 6px;border-radius:99px;background:rgba(251,191,36,.14);color:var(--amber2);font-size:10.5px;font-weight:800;font-style:normal;vertical-align:1px;}
 .st-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}
 .st-actions button{padding:12px 6px;border-radius:12px;font-size:13px;font-weight:800;border:1.5px solid var(--border2);background:var(--card2);color:var(--text);cursor:pointer;font-family:inherit;}
 .st-actions button.k{background:var(--kakao);color:var(--kakao-text);border-color:var(--kakao);}
@@ -5061,7 +5061,7 @@ function renderSettleTable(){
     ${cnt.noprice&&!closed&&settleFilter==='all'?`<div class="st-warn" style="margin:0 0 12px">단가가 비어 있는 기사가 <b>${cnt.noprice}명</b> 있습니다. 이름을 누르면 그 자리에서 단가를 넣을 수 있어요.</div>`:''}
     <div id="st-list">${settleDashListHTML()}</div>
     <div class="actions" style="margin-top:14px">
-      <button class="btn btn-copy" onclick="settleExportSheet()">📥 엑셀 내보내기<small style="display:block;font-size:11px;font-weight:600;opacity:.75">기사별 · 업체별 · 상세</small></button>
+      <button class="btn btn-copy" onclick="settleExportSheet()">📥 엑셀 내보내기</button>
       <button class="btn btn-copy" onclick="settleCopyAll()">📋 정산 내역 표 복사</button>
     </div>
     ${settleResetBtn()}`;
@@ -5397,7 +5397,7 @@ function renderSettlePerson(name){
       ${r.groups.map(g=>g.lines.length?`
         <div class="st-sec ${g.key}">
           <div class="st-sec-h"><span>${g.key==='one'?'🟦':'🟩'} ${esc(g.label)}</span><span>${num(g.qty)}건</span></div>
-          ${g.lines.map(l=>`<div class="st-line"><span><em>${esc(l.item)}</em>${l.fixed!==undefined?`<span class="st-fixmark">✏️ 고침 · 기록 ${num(l.fixed)}</span>`:''} ${num(l.qty)}건 ×${l.price?num(l.price)+'원':'<span style="color:var(--amber2)">단가 없음</span>'}</span><span>${won(l.amt)}</span></div>`).join('')}
+          ${g.lines.map(l=>`<div class="st-line"><span><em>${esc(l.item)}</em> ${num(l.qty)}건 ×${l.price?num(l.price)+'원':'<span style="color:var(--amber2)">단가 없음</span>'}${l.fixed!==undefined?`<br><span class="st-fixmark">✏️ 직접 고침 · 캡처 기록 ${num(l.fixed)}건</span>`:''}</span><span>${won(l.amt)}</span></div>`).join('')}
           <div class="st-line sub"><span>소계</span><span>${won(g.sub)}</span></div>
           ${settleTaxShow(r.taxType)?`<div class="st-line tax"><span>${settleTaxLabel(r.taxType)}</span><span>${settleGroupTax(g,r.taxType)>0?'+':''}${won(settleGroupTax(g,r.taxType))}</span></div>`:''}
           ${r.taxType==='vatin'?(v=>`<div class="st-line vatin"><span>└ 공급가액</span><span>${won(v.supply)}</span></div><div class="st-line vatin"><span>└ 부가세 (10%)</span><span>${won(v.vat)}</span></div>`)(settleVatSplit(g.sub)):''}
@@ -5817,7 +5817,7 @@ function showFrameFail(f, app){
 /* ── 앱 버전 · 새 버전 알림 (2026-10-12, 이사님 폰에서 예전/새 화면이 번갈아 보인다고 해서) ──
    ★ 고쳐서 올릴 때마다 APP_VERSION 을 바꿀 것 (날짜.순번). 서비스 워커는 없고 GitHub Pages 가 10분 캐시함.
    앱을 열거나 다시 볼 때 서버의 index.html 을 캐시 없이 받아 APP_VERSION 이 다르면 아래 알림 줄 → 새로고침은 ?v= 를 붙여 캐시를 건너뜀 */
-const APP_VERSION='11.14-3';
+const APP_VERSION='11.14-4';
 let appUpdChecked=0, appUpdSkip='';
 function appVersionInit(){
   const el=document.getElementById('hVer'); if(el) el.textContent='v'+APP_VERSION;
